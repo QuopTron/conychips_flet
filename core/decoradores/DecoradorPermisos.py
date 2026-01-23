@@ -1,30 +1,15 @@
-"""
-DECORADORES DE PERMISOS
-=======================
-Control de acceso basado en roles y permisos
-"""
-
 import functools
 from typing import Callable
 from core.Constantes import ROLES, PERMISOS_POR_ROL
 
-
 def REQUIERE_PERMISOS(*PERMISOS_REQUERIDOS: str):
-    """
-    Decorador que verifica permisos específicos
     
-    Uso:
-        @REQUIERE_PERMISOS('usuarios.crear', 'usuarios.editar')
-        async def CREAR_USUARIO(PAYLOAD_JWT: dict, **kwargs):
-            return {"mensaje": "Usuario creado"}
-    """
     def DECORADOR(FUNCION: Callable) -> Callable:
         @functools.wraps(FUNCION)
         async def ENVOLTURA(*ARGS, **KWARGS):
             PAYLOAD_JWT = KWARGS.get('PAYLOAD_JWT', {})
             PERMISOS_USUARIO = set(PAYLOAD_JWT.get('PERMISOS', []))
             
-            # Si tiene permiso "*" (super admin), permitir todo
             if "*" in PERMISOS_USUARIO:
                 return await FUNCION(*ARGS, **KWARGS)
             
@@ -43,16 +28,8 @@ def REQUIERE_PERMISOS(*PERMISOS_REQUERIDOS: str):
         return ENVOLTURA
     return DECORADOR
 
-
 def REQUIERE_ROL(*ROLES_REQUERIDOS: str):
-    """
-    Decorador que verifica roles específicos
     
-    Uso:
-        @REQUIERE_ROL('admin', 'moderador')
-        async def MODERAR_CONTENIDO(PAYLOAD_JWT: dict, **kwargs):
-            return {"mensaje": "Contenido moderado"}
-    """
     def DECORADOR(FUNCION: Callable) -> Callable:
         @functools.wraps(FUNCION)
         async def ENVOLTURA(*ARGS, **KWARGS):
@@ -72,9 +49,8 @@ def REQUIERE_ROL(*ROLES_REQUERIDOS: str):
         return ENVOLTURA
     return DECORADOR
 
-
 def SOLO_SUPER_ADMIN(FUNCION: Callable) -> Callable:
-    """Decorador que permite solo a super administradores"""
+    
     @functools.wraps(FUNCION)
     async def ENVOLTURA(*ARGS, **KWARGS):
         PAYLOAD_JWT = KWARGS.get('PAYLOAD_JWT', {})
@@ -91,9 +67,8 @@ def SOLO_SUPER_ADMIN(FUNCION: Callable) -> Callable:
     
     return ENVOLTURA
 
-
 def VALIDAR_HUELLA_DISPOSITIVO(FUNCION: Callable) -> Callable:
-    """Valida que la petición venga del dispositivo correcto"""
+    
     @functools.wraps(FUNCION)
     async def ENVOLTURA(*ARGS, **KWARGS):
         from core.seguridad.ValidadorDispositivo import ValidadorDispositivo

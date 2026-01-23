@@ -1,46 +1,27 @@
-#conychips/features/autentitacion/presentation/pages/PaginaDashboard.py
 import flet as ft
 from features.autenticacion.domain.entities.Usuario import Usuario
 from features.autenticacion.presentation.bloc.AutenticacionBloc import AutenticacionBloc
 from features.autenticacion.presentation.bloc.AutenticacionEvento import EventoCerrarSesion
 
-
 class PaginaDashboard(ft.Column):
-    """
-    Dashboard principal con:
-    - Información del usuario
-    - Gestión de permisos según rol
-    - Navegación a módulos
-    - Sesiones activas
-    """
+    
     
     def __init__(self, PAGINA: ft.Page, USUARIO: Usuario, BLOC: AutenticacionBloc):
-        """
-        Inicializa el dashboard
         
-        Args:
-            PAGINA: Instancia de la página
-            USUARIO: Usuario autenticado
-            BLOC: BLoC de autenticación
-        """
         super().__init__()
         self._PAGINA = PAGINA
         self._USUARIO = USUARIO
         self._BLOC = BLOC
         
-        # Construir automáticamente
         self._CONSTRUIR()
     
     def _CONSTRUIR(self):
-        """Construye la UI del dashboard"""
         
-        # Sidebar
+        
         SIDEBAR = self._CREAR_SIDEBAR()
         
-        # Contenido principal
         CONTENIDO_PRINCIPAL = self._CREAR_CONTENIDO_PRINCIPAL()
         
-        # Layout principal
         LAYOUT = ft.Row(
             controls=[
                 SIDEBAR,
@@ -51,14 +32,12 @@ class PaginaDashboard(ft.Column):
             spacing=0
         )
         
-        # Agregar al Column padre
         self.controls = [LAYOUT]
         self.expand = True
     
     def _CREAR_SIDEBAR(self) -> ft.Container:
-        """Crea el sidebar de navegación"""
         
-        # Info del usuario
+        
         INFO_USUARIO = ft.Container(
             content=ft.Column(
                 controls=[
@@ -88,7 +67,7 @@ class PaginaDashboard(ft.Column):
                         content=ft.Row(
                             controls=[
                                 ft.Icon(ft.Icons.VERIFIED_USER, size=16, color=ft.Colors.GREEN_600),
-                                ft.Text(
+                                ft.Text(#conychips/features/autentitacion/presentation/pages/PaginaDashboard.py
                                     value=f"Rol: {', '.join(self._USUARIO.ROLES)}",
                                     size=12,
                                     weight=ft.FontWeight.W_500,
@@ -109,11 +88,25 @@ class PaginaDashboard(ft.Column):
             padding=20
         )
         
-        # Menú de navegación
         MENU_ITEMS = [
+            {
+                "icono": ft.Icons.PERSON_ROUNDED,
+                "texto": "Perfil",
+                "permiso": None
+            },
             {
                 "icono": ft.Icons.DASHBOARD_ROUNDED,
                 "texto": "Dashboard",
+                "permiso": None
+            },
+            {
+                "icono": ft.Icons.HISTORY_ROUNDED,
+                "texto": "Historial",
+                "permiso": None
+            },
+            {
+                "icono": ft.Icons.SHOPPING_CART_ROUNDED,
+                "texto": "Productos",
                 "permiso": None
             },
             {
@@ -127,6 +120,11 @@ class PaginaDashboard(ft.Column):
                 "permiso": None
             },
             {
+                "icono": ft.Icons.CLEANING_SERVICES_ROUNDED,
+                "texto": "Limpieza",
+                "permiso": None
+            },
+            {
                 "icono": ft.Icons.ANALYTICS_ROUNDED,
                 "texto": "Reportes",
                 "permiso": "contenido.moderar"
@@ -135,7 +133,6 @@ class PaginaDashboard(ft.Column):
         
         CONTROLES_MENU = []
         for ITEM in MENU_ITEMS:
-            # Verificar permiso si existe
             if ITEM["permiso"] and not self._USUARIO.TIENE_PERMISO(ITEM["permiso"]):
                 continue
             
@@ -160,7 +157,6 @@ class PaginaDashboard(ft.Column):
             spacing=5
         )
         
-        # Botón de cerrar sesión
         BOTON_LOGOUT = ft.Container(
             content=ft.Row(
                 controls=[
@@ -192,9 +188,8 @@ class PaginaDashboard(ft.Column):
         )
     
     def _CREAR_CONTENIDO_PRINCIPAL(self) -> ft.Container:
-        """Crea el contenido principal del dashboard"""
         
-        # Header
+        
         HEADER = ft.Container(
             content=ft.Row(
                 controls=[
@@ -213,7 +208,6 @@ class PaginaDashboard(ft.Column):
             border=ft.border.only(bottom=ft.BorderSide(1, ft.Colors.GREY_300))
         )
         
-        # Cards de estadísticas
         STATS = ft.Row(
             controls=[
                 self._CREAR_CARD_STAT("Sesiones Activas", "1", ft.Icons.PHONE_ANDROID, ft.Colors.BLUE_600),
@@ -224,7 +218,6 @@ class PaginaDashboard(ft.Column):
             wrap=True
         )
         
-        # Información detallada
         INFO_DETALLADA = ft.Container(
             content=ft.Column(
                 controls=[
@@ -248,7 +241,6 @@ class PaginaDashboard(ft.Column):
             border=ft.border.all(1, ft.Colors.GREY_300)
         )
         
-        # Permisos del usuario
         LISTA_PERMISOS = ft.Container(
             content=ft.Column(
                 controls=[
@@ -273,7 +265,6 @@ class PaginaDashboard(ft.Column):
             border=ft.border.all(1, ft.Colors.GREY_300)
         )
         
-        # Contenido scrolleable
         CONTENIDO = ft.Container(
             content=ft.Column(
                 controls=[
@@ -306,7 +297,7 @@ class PaginaDashboard(ft.Column):
         return CONTENIDO
     
     def _CREAR_CARD_STAT(self, TITULO: str, VALOR: str, ICONO, COLOR) -> ft.Container:
-        """Crea una card de estadística"""
+        
         return ft.Container(
             content=ft.Column(
                 controls=[
@@ -329,7 +320,7 @@ class PaginaDashboard(ft.Column):
         )
     
     def _CREAR_FILA_INFO(self, ETIQUETA: str, VALOR: str) -> ft.Row:
-        """Crea una fila de información"""
+        
         return ft.Row(
             controls=[
                 ft.Text(f"{ETIQUETA}:", size=14, weight=ft.FontWeight.W_600, width=180),
@@ -339,16 +330,37 @@ class PaginaDashboard(ft.Column):
         )
     
     def _NAVEGAR_A(self, SECCION: str):
-        """Navega a una sección"""
+        
         print(f"Navegando a: {SECCION}")
-        # Aquí implementarías la navegación a diferentes módulos
+        if SECCION == "Productos":
+            from features.productos.presentation.pages.PaginaProductos import PaginaProductos
+            self._PAGINA.controls.clear()
+            self._PAGINA.controls.append(PaginaProductos(self._PAGINA, self._USUARIO.ID))
+            self._PAGINA.update()
+            return
+        if SECCION == "Historial":
+            from features.productos.presentation.pages.PaginaHistorialPedidos import PaginaHistorialPedidos
+            self._PAGINA.controls.clear()
+            self._PAGINA.controls.append(PaginaHistorialPedidos(self._PAGINA, self._USUARIO.ID))
+            self._PAGINA.update()
+            return
+        if SECCION == "Limpieza":
+            from features.limpieza.presentation.pages.PaginaLimpieza import PaginaLimpieza
+            self._PAGINA.controls.clear()
+            self._PAGINA.controls.append(PaginaLimpieza(self._PAGINA, self._USUARIO.ID))
+            self._PAGINA.update()
+            return
+        if SECCION == "Perfil":
+            from features.autenticacion.presentation.pages.PaginaPerfil import PaginaPerfil
+            self._PAGINA.controls.clear()
+            self._PAGINA.controls.append(PaginaPerfil(self._PAGINA, self._USUARIO))
+            self._PAGINA.update()
+            return
     
     async def _CERRAR_SESION(self, e):
-        """Cierra la sesión del usuario"""
-        # Enviar evento de cerrar sesión
+        
         await self._BLOC.AGREGAR_EVENTO(EventoCerrarSesion())
         
-        # Volver al login
         from features.autenticacion.presentation.pages.PaginaLogin import PaginaLogin
         
         self._PAGINA.controls.clear()

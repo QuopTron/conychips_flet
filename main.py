@@ -1,23 +1,15 @@
-"""
-MAIN.PY - FLET 0.80.3
-=====================
-Punto de entrada de la aplicación
-Compatible con: Flet 0.80.3, Python 3.12.7
-"""
-
 import flet as ft
 import os
 import sys
 import traceback
+import asyncio
 from features.autenticacion.presentation.pages.PaginaLogin import PaginaLogin
 from core.base_datos.ConfiguracionBD import INICIALIZAR_BASE_DATOS
 
-#Desahabilita mi gkt no tocar (usuario arch linux)
 os.environ['NO_AT_BRIDGE'] = '1'
 
-
 def main(page: ft.Page):
-    """Función principal de la aplicación"""
+    
 
     page.title = "Cony Chips"
     page.theme_mode = ft.ThemeMode.LIGHT
@@ -29,8 +21,9 @@ def main(page: ft.Page):
     page.window.resizable = True
 
     try:
-        INICIALIZAR_BASE_DATOS()
-        print("Base de datos exitosamente Iniciada")
+        # Programar inicialización de BD en el loop actual (no usar asyncio.run dentro de Flet)
+        asyncio.create_task(INICIALIZAR_BASE_DATOS())
+        print("Inicializando base de datos en background...")
     except Exception as e:
         print(f"Error iniciando BD: {e}")
     
@@ -57,7 +50,7 @@ def main(page: ft.Page):
                     ft.Container(height=20),
                     ft.Text("Revisa la consola para más detalles", size=12, color=ft.Colors.GREY_600),
                     ft.Container(height=10),
-                    ft.ElevatedButton(
+                    ft.Button(
                         "Ver Error Completo",
                         on_click=lambda e: print(f"\n{'='*60}\n{traceback.format_exc()}\n{'='*60}\n"),
                         icon=ft.Icons.BUG_REPORT
@@ -71,7 +64,6 @@ def main(page: ft.Page):
             )
         ]
         page.update()
-
 
 if __name__ == "__main__":
     print(f"\n{'='*60}")

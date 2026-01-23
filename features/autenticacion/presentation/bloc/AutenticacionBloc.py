@@ -1,4 +1,3 @@
-#conychips/features/autentitacion/presentation/bloc/AutenticacionBloc.py
 import asyncio
 from typing import Callable, Optional
 from features.autenticacion.presentation.bloc.AutenticacionEvento import *
@@ -8,11 +7,8 @@ from features.autenticacion.domain.usecases.RegistrarUsuario import RegistrarUsu
 from features.autenticacion.domain.usecases.RefrescarToken import RefrescarToken
 from features.autenticacion.domain.usecases.VerificarPermisos import VerificarPermisos
 
-
 class AutenticacionBloc:
-    """
-    BLoC principal de autenticación
-    """
+    
     
     def __init__(
         self,
@@ -21,13 +17,7 @@ class AutenticacionBloc:
         REFRESCAR_TOKEN_UC: RefrescarToken,
         VERIFICAR_PERMISOS_UC: VerificarPermisos
     ):
-        """
-        Inicializa el BLoC con sus casos de uso
-        Args:   INICIAR_SESION_UC: Caso de uso para login
-                REGISTRAR_USUARIO_UC: Caso de uso para registro
-                REFRESCAR_TOKEN_UC: Caso de uso para refrescar tokens
-                VERIFICAR_PERMISOS_UC: Caso de uso para verificar permisos
-        """
+        
         self._INICIAR_SESION = INICIAR_SESION_UC
         self._REGISTRAR_USUARIO = REGISTRAR_USUARIO_UC
         self._REFRESCAR_TOKEN = REFRESCAR_TOKEN_UC
@@ -41,19 +31,16 @@ class AutenticacionBloc:
         self._REFRESH_TOKEN: Optional[str] = None
     
     def AGREGAR_LISTENER(self, CALLBACK: Callable[[EstadoAutenticacion], None]):
-        """Registra un listener para cambios de estado"""
+        
         self._LISTENERS.append(CALLBACK)
     
     def REMOVER_LISTENER(self, CALLBACK: Callable[[EstadoAutenticacion], None]):
-        """Remueve un listener"""
+        
         if CALLBACK in self._LISTENERS:
             self._LISTENERS.remove(CALLBACK)
     
     def _EMITIR_ESTADO(self, NUEVO_ESTADO: EstadoAutenticacion):
-        """
-        Emite un nuevo estado y notifica a todos los listeners
-        Args: NUEVO_ESTADO: Estado a emitir
-        """
+        
         self._ESTADO_ACTUAL = NUEVO_ESTADO
         
         print(f"BLoC emite: {type(NUEVO_ESTADO).__name__}")
@@ -65,10 +52,7 @@ class AutenticacionBloc:
                 print(f"Error en listener: {ERROR}")
     
     async def AGREGAR_EVENTO(self, EVENTO: EventoAutenticacion):
-        """
-        Procesa un evento y emite el estado correspondiente
-        Args: EVENTO: Evento a procesar
-        """
+        
         print(f"BLoC recibe evento: {type(EVENTO).__name__}")
         
         if isinstance(EVENTO, EventoIniciarSesion):
@@ -90,7 +74,7 @@ class AutenticacionBloc:
             print(f"Evento no manejado: {type(EVENTO).__name__}")
     
     async def _MANEJAR_INICIAR_SESION(self, EVENTO: EventoIniciarSesion):
-        """Maneja evento de inicio de sesión"""
+        
         self._EMITIR_ESTADO(EstadoCargando("Iniciando sesión..."))
         
         try:
@@ -115,7 +99,7 @@ class AutenticacionBloc:
                         ACCESS_TOKEN=self._ACCESS_TOKEN,
                         REFRESH_TOKEN=self._REFRESH_TOKEN
                     ))
-            else
+            else:
                 self._EMITIR_ESTADO(EstadoError(
                     ERROR=RESULTADO["ERROR"],
                     CODIGO=RESULTADO.get("CODIGO", 401)
@@ -129,7 +113,7 @@ class AutenticacionBloc:
             ))
     
     async def _MANEJAR_REGISTRARSE(self, EVENTO: EventoRegistrarse):
-        """Maneja evento de registro"""
+        
         self._EMITIR_ESTADO(EstadoCargando("Registrando usuario..."))
         
         try:
@@ -157,7 +141,7 @@ class AutenticacionBloc:
             ))
     
     async def _MANEJAR_CERRAR_SESION(self, EVENTO: EventoCerrarSesion):
-        """Maneja evento de cierre de sesión"""
+        
         self._ACCESS_TOKEN = None
         self._REFRESH_TOKEN = None
         
@@ -166,7 +150,7 @@ class AutenticacionBloc:
         print("Sesión cerrada exitosamente")
     
     async def _MANEJAR_REFRESCAR_TOKEN(self, EVENTO: EventoRefrescarToken):
-        """Maneja evento de refrescar token"""
+        
         try:
             RESULTADO = await self._REFRESCAR_TOKEN.EJECUTAR(
                 REFRESH_TOKEN=EVENTO.REFRESH_TOKEN
@@ -182,7 +166,7 @@ class AutenticacionBloc:
                         REFRESH_TOKEN=self._REFRESH_TOKEN,
                         MENSAJE="Token refrescado"
                     ))
-            else
+            else:
                 self._EMITIR_ESTADO(EstadoSesionExpirada())
         
         except Exception as ERROR:
@@ -190,26 +174,24 @@ class AutenticacionBloc:
             self._EMITIR_ESTADO(EstadoSesionExpirada())
     
     async def _MANEJAR_VERIFICAR_SESION(self, EVENTO: EventoVerificarSesion):
-        """Verifica si hay una sesión activa válida"""
+        
         if self._ACCESS_TOKEN:
-            # Aquí deberías verificar si el token sigue siendo válido
-            # Por ahora asumimos que es válido
             print("Sesión activa encontrada")
         else:
             self._EMITIR_ESTADO(EstadoNoAutenticado())
     
     @property
     def ESTADO_ACTUAL(self) -> EstadoAutenticacion:
-        """Retorna el estado actual"""
+        
         return self._ESTADO_ACTUAL
     
     @property
     def ESTA_AUTENTICADO(self) -> bool:
-        """Indica si el usuario está autenticado"""
+        
         return isinstance(self._ESTADO_ACTUAL, EstadoAutenticado)
     
     def OBTENER_USUARIO_ACTUAL(self) -> Optional[Usuario]:
-        """Retorna el usuario actual si está autenticado"""
+        
         if isinstance(self._ESTADO_ACTUAL, EstadoAutenticado):
             return self._ESTADO_ACTUAL.USUARIO
         return None

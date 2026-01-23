@@ -1,4 +1,3 @@
-#conychips/features/autentitacion/presentation/pages/PaginaRegistro.py
 import flet as ft
 from features.autenticacion.presentation.widgets.CampoTextoSeguro import CampoTextoSeguro
 from features.autenticacion.presentation.widgets.BotonPrimario import BotonPrimario
@@ -9,28 +8,17 @@ import re
 import asyncio
 from typing import Optional
 
-
 class PaginaRegistro(ft.Column):
-    """
-    Página de registro con validación completa
-    """
+    
     
     def __init__(self, PAGINA: ft.Page, BLOC: AutenticacionBloc):
-        """
-        Inicializa la página de registro
         
-        Args:
-            PAGINA: Instancia de la página de Flet
-            BLOC: BLoC de autenticación
-        """
         super().__init__()
         self._PAGINA = PAGINA
         self._BLOC = BLOC
         
-        # Escuchar estados
         self._BLOC.AGREGAR_LISTENER(self._MANEJAR_ESTADO)
         
-        # Widgets
         self._CAMPO_EMAIL: Optional[CampoTextoSeguro] = None
         self._CAMPO_NOMBRE_USUARIO: Optional[CampoTextoSeguro] = None
         self._CAMPO_CONTRASENA: Optional[CampoTextoSeguro] = None
@@ -39,13 +27,11 @@ class PaginaRegistro(ft.Column):
         self._TEXTO_ERROR: Optional[ft.Text] = None
         self._CHECKBOX_TERMINOS: Optional[ft.Checkbox] = None
         
-        # Construir automáticamente
         self._CONSTRUIR()
     
     def _CONSTRUIR(self):
-        """Construye la UI"""
         
-        # Header
+        
         HEADER = ft.Container(
             content=ft.Column(
                 controls=[
@@ -72,7 +58,6 @@ class PaginaRegistro(ft.Column):
             margin=ft.margin.only(bottom=25)
         )
         
-        # Campos del formulario
         self._CAMPO_EMAIL = CampoTextoSeguro(
             ETIQUETA="Email",
             ICONO=ft.Icons.EMAIL_OUTLINED,
@@ -105,7 +90,6 @@ class PaginaRegistro(ft.Column):
             ANCHO=400
         )
         
-        # Indicador de fortaleza de contraseña
         INDICADOR_FORTALEZA = ft.Container(
             content=ft.Column(
                 controls=[
@@ -135,13 +119,11 @@ class PaginaRegistro(ft.Column):
             width=400
         )
         
-        # Checkbox de términos
         self._CHECKBOX_TERMINOS = ft.Checkbox(
             label="Acepto los términos y condiciones",
             value=False
         )
         
-        # Texto de error
         self._TEXTO_ERROR = ft.Text(
             value="",
             color=ft.Colors.RED_400,
@@ -150,7 +132,6 @@ class PaginaRegistro(ft.Column):
             text_align=ft.TextAlign.CENTER
         )
         
-        # Botón de registro
         self._BOTON_REGISTRAR = BotonPrimario(
             TEXTO="Crear Cuenta",
             ICONO=ft.Icons.CHECK_ROUNDED,
@@ -160,14 +141,12 @@ class PaginaRegistro(ft.Column):
             COLOR_FONDO=ft.Colors.PURPLE_600
         )
         
-        # Link para volver al login
         LINK_LOGIN = ft.TextButton(
             "¿Ya tienes cuenta? Inicia sesión",
             on_click=self._VOLVER_LOGIN,
             style=ft.ButtonStyle(color=ft.Colors.PURPLE_600)
         )
         
-        # Formulario
         FORMULARIO = ft.Container(
             content=ft.Column(
                 controls=[
@@ -215,12 +194,11 @@ class PaginaRegistro(ft.Column):
             alignment=ft.Alignment(0, 0)
         )
         
-        # Agregar al Column padre
         self.controls = [CONTENEDOR_PRINCIPAL]
         self.expand = True
     
     def _VALIDAR_EMAIL(self, EMAIL: str) -> Optional[str]:
-        """Valida email"""
+        
         if not EMAIL:
             return "El email es requerido"
         
@@ -231,7 +209,7 @@ class PaginaRegistro(ft.Column):
         return None
     
     def _VALIDAR_NOMBRE_USUARIO(self, NOMBRE: str) -> Optional[str]:
-        """Valida nombre de usuario"""
+        
         if not NOMBRE:
             return "El nombre de usuario es requerido"
         
@@ -244,7 +222,7 @@ class PaginaRegistro(ft.Column):
         return None
     
     def _VALIDAR_CONTRASENA(self, CONTRASENA: str) -> Optional[str]:
-        """Valida contraseña fuerte"""
+        
         if not CONTRASENA:
             return "La contraseña es requerida"
         
@@ -266,7 +244,7 @@ class PaginaRegistro(ft.Column):
         return None
     
     def _VALIDAR_CONFIRMAR_CONTRASENA(self, CONFIRMAR: str) -> Optional[str]:
-        """Valida que las contraseñas coincidan"""
+        
         CONTRASENA = self._CAMPO_CONTRASENA.OBTENER_VALOR() if self._CAMPO_CONTRASENA else ""
         
         if not CONFIRMAR:
@@ -278,8 +256,7 @@ class PaginaRegistro(ft.Column):
         return None
     
     async def _MANEJAR_REGISTRO(self, e):
-        """Maneja el evento de registro"""
-        # Validar todos los campos
+        
         EMAIL_VALIDO = self._CAMPO_EMAIL.VALIDAR()
         NOMBRE_VALIDO = self._CAMPO_NOMBRE_USUARIO.VALIDAR()
         CONTRASENA_VALIDA = self._CAMPO_CONTRASENA.VALIDAR()
@@ -288,46 +265,40 @@ class PaginaRegistro(ft.Column):
         if not all([EMAIL_VALIDO, NOMBRE_VALIDO, CONTRASENA_VALIDA, CONFIRMAR_VALIDA]):
             return
         
-        # Validar términos
         if not self._CHECKBOX_TERMINOS.value:
             self._MOSTRAR_ERROR("Debes aceptar los términos y condiciones")
             return
         
-        # Obtener valores
         EMAIL = self._CAMPO_EMAIL.OBTENER_VALOR()
         NOMBRE_USUARIO = self._CAMPO_NOMBRE_USUARIO.OBTENER_VALOR()
         CONTRASENA = self._CAMPO_CONTRASENA.OBTENER_VALOR()
         
-        # Ocultar error
         self._OCULTAR_ERROR()
         
-        # Crear evento de registro
         EVENTO = EventoRegistrarse(
             EMAIL=EMAIL,
             NOMBRE_USUARIO=NOMBRE_USUARIO,
             CONTRASENA=CONTRASENA
         )
         
-        # Enviar al BLoC
         await self._BLOC.AGREGAR_EVENTO(EVENTO)
     
     def _MANEJAR_ESTADO(self, ESTADO: EstadoAutenticacion):
-        """Maneja cambios de estado"""
+        
         if isinstance(ESTADO, EstadoRegistroExitoso):
             self._MOSTRAR_EXITO("¡Registro exitoso! Redirigiendo al login...")
-            # Esperar 2 segundos y volver al login
             asyncio.create_task(self._ESPERAR_Y_VOLVER_LOGIN())
         
         elif isinstance(ESTADO, EstadoError):
             self._MOSTRAR_ERROR(ESTADO.ERROR)
     
     async def _ESPERAR_Y_VOLVER_LOGIN(self):
-        """Espera 2 segundos y vuelve al login"""
+        
         await asyncio.sleep(2)
         self._VOLVER_LOGIN(None)
     
     def _VOLVER_LOGIN(self, e):
-        """Vuelve a la página de login"""
+        
         from features.autenticacion.presentation.pages.PaginaLogin import PaginaLogin
         
         self._PAGINA.controls.clear()
@@ -335,23 +306,26 @@ class PaginaRegistro(ft.Column):
         self._PAGINA.update()
     
     def _MOSTRAR_ERROR(self, MENSAJE: str):
-        """Muestra error"""
+        
         if self._TEXTO_ERROR:
             self._TEXTO_ERROR.value = f"{MENSAJE}"
             self._TEXTO_ERROR.color = ft.Colors.RED_400
             self._TEXTO_ERROR.visible = True
-            self.update()
+            if getattr(self, 'page', None):
+                self.update()
     
     def _OCULTAR_ERROR(self):
-        """Oculta error"""
+        
         if self._TEXTO_ERROR:
             self._TEXTO_ERROR.visible = False
-            self.update()
+            if getattr(self, 'page', None):
+                self.update()
     
     def _MOSTRAR_EXITO(self, MENSAJE: str):
-        """Muestra mensaje de éxito"""
+        
         if self._TEXTO_ERROR:
             self._TEXTO_ERROR.value = f"{MENSAJE}"
             self._TEXTO_ERROR.color = ft.Colors.GREEN_600
             self._TEXTO_ERROR.visible = True
-            self.update()
+            if getattr(self, 'page', None):
+                self.update()

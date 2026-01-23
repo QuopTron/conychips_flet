@@ -1,4 +1,3 @@
-#conychips/features/autentitacion/presentation/pages/PaginaLogin.py
 import flet as ft
 from features.autenticacion.presentation.widgets.CampoTextoSeguro import CampoTextoSeguro
 from features.autenticacion.presentation.widgets.BotonPrimario import BotonPrimario
@@ -9,15 +8,13 @@ from features.autenticacion.domain.usecases.IniciarSesion import IniciarSesion
 from features.autenticacion.domain.usecases.RegistrarUsuario import RegistrarUsuario
 from features.autenticacion.domain.usecases.RefrescarToken import RefrescarToken
 from features.autenticacion.domain.usecases.VerificarPermisos import VerificarPermisos
+from core.Constantes import ROLES
 from features.autenticacion.data.RepositorioAutenticacionImpl import RepositorioAutenticacionImpl
 import re
 from typing import Optional
 
-
 class PaginaLogin(ft.Column):
-    """
-    Página de login responsive para mobile, tablet, desktop y web
-    """
+    
     
     def __init__(self, PAGINA: ft.Page):
         super().__init__()
@@ -45,7 +42,7 @@ class PaginaLogin(ft.Column):
         self._CONSTRUIR()
     
     def _CONSTRUIR(self):
-        """Construye la interfaz de usuario"""
+        
         
         LOGO = ft.Container(
             content=ft.Column(
@@ -165,7 +162,7 @@ class PaginaLogin(ft.Column):
         self.expand = True
     
     def _VALIDAR_EMAIL(self, EMAIL: str) -> Optional[str]:
-        """Valida formato de email"""
+        
         if not EMAIL:
             return "El email es requerido"
         
@@ -176,7 +173,7 @@ class PaginaLogin(ft.Column):
         return None
     
     def _VALIDAR_CONTRASENA(self, CONTRASENA: str) -> Optional[str]:
-        """Valida contraseña"""
+        
         if not CONTRASENA:
             return "La contraseña es requerida"
         
@@ -193,7 +190,7 @@ class PaginaLogin(ft.Column):
         return None
     
     async def _MANEJAR_LOGIN(self, e):
-        """Maneja el evento de login"""
+        
 
         EMAIL_VALIDO = self._CAMPO_EMAIL.VALIDAR()
         CONTRASENA_VALIDA = self._CAMPO_CONTRASENA.VALIDAR()
@@ -221,7 +218,7 @@ class PaginaLogin(ft.Column):
         await self._BLOC.AGREGAR_EVENTO(EVENTO)
     
     def _CAMBIAR_MODO(self, e):
-        """Cambia entre modo login y registro"""
+        
         self._MODO_REGISTRO = not self._MODO_REGISTRO
         
         if self._MODO_REGISTRO:
@@ -232,10 +229,11 @@ class PaginaLogin(ft.Column):
             self._LINK_REGISTRO.text = "¿No tienes cuenta? Regístrate"
         
         self._OCULTAR_ERROR()
-        self.update()
+        if getattr(self, 'page', None):
+            self.update()
     
     def _MANEJAR_CAMBIO_ESTADO(self, ESTADO: EstadoAutenticacion):
-        """Maneja cambios de estado del BLoC"""
+        
         print(f"📱 UI recibe estado: {type(ESTADO).__name__}")
         
         if isinstance(ESTADO, EstadoCargando):
@@ -243,6 +241,36 @@ class PaginaLogin(ft.Column):
         
         elif isinstance(ESTADO, EstadoAutenticado):
             self._MOSTRAR_EXITO("¡Bienvenido!")
+            # Configurar servidor WebSocket y crear conexión para este usuario
+            try:
+                from core.websocket.ManejadorConexion import ManejadorConexion
+                from config.ConfiguracionApp import CONFIGURACION_APP
+
+                manejador = ManejadorConexion()
+                manejador.CONFIGURAR_SERVIDOR(CONFIGURACION_APP.WEBSOCKET_URL)
+
+                async def _crear_conn():
+                    try:
+                        await manejador.CREAR_CONEXION(ESTADO.USUARIO.ID, ESTADO.ACCESS_TOKEN)
+                    except Exception:
+                        pass
+
+                import asyncio
+                asyncio.create_task(_crear_conn())
+            except Exception:
+                pass
+            # Si el usuario es cliente, navegar directamente a productos
+            try:
+                if ESTADO.USUARIO.TIENE_ROL(ROLES.CLIENTE):
+                    from features.productos.presentation.pages.PaginaProductos import PaginaProductos
+
+                    self._PAGINA.controls.clear()
+                    self._PAGINA.controls.append(PaginaProductos(self._PAGINA, ESTADO.USUARIO.ID))
+                    self._PAGINA.update()
+                    return
+            except Exception:
+                pass
+
             self._NAVEGAR_A_DASHBOARD(ESTADO.USUARIO)
         
         elif isinstance(ESTADO, EstadoRegistroExitoso):
@@ -259,31 +287,52 @@ class PaginaLogin(ft.Column):
             self._MOSTRAR_ERROR("Se requiere segundo factor de autenticación")
     
     def _MOSTRAR_ERROR(self, MENSAJE: str):
-        """Muestra mensaje de error"""
+        
         if self._TEXTO_ERROR:
             self._TEXTO_ERROR.value = f"{MENSAJE}"
             self._TEXTO_ERROR.visible = True
-            self.update()
+            if getattr(self, 'page', None):
+                self.update()
     
     def _OCULTAR_ERROR(self):
-        """Oculta mensaje de error"""
+        
         if self._TEXTO_ERROR:
             self._TEXTO_ERROR.visible = False
-            self.update()
+            if getattr(self, 'page', None):
+                self.update()
     
     def _MOSTRAR_EXITO(self, MENSAJE: str):
-        """Muestra mensaje de éxito"""
+        
         if self._TEXTO_ERROR:
             self._TEXTO_ERROR.value = f"{MENSAJE}"
             self._TEXTO_ERROR.color = ft.Colors.GREEN_600
             self._TEXTO_ERROR.visible = True
-            self.update()
+            if getattr(self, 'page', None):
+                self.update()
     
     def _NAVEGAR_A_DASHBOARD(self, USUARIO):
-        """Navega al dashboard después del login"""
-        from features.autenticacion.presentation.pages.PaginaDashboard import PaginaDashboard
+        from core.Constantes import ROLES
         
         self._PAGINA.controls.clear()
-        DASHBOARD = PaginaDashboard(self._PAGINA, USUARIO, self._BLOC)
-        self._PAGINA.controls.append(DASHBOARD)
+        
+        if USUARIO.TIENE_ROL(ROLES.CLIENTE):
+            from features.productos.presentation.pages.PaginaProductos import PaginaProductos
+            pagina = PaginaProductos(self._PAGINA, USUARIO.ID)
+        elif USUARIO.TIENE_ROL(ROLES.ATENCION):
+            from features.atencion.presentation.pages.PaginaAtencion import PaginaAtencion
+            pagina = PaginaAtencion(self._PAGINA, USUARIO.ID)
+        elif USUARIO.TIENE_ROL(ROLES.COCINERO):
+            from features.cocina.presentation.pages.PaginaCocina import PaginaCocina
+            pagina = PaginaCocina(self._PAGINA, USUARIO.ID)
+        elif USUARIO.TIENE_ROL(ROLES.LIMPIEZA):
+            from features.limpieza.presentation.pages.PaginaLimpieza import PaginaLimpieza
+            pagina = PaginaLimpieza(self._PAGINA, USUARIO.ID)
+        elif USUARIO.TIENE_ROL(ROLES.ADMIN) or USUARIO.TIENE_ROL(ROLES.SUPER_ADMIN):
+            from features.admin.presentation.pages.PaginaAdmin import PaginaAdmin
+            pagina = PaginaAdmin(self._PAGINA, USUARIO.ID)
+        else:
+            from features.autenticacion.presentation.pages.PaginaDashboard import PaginaDashboard
+            pagina = PaginaDashboard(self._PAGINA, USUARIO, self._BLOC)
+        
+        self._PAGINA.controls.append(pagina)
         self._PAGINA.update()

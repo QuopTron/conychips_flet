@@ -1,42 +1,16 @@
-"""
-FUENTE DE DATOS REMOTA (API)
-=============================
-Implementación de operaciones con API externa (opcional)
-"""
-
 import aiohttp
 from typing import Dict, Optional
 
-
 class FuenteAutenticacionRemota:
-    """
-    Fuente de datos remota para sincronización con API
     
-    Esta clase se usaría si tienes un backend separado.
-    Por ahora es una implementación básica.
-    """
     
     def __init__(self, URL_BASE: str):
-        """
-        Inicializa la fuente remota
         
-        Args:
-            URL_BASE: URL base del API (ej: https://api.miapp.com)
-        """
         self._URL_BASE = URL_BASE
         self._TIMEOUT = aiohttp.ClientTimeout(total=30)
     
     async def AUTENTICAR_USUARIO(self, EMAIL: str, CONTRASENA: str) -> Dict:
-        """
-        Autentica usuario contra API remota
         
-        Args:
-            EMAIL: Email del usuario
-            CONTRASENA: Contraseña
-            
-        Returns:
-            Respuesta del servidor
-        """
         URL = f"{self._URL_BASE}/auth/login"
         
         DATOS = {
@@ -67,17 +41,7 @@ class FuenteAutenticacionRemota:
         NOMBRE_USUARIO: str, 
         CONTRASENA: str
     ) -> Dict:
-        """
-        Registra usuario en API remota
         
-        Args:
-            EMAIL: Email del usuario
-            NOMBRE_USUARIO: Nombre de usuario
-            CONTRASENA: Contraseña
-            
-        Returns:
-            Respuesta del servidor
-        """
         URL = f"{self._URL_BASE}/auth/register"
         
         DATOS = {
@@ -98,15 +62,7 @@ class FuenteAutenticacionRemota:
             }
     
     async def VERIFICAR_TOKEN(self, TOKEN: str) -> Dict:
-        """
-        Verifica token contra API remota
         
-        Args:
-            TOKEN: Token JWT a verificar
-            
-        Returns:
-            Información del token
-        """
         URL = f"{self._URL_BASE}/auth/verify"
         
         HEADERS = {

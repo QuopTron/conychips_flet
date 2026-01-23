@@ -1,12 +1,8 @@
-#conychips/features/autentitacion/presentation/widgets/CampoTexto.py
 import flet as ft
 from typing import Optional, Callable
 
-
 class CampoTextoSeguro(ft.Column):
-    """
-    Campo de texto personalizado con validación en tiempo real
-    """
+    
     
     def __init__(
         self,
@@ -32,11 +28,10 @@ class CampoTextoSeguro(ft.Column):
         self._CAMPO_TEXTO: Optional[ft.TextField] = None
         self._TEXTO_ERROR: Optional[ft.Text] = None
         
-        # Construir automáticamente
         self._CONSTRUIR()
     
     def _CONSTRUIR(self):
-        """Construye el widget internamente"""
+        
         
         self._CAMPO_TEXTO = ft.TextField(
             label=self._ETIQUETA,
@@ -67,7 +62,6 @@ class CampoTextoSeguro(ft.Column):
             weight=ft.FontWeight.W_500
         )
         
-        # Agregar controles al Column padre
         self.controls = [
             self._CAMPO_TEXTO,
             self._TEXTO_ERROR
@@ -76,7 +70,7 @@ class CampoTextoSeguro(ft.Column):
         self.width = self._ANCHO if self._ANCHO else None
     
     def _MANEJAR_CAMBIO(self, e):
-        """Maneja cambios en el texto"""
+        
         VALOR = e.control.value
         
         if self._VALIDADOR:
@@ -91,7 +85,7 @@ class CampoTextoSeguro(ft.Column):
             self._AL_CAMBIAR(VALOR)
     
     def _MOSTRAR_ERROR(self, MENSAJE: str):
-        """Muestra mensaje de error"""
+        
         if self._TEXTO_ERROR:
             self._TEXTO_ERROR.value = MENSAJE
             self._TEXTO_ERROR.visible = True
@@ -100,7 +94,7 @@ class CampoTextoSeguro(ft.Column):
             self.update()
     
     def _OCULTAR_ERROR(self):
-        """Oculta mensaje de error"""
+        
         if self._TEXTO_ERROR:
             self._TEXTO_ERROR.visible = False
             self._CAMPO_TEXTO.border_color = ft.Colors.BLUE_400
@@ -108,24 +102,24 @@ class CampoTextoSeguro(ft.Column):
             self.update()
     
     def OBTENER_VALOR(self) -> str:
-        """Retorna el valor actual del campo"""
+        
         return self._CAMPO_TEXTO.value if self._CAMPO_TEXTO else ""
     
     def ESTABLECER_VALOR(self, VALOR: str):
-        """Establece el valor del campo"""
+        
         if self._CAMPO_TEXTO:
             self._CAMPO_TEXTO.value = VALOR
             self.update()
     
     def LIMPIAR(self):
-        """Limpia el campo"""
+        
         if self._CAMPO_TEXTO:
             self._CAMPO_TEXTO.value = ""
             self._OCULTAR_ERROR()
             self.update()
     
     def VALIDAR(self) -> bool:
-        """Valida el campo manualmente"""
+        
         if not self._VALIDADOR:
             return True
         
@@ -140,13 +134,13 @@ class CampoTextoSeguro(ft.Column):
         return True
     
     def DESHABILITAR(self):
-        """Deshabilita el campo"""
+        
         if self._CAMPO_TEXTO:
             self._CAMPO_TEXTO.disabled = True
             self.update()
     
     def HABILITAR(self):
-        """Habilita el campo"""
+        
         if self._CAMPO_TEXTO:
             self._CAMPO_TEXTO.disabled = False
             self.update()

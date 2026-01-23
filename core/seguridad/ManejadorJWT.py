@@ -1,9 +1,3 @@
-"""
-MANEJADOR DE TOKENS JWT - DOBLE CAPA
-====================================
-Genera y valida Access Token + Refresh Token
-"""
-
 import jwt
 from datetime import datetime, timedelta
 from typing import Dict, Optional
@@ -16,15 +10,14 @@ from core.Constantes import (
 import os
 import secrets
 
-
 class ManejadorJWT:
-    """Gestiona ciclo de vida completo de tokens JWT"""
+    
     
     def __init__(self):
         self._CLAVE_SECRETA = os.getenv('JWT_SECRET_KEY', self._GENERAR_CLAVE_SEGURA())
     
     def _GENERAR_CLAVE_SEGURA(self) -> str:
-        """Genera clave secreta de 256 bits"""
+        
         return secrets.token_urlsafe(32)
     
     def CREAR_ACCESS_TOKEN(
@@ -34,14 +27,7 @@ class ManejadorJWT:
         ROLES: list, 
         HUELLA_DISPOSITIVO: str
     ) -> str:
-        """
-        Crea Access Token de corta duración (15 min)
         
-        PAYLOAD INCLUYE:
-        - USUARIO_ID, EMAIL, ROLES, PERMISOS
-        - HUELLA_DISPOSITIVO para validación
-        - Timestamps de emisión y expiración
-        """
         AHORA = datetime.utcnow()
         EXPIRACION = AHORA + timedelta(seconds=EXPIRACION_ACCESS_TOKEN)
         
@@ -63,7 +49,7 @@ class ManejadorJWT:
         return jwt.encode(PAYLOAD, self._CLAVE_SECRETA, algorithm=ALGORITMO_JWT)
     
     def CREAR_REFRESH_TOKEN(self, USUARIO_ID: int, HUELLA_DISPOSITIVO: str) -> str:
-        """Crea Refresh Token de larga duración (7 días)"""
+        
         AHORA = datetime.utcnow()
         EXPIRACION = AHORA + timedelta(seconds=EXPIRACION_REFRESH_TOKEN)
         
@@ -78,12 +64,7 @@ class ManejadorJWT:
         return jwt.encode(PAYLOAD, self._CLAVE_SECRETA, algorithm=ALGORITMO_JWT)
     
     def VERIFICAR_TOKEN(self, TOKEN: str, TIPO_ESPERADO: str = "access") -> Optional[Dict]:
-        """
-        Verifica y decodifica un token JWT
         
-        Returns:
-            Payload del token si es válido, None si no
-        """
         try:
             PAYLOAD = jwt.decode(TOKEN, self._CLAVE_SECRETA, algorithms=[ALGORITMO_JWT])
             
@@ -101,7 +82,7 @@ class ManejadorJWT:
             return None
     
     def EXTRAER_USUARIO_ID(self, TOKEN: str) -> Optional[int]:
-        """Extrae el ID de usuario de un token sin validar expiración"""
+        
         try:
             PAYLOAD = jwt.decode(
                 TOKEN, 

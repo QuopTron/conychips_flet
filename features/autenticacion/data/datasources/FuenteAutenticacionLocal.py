@@ -1,9 +1,3 @@
-"""
-FUENTE DE DATOS LOCAL (SQLite)
-===============================
-Implementación de operaciones de autenticación con SQLite
-"""
-
 from typing import Optional, List
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session, joinedload
@@ -15,30 +9,19 @@ from core.base_datos.ConfiguracionBD import (
 )
 from core.Constantes import EXPIRACION_REFRESH_TOKEN
 
-
 class FuenteAutenticacionLocal:
-    """
-    Fuente de datos local que maneja operaciones con SQLite
-    """
+    
     
     def __init__(self):
-        """Inicializa la fuente de datos"""
+        
         pass
     
     def _OBTENER_SESION_BD(self) -> Session:
-        """Obtiene nueva sesión de base de datos"""
+        
         return OBTENER_SESION()
     
     async def OBTENER_USUARIO_POR_EMAIL(self, EMAIL: str) -> Optional[MODELO_USUARIO]:
-        """
-        Busca usuario por email en BD
         
-        Args:
-            EMAIL: Email del usuario
-            
-        Returns:
-            Modelo de usuario o None
-        """
         SESION = self._OBTENER_SESION_BD()
         
         try:
@@ -52,15 +35,7 @@ class FuenteAutenticacionLocal:
             SESION.close()
     
     async def OBTENER_USUARIO_POR_ID(self, USUARIO_ID: int) -> Optional[MODELO_USUARIO]:
-        """
-        Busca usuario por ID en BD
         
-        Args:
-            USUARIO_ID: ID del usuario
-            
-        Returns:
-            Modelo de usuario o None
-        """
         SESION = self._OBTENER_SESION_BD()
         
         try:
@@ -74,15 +49,7 @@ class FuenteAutenticacionLocal:
             SESION.close()
     
     async def OBTENER_USUARIO_POR_NOMBRE(self, NOMBRE_USUARIO: str) -> Optional[MODELO_USUARIO]:
-        """
-        Busca usuario por nombre de usuario
         
-        Args:
-            NOMBRE_USUARIO: Nombre de usuario
-            
-        Returns:
-            Modelo de usuario o None
-        """
         SESION = self._OBTENER_SESION_BD()
         
         try:
@@ -101,18 +68,7 @@ class FuenteAutenticacionLocal:
         CONTRASENA_HASH: str,
         HUELLA_DISPOSITIVO: str
     ) -> MODELO_USUARIO:
-        """
-        Crea nuevo usuario en BD
         
-        Args:
-            EMAIL: Email del usuario
-            NOMBRE_USUARIO: Nombre de usuario
-            CONTRASENA_HASH: Hash de la contraseña
-            HUELLA_DISPOSITIVO: Huella del dispositivo
-            
-        Returns:
-            Usuario creado
-        """
         SESION = self._OBTENER_SESION_BD()
         
         try:
@@ -141,12 +97,7 @@ class FuenteAutenticacionLocal:
             SESION.close()
     
     async def ACTUALIZAR_ULTIMA_CONEXION(self, USUARIO_ID: int):
-        """
-        Actualiza timestamp de última conexión
         
-        Args:
-            USUARIO_ID: ID del usuario
-        """
         SESION = self._OBTENER_SESION_BD()
         
         try:
@@ -170,16 +121,7 @@ class FuenteAutenticacionLocal:
         IP: Optional[str] = None,
         NAVEGADOR: Optional[str] = None
     ):
-        """
-        Crea nueva sesión en BD
         
-        Args:
-            USUARIO_ID: ID del usuario
-            REFRESH_TOKEN: Token de refresco
-            HUELLA_DISPOSITIVO: Huella del dispositivo
-            IP: Dirección IP (opcional)
-            NAVEGADOR: User agent (opcional)
-        """
         SESION = self._OBTENER_SESION_BD()
         
         try:
@@ -212,16 +154,7 @@ class FuenteAutenticacionLocal:
         USUARIO_ID: int,
         REFRESH_TOKEN: str
     ) -> bool:
-        """
-        Verifica si existe sesión activa y válida
         
-        Args:
-            USUARIO_ID: ID del usuario
-            REFRESH_TOKEN: Token de refresco
-            
-        Returns:
-            True si la sesión es válida, False si no
-        """
         SESION = self._OBTENER_SESION_BD()
         
         try:
@@ -236,7 +169,6 @@ class FuenteAutenticacionLocal:
             if not SESION_BD:
                 return False
             
-            # Verificar si no está expirada
             if SESION_BD.FECHA_EXPIRACION < datetime.utcnow():
                 print(f"⚠️ Sesión expirada para usuario {USUARIO_ID}")
                 return False
@@ -246,12 +178,7 @@ class FuenteAutenticacionLocal:
             SESION.close()
     
     async def CERRAR_SESION(self, REFRESH_TOKEN: str):
-        """
-        Marca sesión como inactiva
         
-        Args:
-            REFRESH_TOKEN: Token de la sesión
-        """
         SESION = self._OBTENER_SESION_BD()
         
         try:
@@ -270,13 +197,7 @@ class FuenteAutenticacionLocal:
             SESION.close()
     
     async def ASIGNAR_ROL_A_USUARIO(self, USUARIO_ID: int, NOMBRE_ROL: str):
-        """
-        Asigna rol a usuario
         
-        Args:
-            USUARIO_ID: ID del usuario
-            NOMBRE_ROL: Nombre del rol
-        """
         SESION = self._OBTENER_SESION_BD()
         
         try:
@@ -299,13 +220,7 @@ class FuenteAutenticacionLocal:
             SESION.close()
     
     async def REMOVER_ROL_DE_USUARIO(self, USUARIO_ID: int, NOMBRE_ROL: str):
-        """
-        Remueve rol de usuario
         
-        Args:
-            USUARIO_ID: ID del usuario
-            NOMBRE_ROL: Nombre del rol
-        """
         SESION = self._OBTENER_SESION_BD()
         
         try:
@@ -324,15 +239,7 @@ class FuenteAutenticacionLocal:
             SESION.close()
     
     async def OBTENER_SESIONES_ACTIVAS(self, USUARIO_ID: int) -> List[MODELO_SESION]:
-        """
-        Obtiene todas las sesiones activas de un usuario
         
-        Args:
-            USUARIO_ID: ID del usuario
-            
-        Returns:
-            Lista de sesiones activas
-        """
         SESION = self._OBTENER_SESION_BD()
         
         try:
@@ -342,5 +249,57 @@ class FuenteAutenticacionLocal:
                 .all()
             
             return SESIONES
+        finally:
+            SESION.close()
+    
+    async def ACTUALIZAR_TOKEN_RESET(self, USUARIO_ID: int, TOKEN: str, EXPIRA: datetime):
+        SESION = self._OBTENER_SESION_BD()
+        try:
+            USUARIO = SESION.query(MODELO_USUARIO).filter_by(ID=USUARIO_ID).first()
+            if USUARIO:
+                USUARIO.TOKEN_RESET = TOKEN
+                USUARIO.TOKEN_RESET_EXPIRA = EXPIRA
+                SESION.commit()
+        finally:
+            SESION.close()
+    
+    async def OBTENER_USUARIO_POR_TOKEN_RESET(self, TOKEN: str) -> Optional[MODELO_USUARIO]:
+        SESION = self._OBTENER_SESION_BD()
+        try:
+            USUARIO = SESION.query(MODELO_USUARIO)\
+                .filter_by(TOKEN_RESET=TOKEN)\
+                .first()
+            return USUARIO
+        finally:
+            SESION.close()
+    
+    async def ACTUALIZAR_CONTRASENA(self, USUARIO_ID: int, NUEVA_CONTRASENA_HASH: str):
+        SESION = self._OBTENER_SESION_BD()
+        try:
+            USUARIO = SESION.query(MODELO_USUARIO).filter_by(ID=USUARIO_ID).first()
+            if USUARIO:
+                USUARIO.CONTRASENA_HASH = NUEVA_CONTRASENA_HASH
+                SESION.commit()
+        finally:
+            SESION.close()
+    
+    async def LIMPIAR_TOKEN_RESET(self, USUARIO_ID: int):
+        SESION = self._OBTENER_SESION_BD()
+        try:
+            USUARIO = SESION.query(MODELO_USUARIO).filter_by(ID=USUARIO_ID).first()
+            if USUARIO:
+                USUARIO.TOKEN_RESET = None
+                USUARIO.TOKEN_RESET_EXPIRA = None
+                SESION.commit()
+        finally:
+            SESION.close()
+    
+    async def VERIFICAR_EMAIL(self, USUARIO_ID: int):
+        SESION = self._OBTENER_SESION_BD()
+        try:
+            USUARIO = SESION.query(MODELO_USUARIO).filter_by(ID=USUARIO_ID).first()
+            if USUARIO:
+                USUARIO.VERIFICADO = True
+                SESION.commit()
         finally:
             SESION.close()

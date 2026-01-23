@@ -1,12 +1,8 @@
-#conychips/features/autentitacion/presentation/widgets/BotonPrimario.py
 import flet as ft
 from typing import Optional, Callable
 
-
 class BotonPrimario(ft.Column):
-    """
-    Botón personalizado con estado de carga y animaciones
-    """
+    
     
     def __init__(
         self,
@@ -35,7 +31,7 @@ class BotonPrimario(ft.Column):
         self._CONSTRUIR()
     
     def _CONSTRUIR(self):
-        """Construye el widget internamente"""
+        
         
         CONTENIDO = []
         
@@ -75,7 +71,7 @@ class BotonPrimario(ft.Column):
         self.controls = [self._BOTON]
     
     async def _MANEJAR_CLIC(self, e):
-        """Maneja el clic del botón"""
+        
         if self._CARGANDO or not self._AL_HACER_CLIC:
             return
         
@@ -88,7 +84,7 @@ class BotonPrimario(ft.Column):
             self.ESTABLECER_CARGANDO(False)
     
     def ESTABLECER_CARGANDO(self, CARGANDO: bool):
-        """Establece el estado de carga"""
+        
         self._CARGANDO = CARGANDO
         
         if self._BOTON:
@@ -143,7 +139,7 @@ class BotonPrimario(ft.Column):
             self.update()
     
     def CAMBIAR_TEXTO(self, NUEVO_TEXTO: str):
-        """Cambia el texto del botón"""
+        
         self._TEXTO = NUEVO_TEXTO
         if not self._CARGANDO and self._BOTON:
             CONTENIDO = []

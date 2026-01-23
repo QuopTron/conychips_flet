@@ -1,23 +1,9 @@
-"""
-DECORADORES DE AUTENTICACIÓN
-============================
-Sistema de decoradores para proteger endpoints y métodos
-"""
-
 import functools
 from typing import Callable
 from core.seguridad.ManejadorJWT import ManejadorJWT
 
-
 def REQUIERE_AUTENTICACION(FUNCION: Callable) -> Callable:
-    """
-    Decorador que requiere un token JWT válido
     
-    Uso:
-        @REQUIERE_AUTENTICACION
-        async def MI_ENDPOINT(TOKEN: str, **kwargs):
-            return {"mensaje": "Acceso permitido"}
-    """
     @functools.wraps(FUNCION)
     async def ENVOLTURA(*ARGS, **KWARGS):
         TOKEN = KWARGS.get('TOKEN') or (ARGS[0] if ARGS else None)
@@ -46,9 +32,8 @@ def REQUIERE_AUTENTICACION(FUNCION: Callable) -> Callable:
     
     return ENVOLTURA
 
-
 def REQUIERE_REFRESH_TOKEN(FUNCION: Callable) -> Callable:
-    """Decorador que valida refresh token"""
+    
     @functools.wraps(FUNCION)
     async def ENVOLTURA(*ARGS, **KWARGS):
         REFRESH_TOKEN = KWARGS.get('REFRESH_TOKEN')

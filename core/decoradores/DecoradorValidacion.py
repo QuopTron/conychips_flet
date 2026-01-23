@@ -1,16 +1,9 @@
-"""
-DECORADORES DE VALIDACIÓN
-=========================
-Valida datos de entrada antes de procesar
-"""
-
 import functools
 from typing import Callable
 import re
 
-
 def VALIDAR_EMAIL(FUNCION: Callable) -> Callable:
-    """Valida formato de email"""
+    
     @functools.wraps(FUNCION)
     async def ENVOLTURA(*ARGS, **KWARGS):
         EMAIL = KWARGS.get('EMAIL', '')
@@ -27,16 +20,8 @@ def VALIDAR_EMAIL(FUNCION: Callable) -> Callable:
     
     return ENVOLTURA
 
-
 def VALIDAR_CONTRASENA_FUERTE(FUNCION: Callable) -> Callable:
-    """
-    Valida que la contraseña cumpla requisitos de seguridad
-    - Mínimo 8 caracteres
-    - Al menos una mayúscula
-    - Al menos una minúscula
-    - Al menos un número
-    - Al menos un carácter especial
-    """
+    
     @functools.wraps(FUNCION)
     async def ENVOLTURA(*ARGS, **KWARGS):
         CONTRASENA = KWARGS.get('CONTRASENA', '')
@@ -80,9 +65,8 @@ def VALIDAR_CONTRASENA_FUERTE(FUNCION: Callable) -> Callable:
     
     return ENVOLTURA
 
-
 def VALIDAR_CAMPOS_REQUERIDOS(*CAMPOS_REQUERIDOS):
-    """Valida que campos requeridos estén presentes"""
+    
     def DECORADOR(FUNCION: Callable) -> Callable:
         @functools.wraps(FUNCION)
         async def ENVOLTURA(*ARGS, **KWARGS):
