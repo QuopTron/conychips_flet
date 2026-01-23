@@ -1,0 +1,114 @@
+"""
+MANEJADOR DE TOKENS JWT - DOBLE CAPA
+====================================
+Genera y valida Access Token + Refresh Token
+"""
+
+import jwt
+from datetime import datetime, timedelta
+from typing import Dict, Optional
+from core.Constantes import (
+    ALGORITMO_JWT, 
+    EXPIRACION_ACCESS_TOKEN, 
+    EXPIRACION_REFRESH_TOKEN,
+    PERMISOS_POR_ROL
+)
+import os
+import secrets
+
+
+class ManejadorJWT:
+    """Gestiona ciclo de vida completo de tokens JWT"""
+    
+    def __init__(self):
+        self._CLAVE_SECRETA = os.getenv('JWT_SECRET_KEY', self._GENERAR_CLAVE_SEGURA())
+    
+    def _GENERAR_CLAVE_SEGURA(self) -> str:
+        """Genera clave secreta de 256 bits"""
+        return secrets.token_urlsafe(32)
+    
+    def CREAR_ACCESS_TOKEN(
+        self, 
+        USUARIO_ID: int, 
+        EMAIL: str, 
+        ROLES: list, 
+        HUELLA_DISPOSITIVO: str
+    ) -> str:
+        """
+        Crea Access Token de corta duración (15 min)
+        
+        PAYLOAD INCLUYE:
+        - USUARIO_ID, EMAIL, ROLES, PERMISOS
+        - HUELLA_DISPOSITIVO para validación
+        - Timestamps de emisión y expiración
+        """
+        AHORA = datetime.utcnow()
+        EXPIRACION = AHORA + timedelta(seconds=EXPIRACION_ACCESS_TOKEN)
+        
+        PERMISOS_TOTALES = set()
+        for ROL in ROLES:
+            PERMISOS_TOTALES.update(PERMISOS_POR_ROL.get(ROL, []))
+        
+        PAYLOAD = {
+            "USUARIO_ID": USUARIO_ID,
+            "EMAIL": EMAIL,
+            "ROLES": ROLES,
+            "PERMISOS": list(PERMISOS_TOTALES),
+            "HUELLA_DISPOSITIVO": HUELLA_DISPOSITIVO,
+            "TIPO": "access",
+            "exp": EXPIRACION,
+            "iat": AHORA
+        }
+        
+        return jwt.encode(PAYLOAD, self._CLAVE_SECRETA, algorithm=ALGORITMO_JWT)
+    
+    def CREAR_REFRESH_TOKEN(self, USUARIO_ID: int, HUELLA_DISPOSITIVO: str) -> str:
+        """Crea Refresh Token de larga duración (7 días)"""
+        AHORA = datetime.utcnow()
+        EXPIRACION = AHORA + timedelta(seconds=EXPIRACION_REFRESH_TOKEN)
+        
+        PAYLOAD = {
+            "USUARIO_ID": USUARIO_ID,
+            "HUELLA_DISPOSITIVO": HUELLA_DISPOSITIVO,
+            "TIPO": "refresh",
+            "exp": EXPIRACION,
+            "iat": AHORA
+        }
+        
+        return jwt.encode(PAYLOAD, self._CLAVE_SECRETA, algorithm=ALGORITMO_JWT)
+    
+    def VERIFICAR_TOKEN(self, TOKEN: str, TIPO_ESPERADO: str = "access") -> Optional[Dict]:
+        """
+        Verifica y decodifica un token JWT
+        
+        Returns:
+            Payload del token si es válido, None si no
+        """
+        try:
+            PAYLOAD = jwt.decode(TOKEN, self._CLAVE_SECRETA, algorithms=[ALGORITMO_JWT])
+            
+            if PAYLOAD.get("TIPO") != TIPO_ESPERADO:
+                print(f"❌ Tipo de token incorrecto")
+                return None
+            
+            return PAYLOAD
+            
+        except jwt.ExpiredSignatureError:
+            print("❌ Token expirado")
+            return None
+        except jwt.InvalidTokenError as ERROR:
+            print(f"❌ Token inválido: {ERROR}")
+            return None
+    
+    def EXTRAER_USUARIO_ID(self, TOKEN: str) -> Optional[int]:
+        """Extrae el ID de usuario de un token sin validar expiración"""
+        try:
+            PAYLOAD = jwt.decode(
+                TOKEN, 
+                self._CLAVE_SECRETA, 
+                algorithms=[ALGORITMO_JWT],
+                options={"verify_exp": False}
+            )
+            return PAYLOAD.get("USUARIO_ID")
+        except:
+            return None

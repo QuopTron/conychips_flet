@@ -1,0 +1,10 @@
+# Dependencias del Proyecto
+flet
+cryptography
+PyJWT
+websockets
+SQLAlchemy
+bcrypt
+python-dotenv
+aiohttp
+pydantic
