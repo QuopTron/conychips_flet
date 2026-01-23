@@ -1,5 +1,7 @@
 from typing import Dict
-from features.autenticacion.domain.RepositorioAutenticacion import RepositorioAutenticacion
+from features.autenticacion.domain.RepositorioAutenticacion import (
+    RepositorioAutenticacion,
+)
 import secrets
 from datetime import datetime, timedelta
 import smtplib
@@ -18,17 +20,14 @@ class SolicitarResetContrasena:
         token = secrets.token_urlsafe(32)
         expira = datetime.utcnow() + timedelta(hours=1)
 
-        await self._REPO.ACTUALIZAR_TOKEN_RESET(usuario['ID'], token, expira)
+        await self._REPO.ACTUALIZAR_TOKEN_RESET(usuario["ID"], token, expira)
 
-        # Enviar email (simulado)
         self._ENVIAR_EMAIL_RESET(EMAIL, token)
 
         return {"EXITO": True}
 
     def _ENVIAR_EMAIL_RESET(self, EMAIL: str, TOKEN: str):
-        # Simulación de envío de email
         print(f"Email enviado a {EMAIL}: Token de reset: {TOKEN}")
-        # En producción, usar SMTP real
 
 
 class ResetearContrasena:
@@ -40,11 +39,11 @@ class ResetearContrasena:
         if not usuario:
             return {"EXITO": False, "ERROR": "Token inválido o expirado"}
 
-        if datetime.utcnow() > usuario['TOKEN_RESET_EXPIRA']:
+        if datetime.utcnow() > usuario["TOKEN_RESET_EXPIRA"]:
             return {"EXITO": False, "ERROR": "Token expirado"}
 
-        await self._REPO.ACTUALIZAR_CONTRASENA(usuario['ID'], NUEVA_CONTRASENA)
-        await self._REPO.LIMPIAR_TOKEN_RESET(usuario['ID'])
+        await self._REPO.ACTUALIZAR_CONTRASENA(usuario["ID"], NUEVA_CONTRASENA)
+        await self._REPO.LIMPIAR_TOKEN_RESET(usuario["ID"])
 
         return {"EXITO": True}
 
@@ -58,6 +57,6 @@ class ConfirmarEmail:
         if not usuario:
             return {"EXITO": False, "ERROR": "Token inválido"}
 
-        await self._REPO.VERIFICAR_EMAIL(usuario['ID'])
+        await self._REPO.VERIFICAR_EMAIL(usuario["ID"])
 
         return {"EXITO": True}

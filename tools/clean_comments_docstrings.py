@@ -1,13 +1,11 @@
-
-
 import os
 import re
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-IGNORE_DIRS = {'venv', '__pycache__', '.git'}
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+IGNORE_DIRS = {"venv", "__pycache__", ".git"}
 
 pattern_triple = re.compile(r"('{3}|\"{3})([\s\S]*?)(\1)", re.DOTALL)
-pattern_comment_line = re.compile(r'(?m)^[ \t]*#.*\n?')
+pattern_comment_line = re.compile(r"(?m)^[ \t]*#.*\n?")
 pattern_blank_lines = re.compile(r"\n{3,}")
 
 #!/usr/bin/env python3
@@ -17,12 +15,12 @@ pattern_blank_lines = re.compile(r"\n{3,}")
 import os
 import re
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-IGNORE_DIRS = {'venv', '__pycache__', '.git'}
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+IGNORE_DIRS = {"venv", "__pycache__", ".git"}
 
 # patrón para bloques triple-quoted (''' o """)
 pattern_triple = re.compile(r"('{3}|\"{3})([\s\S]*?)(\1)", re.DOTALL)
-pattern_comment_line = re.compile(r'(?m)^[ \t]*#.*\n?')
+pattern_comment_line = re.compile(r"(?m)^[ \t]*#.*\n?")
 pattern_blank_lines = re.compile(r"\n{3,}")
 
 modified_files = []
@@ -33,7 +31,7 @@ for dirpath, dirnames, filenames in os.walk(ROOT):
         continue
 
     for fname in filenames:
-        if not fname.endswith('.py'):
+        if not fname.endswith(".py"):
             continue
         fpath = os.path.join(dirpath, fname)
 
@@ -42,7 +40,7 @@ for dirpath, dirnames, filenames in os.walk(ROOT):
             continue
 
         try:
-            with open(fpath, 'r', encoding='utf-8') as f:
+            with open(fpath, "r", encoding="utf-8") as f:
                 content = f.read()
         except Exception:
             continue
@@ -50,24 +48,24 @@ for dirpath, dirnames, filenames in os.walk(ROOT):
         original = content
 
         # eliminar bloques triple-quoted
-        content = pattern_triple.sub('', content)
+        content = pattern_triple.sub("", content)
 
         # eliminar líneas que empiezan con '#'
-        content = pattern_comment_line.sub('', content)
+        content = pattern_comment_line.sub("", content)
 
         # colapsar líneas en blanco repetidas
-        content = pattern_blank_lines.sub('\n\n', content)
+        content = pattern_blank_lines.sub("\n\n", content)
 
         # normalizar espacios finales y asegurar newline final
-        content = content.strip() + '\n'
+        content = content.strip() + "\n"
 
         if content != original:
-            with open(fpath, 'w', encoding='utf-8') as f:
+            with open(fpath, "w", encoding="utf-8") as f:
                 f.write(content)
             modified_files.append(fpath)
 
-print('Archivos modificados:')
+print("Archivos modificados:")
 for p in modified_files:
-    print('-', os.path.relpath(p, ROOT))
+    print("-", os.path.relpath(p, ROOT))
 
-print('\nTotal:', len(modified_files))
+print("\nTotal:", len(modified_files))

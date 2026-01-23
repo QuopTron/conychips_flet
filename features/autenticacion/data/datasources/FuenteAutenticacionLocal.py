@@ -2,75 +2,83 @@ from typing import Optional, List
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session, joinedload
 from core.base_datos.ConfiguracionBD import (
-    MODELO_USUARIO, 
-    MODELO_ROL, 
+    MODELO_USUARIO,
+    MODELO_ROL,
     MODELO_SESION,
-    OBTENER_SESION
+    OBTENER_SESION,
 )
 from core.Constantes import EXPIRACION_REFRESH_TOKEN
 
+
 class FuenteAutenticacionLocal:
-    
-    
+
     def __init__(self):
-        
+
         pass
-    
+
     def _OBTENER_SESION_BD(self) -> Session:
-        
+
         return OBTENER_SESION()
-    
+
     async def OBTENER_USUARIO_POR_EMAIL(self, EMAIL: str) -> Optional[MODELO_USUARIO]:
-        
+
         SESION = self._OBTENER_SESION_BD()
-        
+
         try:
-            USUARIO = SESION.query(MODELO_USUARIO)\
-                .options(joinedload(MODELO_USUARIO.ROLES))\
-                .filter_by(EMAIL=EMAIL)\
+            USUARIO = (
+                SESION.query(MODELO_USUARIO)
+                .options(joinedload(MODELO_USUARIO.ROLES))
+                .filter_by(EMAIL=EMAIL)
                 .first()
-            
+            )
+
             return USUARIO
         finally:
             SESION.close()
-    
+
     async def OBTENER_USUARIO_POR_ID(self, USUARIO_ID: int) -> Optional[MODELO_USUARIO]:
-        
+
         SESION = self._OBTENER_SESION_BD()
-        
+
         try:
-            USUARIO = SESION.query(MODELO_USUARIO)\
-                .options(joinedload(MODELO_USUARIO.ROLES))\
-                .filter_by(ID=USUARIO_ID)\
+            USUARIO = (
+                SESION.query(MODELO_USUARIO)
+                .options(joinedload(MODELO_USUARIO.ROLES))
+                .filter_by(ID=USUARIO_ID)
                 .first()
-            
+            )
+
             return USUARIO
         finally:
             SESION.close()
-    
-    async def OBTENER_USUARIO_POR_NOMBRE(self, NOMBRE_USUARIO: str) -> Optional[MODELO_USUARIO]:
-        
+
+    async def OBTENER_USUARIO_POR_NOMBRE(
+        self, NOMBRE_USUARIO: str
+    ) -> Optional[MODELO_USUARIO]:
+
         SESION = self._OBTENER_SESION_BD()
-        
+
         try:
-            USUARIO = SESION.query(MODELO_USUARIO)\
-                .filter_by(NOMBRE_USUARIO=NOMBRE_USUARIO)\
+            USUARIO = (
+                SESION.query(MODELO_USUARIO)
+                .filter_by(NOMBRE_USUARIO=NOMBRE_USUARIO)
                 .first()
-            
+            )
+
             return USUARIO
         finally:
             SESION.close()
-    
+
     async def CREAR_USUARIO(
         self,
         EMAIL: str,
         NOMBRE_USUARIO: str,
         CONTRASENA_HASH: str,
-        HUELLA_DISPOSITIVO: str
+        HUELLA_DISPOSITIVO: str,
     ) -> MODELO_USUARIO:
-        
+
         SESION = self._OBTENER_SESION_BD()
-        
+
         try:
             NUEVO_USUARIO = MODELO_USUARIO(
                 EMAIL=EMAIL,
@@ -79,15 +87,15 @@ class FuenteAutenticacionLocal:
                 HUELLA_DISPOSITIVO=HUELLA_DISPOSITIVO,
                 ACTIVO=True,
                 VERIFICADO=False,
-                FECHA_CREACION=datetime.utcnow()
+                FECHA_CREACION=datetime.utcnow(),
             )
-            
+
             SESION.add(NUEVO_USUARIO)
             SESION.commit()
             SESION.refresh(NUEVO_USUARIO)
-            
+
             print(f"✅ Usuario creado en BD: {EMAIL} (ID: {NUEVO_USUARIO.ID})")
-            
+
             return NUEVO_USUARIO
         except Exception as ERROR:
             SESION.rollback()
@@ -95,14 +103,14 @@ class FuenteAutenticacionLocal:
             raise
         finally:
             SESION.close()
-    
+
     async def ACTUALIZAR_ULTIMA_CONEXION(self, USUARIO_ID: int):
-        
+
         SESION = self._OBTENER_SESION_BD()
-        
+
         try:
             USUARIO = SESION.query(MODELO_USUARIO).filter_by(ID=USUARIO_ID).first()
-            
+
             if USUARIO:
                 USUARIO.ULTIMA_CONEXION = datetime.utcnow()
                 SESION.commit()
@@ -112,21 +120,23 @@ class FuenteAutenticacionLocal:
             print(f"❌ Error al actualizar última conexión: {ERROR}")
         finally:
             SESION.close()
-    
+
     async def CREAR_SESION(
         self,
         USUARIO_ID: int,
         REFRESH_TOKEN: str,
         HUELLA_DISPOSITIVO: str,
         IP: Optional[str] = None,
-        NAVEGADOR: Optional[str] = None
+        NAVEGADOR: Optional[str] = None,
     ):
-        
+
         SESION = self._OBTENER_SESION_BD()
-        
+
         try:
-            FECHA_EXPIRACION = datetime.utcnow() + timedelta(seconds=EXPIRACION_REFRESH_TOKEN)
-            
+            FECHA_EXPIRACION = datetime.utcnow() + timedelta(
+                seconds=EXPIRACION_REFRESH_TOKEN
+            )
+
             NUEVA_SESION = MODELO_SESION(
                 USUARIO_ID=USUARIO_ID,
                 REFRESH_TOKEN=REFRESH_TOKEN,
@@ -135,12 +145,12 @@ class FuenteAutenticacionLocal:
                 NAVEGADOR=NAVEGADOR,
                 ACTIVA=True,
                 FECHA_CREACION=datetime.utcnow(),
-                FECHA_EXPIRACION=FECHA_EXPIRACION
+                FECHA_EXPIRACION=FECHA_EXPIRACION,
             )
-            
+
             SESION.add(NUEVA_SESION)
             SESION.commit()
-            
+
             print(f"✅ Sesión creada para usuario {USUARIO_ID}")
         except Exception as ERROR:
             SESION.rollback()
@@ -148,44 +158,44 @@ class FuenteAutenticacionLocal:
             raise
         finally:
             SESION.close()
-    
+
     async def VERIFICAR_SESION_ACTIVA(
-        self,
-        USUARIO_ID: int,
-        REFRESH_TOKEN: str
+        self, USUARIO_ID: int, REFRESH_TOKEN: str
     ) -> bool:
-        
+
         SESION = self._OBTENER_SESION_BD()
-        
+
         try:
-            SESION_BD = SESION.query(MODELO_SESION)\
+            SESION_BD = (
+                SESION.query(MODELO_SESION)
                 .filter_by(
-                    USUARIO_ID=USUARIO_ID,
-                    REFRESH_TOKEN=REFRESH_TOKEN,
-                    ACTIVA=True
-                )\
+                    USUARIO_ID=USUARIO_ID, REFRESH_TOKEN=REFRESH_TOKEN, ACTIVA=True
+                )
                 .first()
-            
+            )
+
             if not SESION_BD:
                 return False
-            
+
             if SESION_BD.FECHA_EXPIRACION < datetime.utcnow():
                 print(f"⚠️ Sesión expirada para usuario {USUARIO_ID}")
                 return False
-            
+
             return True
         finally:
             SESION.close()
-    
+
     async def CERRAR_SESION(self, REFRESH_TOKEN: str):
-        
+
         SESION = self._OBTENER_SESION_BD()
-        
+
         try:
-            SESION_BD = SESION.query(MODELO_SESION)\
-                .filter_by(REFRESH_TOKEN=REFRESH_TOKEN)\
+            SESION_BD = (
+                SESION.query(MODELO_SESION)
+                .filter_by(REFRESH_TOKEN=REFRESH_TOKEN)
                 .first()
-            
+            )
+
             if SESION_BD:
                 SESION_BD.ACTIVA = False
                 SESION.commit()
@@ -195,15 +205,15 @@ class FuenteAutenticacionLocal:
             print(f"❌ Error al cerrar sesión: {ERROR}")
         finally:
             SESION.close()
-    
+
     async def ASIGNAR_ROL_A_USUARIO(self, USUARIO_ID: int, NOMBRE_ROL: str):
-        
+
         SESION = self._OBTENER_SESION_BD()
-        
+
         try:
             USUARIO = SESION.query(MODELO_USUARIO).filter_by(ID=USUARIO_ID).first()
             ROL = SESION.query(MODELO_ROL).filter_by(NOMBRE=NOMBRE_ROL).first()
-            
+
             if USUARIO and ROL:
                 if ROL not in USUARIO.ROLES:
                     USUARIO.ROLES.append(ROL)
@@ -218,15 +228,15 @@ class FuenteAutenticacionLocal:
             print(f"❌ Error al asignar rol: {ERROR}")
         finally:
             SESION.close()
-    
+
     async def REMOVER_ROL_DE_USUARIO(self, USUARIO_ID: int, NOMBRE_ROL: str):
-        
+
         SESION = self._OBTENER_SESION_BD()
-        
+
         try:
             USUARIO = SESION.query(MODELO_USUARIO).filter_by(ID=USUARIO_ID).first()
             ROL = SESION.query(MODELO_ROL).filter_by(NOMBRE=NOMBRE_ROL).first()
-            
+
             if USUARIO and ROL:
                 if ROL in USUARIO.ROLES:
                     USUARIO.ROLES.remove(ROL)
@@ -237,22 +247,26 @@ class FuenteAutenticacionLocal:
             print(f"❌ Error al remover rol: {ERROR}")
         finally:
             SESION.close()
-    
+
     async def OBTENER_SESIONES_ACTIVAS(self, USUARIO_ID: int) -> List[MODELO_SESION]:
-        
+
         SESION = self._OBTENER_SESION_BD()
-        
+
         try:
-            SESIONES = SESION.query(MODELO_SESION)\
-                .filter_by(USUARIO_ID=USUARIO_ID, ACTIVA=True)\
-                .filter(MODELO_SESION.FECHA_EXPIRACION > datetime.utcnow())\
+            SESIONES = (
+                SESION.query(MODELO_SESION)
+                .filter_by(USUARIO_ID=USUARIO_ID, ACTIVA=True)
+                .filter(MODELO_SESION.FECHA_EXPIRACION > datetime.utcnow())
                 .all()
-            
+            )
+
             return SESIONES
         finally:
             SESION.close()
-    
-    async def ACTUALIZAR_TOKEN_RESET(self, USUARIO_ID: int, TOKEN: str, EXPIRA: datetime):
+
+    async def ACTUALIZAR_TOKEN_RESET(
+        self, USUARIO_ID: int, TOKEN: str, EXPIRA: datetime
+    ):
         SESION = self._OBTENER_SESION_BD()
         try:
             USUARIO = SESION.query(MODELO_USUARIO).filter_by(ID=USUARIO_ID).first()
@@ -262,17 +276,17 @@ class FuenteAutenticacionLocal:
                 SESION.commit()
         finally:
             SESION.close()
-    
-    async def OBTENER_USUARIO_POR_TOKEN_RESET(self, TOKEN: str) -> Optional[MODELO_USUARIO]:
+
+    async def OBTENER_USUARIO_POR_TOKEN_RESET(
+        self, TOKEN: str
+    ) -> Optional[MODELO_USUARIO]:
         SESION = self._OBTENER_SESION_BD()
         try:
-            USUARIO = SESION.query(MODELO_USUARIO)\
-                .filter_by(TOKEN_RESET=TOKEN)\
-                .first()
+            USUARIO = SESION.query(MODELO_USUARIO).filter_by(TOKEN_RESET=TOKEN).first()
             return USUARIO
         finally:
             SESION.close()
-    
+
     async def ACTUALIZAR_CONTRASENA(self, USUARIO_ID: int, NUEVA_CONTRASENA_HASH: str):
         SESION = self._OBTENER_SESION_BD()
         try:
@@ -282,7 +296,7 @@ class FuenteAutenticacionLocal:
                 SESION.commit()
         finally:
             SESION.close()
-    
+
     async def LIMPIAR_TOKEN_RESET(self, USUARIO_ID: int):
         SESION = self._OBTENER_SESION_BD()
         try:
@@ -293,7 +307,7 @@ class FuenteAutenticacionLocal:
                 SESION.commit()
         finally:
             SESION.close()
-    
+
     async def VERIFICAR_EMAIL(self, USUARIO_ID: int):
         SESION = self._OBTENER_SESION_BD()
         try:

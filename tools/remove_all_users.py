@@ -1,9 +1,3 @@
-#!/usr/bin/env python3
-"""
-Script para eliminar todos los usuarios de la base de datos.
-Hace respaldo de la BD antes de tocarla.
-"""
-
 import shutil
 import os
 from sqlalchemy import text
@@ -12,7 +6,7 @@ from core.base_datos.ConfiguracionBD import RUTA_BD, OBTENER_SESION
 
 def main():
     if os.path.exists(RUTA_BD):
-        respaldo = RUTA_BD + '.before_delete'
+        respaldo = RUTA_BD + ".before_delete"
         shutil.copy2(RUTA_BD, respaldo)
         print(f"Respaldo creado: {respaldo}")
     else:
@@ -20,16 +14,15 @@ def main():
         return
 
     sesion = OBTENER_SESION()
-    # Borrar sesiones y asociaciones primero
     try:
-        sesion.execute(text('DELETE FROM SESIONES'))
-        sesion.execute(text('DELETE FROM USUARIO_ROLES'))
-        sesion.execute(text('DELETE FROM USUARIOS'))
+        sesion.execute(text("DELETE FROM SESIONES"))
+        sesion.execute(text("DELETE FROM USUARIO_ROLES"))
+        sesion.execute(text("DELETE FROM USUARIOS"))
         sesion.commit()
         print("Todos los usuarios y sus sesiones/roles asociados han sido eliminados.")
     except Exception as e:
         print(f"Error al eliminar usuarios: {e}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -12,19 +12,22 @@ class RepositorioProductosImpl(RepositorioProductos):
         productos = sesion.query(MODELO_PRODUCTO).filter_by(DISPONIBLE=True).all()
         resultado = []
         for p in productos:
-            resultado.append({
-                'ID': p.ID,
-                'NOMBRE': p.NOMBRE,
-                'DESCRIPCION': p.DESCRIPCION,
-                'PRECIO': p.PRECIO,
-                'IMAGEN': p.IMAGEN,
-                'TIPO': getattr(p, 'TIPO', 'gaseosa'),
-                'DISPONIBLE': p.DISPONIBLE
-            })
+            resultado.append(
+                {
+                    "ID": p.ID,
+                    "NOMBRE": p.NOMBRE,
+                    "DESCRIPCION": p.DESCRIPCION,
+                    "PRECIO": p.PRECIO,
+                    "IMAGEN": p.IMAGEN,
+                    "TIPO": getattr(p, "TIPO", "gaseosa"),
+                    "DISPONIBLE": p.DISPONIBLE,
+                }
+            )
         return resultado
 
     async def OBTENER_POR_SUCURSAL(self, SUCURSAL_ID: int) -> List[dict]:
         from core.base_datos.ConfiguracionBD import MODELO_SUCURSAL
+
         sesion = OBTENER_SESION()
         sucursal = sesion.query(MODELO_SUCURSAL).filter_by(ID=SUCURSAL_ID).first()
         if not sucursal:
@@ -32,15 +35,17 @@ class RepositorioProductosImpl(RepositorioProductos):
         productos = [p for p in sucursal.PRODUCTOS if p.DISPONIBLE]
         resultado = []
         for p in productos:
-            resultado.append({
-                'ID': p.ID,
-                'NOMBRE': p.NOMBRE,
-                'DESCRIPCION': p.DESCRIPCION,
-                'PRECIO': p.PRECIO,
-                'IMAGEN': p.IMAGEN,
-                'TIPO': getattr(p, 'TIPO', 'gaseosa'),
-                'DISPONIBLE': p.DISPONIBLE
-            })
+            resultado.append(
+                {
+                    "ID": p.ID,
+                    "NOMBRE": p.NOMBRE,
+                    "DESCRIPCION": p.DESCRIPCION,
+                    "PRECIO": p.PRECIO,
+                    "IMAGEN": p.IMAGEN,
+                    "TIPO": getattr(p, "TIPO", "gaseosa"),
+                    "DISPONIBLE": p.DISPONIBLE,
+                }
+            )
         return resultado
 
     async def OBTENER_POR_ID(self, PRODUCTO_ID: int) -> Optional[dict]:
@@ -49,11 +54,11 @@ class RepositorioProductosImpl(RepositorioProductos):
         if not p:
             return None
         return {
-            'ID': p.ID,
-            'NOMBRE': p.NOMBRE,
-            'DESCRIPCION': p.DESCRIPCION,
-            'PRECIO': p.PRECIO,
-            'IMAGEN': p.IMAGEN,
-            'TIPO': getattr(p, 'TIPO', 'gaseosa'),
-            'DISPONIBLE': p.DISPONIBLE
+            "ID": p.ID,
+            "NOMBRE": p.NOMBRE,
+            "DESCRIPCION": p.DESCRIPCION,
+            "PRECIO": p.PRECIO,
+            "IMAGEN": p.IMAGEN,
+            "TIPO": getattr(p, "TIPO", "gaseosa"),
+            "DISPONIBLE": p.DISPONIBLE,
         }

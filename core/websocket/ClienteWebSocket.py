@@ -5,11 +5,11 @@ from typing import Optional, Callable
 from datetime import datetime
 from core.Constantes import WS_INTENTOS_RECONEXION, WS_TIMEOUT
 
+
 class ClienteWebSocket:
-    
-    
+
     def __init__(self, URL: str, TOKEN_ACCESS: str):
-        
+
         self._URL = URL
         self._TOKEN = TOKEN_ACCESS
         self._WEBSOCKET: Optional[websockets.WebSocketClientProtocol] = None
@@ -18,75 +18,67 @@ class ClienteWebSocket:
         self._CALLBACK_MENSAJE: Optional[Callable] = None
         self._CALLBACK_ERROR: Optional[Callable] = None
         self._TAREA_ESCUCHA: Optional[asyncio.Task] = None
-    
+
     async def CONECTAR(self) -> bool:
-        
+
         try:
             print(f"🔌 Conectando a WebSocket: {self._URL}")
-            
-            HEADERS_EXTRA = {
-                "Authorization": f"Bearer {self._TOKEN}"
-            }
-            # Intentar conectar con headers; si la librería/entorno no soporta
-            # `extra_headers` en create_connection, hacer fallback añadiendo token en la URL.
+
+            HEADERS_EXTRA = {"Authorization": f"Bearer {self._TOKEN}"}
             try:
                 self._WEBSOCKET = await asyncio.wait_for(
                     websockets.connect(
                         self._URL,
                         extra_headers=HEADERS_EXTRA,
                         ping_interval=20,
-                        ping_timeout=10
+                        ping_timeout=10,
                     ),
-                    timeout=WS_TIMEOUT
+                    timeout=WS_TIMEOUT,
                 )
             except TypeError as te:
-                # Fallback: agregar token en query string y conectar sin extra_headers
                 try:
                     url_con_token = f"{self._URL.rstrip('/')}?token={self._TOKEN}"
                     self._WEBSOCKET = await asyncio.wait_for(
                         websockets.connect(
-                            url_con_token,
-                            ping_interval=20,
-                            ping_timeout=10
+                            url_con_token, ping_interval=20, ping_timeout=10
                         ),
-                        timeout=WS_TIMEOUT
+                        timeout=WS_TIMEOUT,
                     )
                 except Exception as e:
                     raise e
-            
+
             self._CONECTADO = True
             self._INTENTOS_RECONEXION = 0
-            
+
             print("✅ WebSocket conectado exitosamente")
-            
+
             self._TAREA_ESCUCHA = asyncio.create_task(self._ESCUCHAR_MENSAJES())
-            
+
             return True
-            
+
         except asyncio.TimeoutError:
             print("❌ Timeout al conectar WebSocket")
             return False
         except Exception as ERROR:
             print(f"❌ Error al conectar WebSocket: {ERROR}")
             return False
-    
+
     async def _ESCUCHAR_MENSAJES(self):
-        
+
         try:
             while self._CONECTADO and self._WEBSOCKET:
                 try:
                     MENSAJE_RAW = await asyncio.wait_for(
-                        self._WEBSOCKET.recv(),
-                        timeout=WS_TIMEOUT
+                        self._WEBSOCKET.recv(), timeout=WS_TIMEOUT
                     )
-                    
+
                     MENSAJE = json.loads(MENSAJE_RAW)
-                    
+
                     print(f"📨 Mensaje recibido: {MENSAJE.get('tipo', 'desconocido')}")
-                    
+
                     if self._CALLBACK_MENSAJE:
                         await self._CALLBACK_MENSAJE(MENSAJE)
-                    
+
                 except asyncio.TimeoutError:
                     continue
                 except websockets.exceptions.ConnectionClosed:
@@ -97,68 +89,70 @@ class ClienteWebSocket:
                     print("Error al decodificar mensaje JSON")
                 except Exception as ERROR:
                     print(f"Error al recibir mensaje: {ERROR}")
-                    
+
         except Exception as ERROR:
             print(f"Error en tarea de escucha: {ERROR}")
             if self._CALLBACK_ERROR:
                 await self._CALLBACK_ERROR(ERROR)
-    
+
     async def _INTENTAR_RECONECTAR(self):
-        
+
         while self._INTENTOS_RECONEXION < WS_INTENTOS_RECONEXION:
             self._INTENTOS_RECONEXION += 1
-            ESPERA = min(2 ** self._INTENTOS_RECONEXION, 60)
-            
-            print(f"Reintentando conexión ({self._INTENTOS_RECONEXION}/{WS_INTENTOS_RECONEXION}) en {ESPERA}s...")
-            
+            ESPERA = min(2**self._INTENTOS_RECONEXION, 60)
+
+            print(
+                f"Reintentando conexión ({self._INTENTOS_RECONEXION}/{WS_INTENTOS_RECONEXION}) en {ESPERA}s..."
+            )
+
             await asyncio.sleep(ESPERA)
-            
+
             if await self.CONECTAR():
                 return
-        
+
         print("No se pudo reconectar después de múltiples intentos")
         self._CONECTADO = False
-    
+
     async def ENVIAR(self, MENSAJE: dict) -> bool:
-        
+
         if not self._CONECTADO or not self._WEBSOCKET:
             print("No hay conexión WebSocket activa")
             return False
-        
+
         try:
             MENSAJE_JSON = json.dumps(MENSAJE)
             await self._WEBSOCKET.send(MENSAJE_JSON)
             print(f"Mensaje enviado: {MENSAJE.get('tipo', 'desconocido')}")
             return True
-            
+
         except Exception as ERROR:
             print(f"Error al enviar mensaje: {ERROR}")
             return False
-    
+
     def REGISTRAR_CALLBACK_MENSAJE(self, CALLBACK: Callable):
-        
+
         self._CALLBACK_MENSAJE = CALLBACK
-    
+
     def REGISTRAR_CALLBACK_ERROR(self, CALLBACK: Callable):
-        
+
         self._CALLBACK_ERROR = CALLBACK
-    
+
     async def DESCONECTAR(self):
-        
+
         print("🔌 Desconectando WebSocket...")
-        
+
         self._CONECTADO = False
-        
+
         if self._TAREA_ESCUCHA:
             self._TAREA_ESCUCHA.cancel()
-        
+
         if self._WEBSOCKET:
             await self._WEBSOCKET.close()
             self._WEBSOCKET = None
-        
+
         print("WebSocket desconectado")
-    
+
     @property
     def ESTA_CONECTADO(self) -> bool:
-        
+
         return self._CONECTADO
