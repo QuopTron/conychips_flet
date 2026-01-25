@@ -2,7 +2,6 @@ import flet as ft
 import os
 import sys
 import traceback
-import asyncio
 from features.autenticacion.presentation.pages.PaginaLogin import PaginaLogin
 from core.base_datos.ConfiguracionBD import INICIALIZAR_BASE_DATOS
 
@@ -10,7 +9,8 @@ os.environ["NO_AT_BRIDGE"] = "1"
 
 
 def main(page: ft.Page):
-
+    """Función principal de la aplicación Flet"""
+    
     page.title = "Cony Chips"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.padding = 0
@@ -21,22 +21,23 @@ def main(page: ft.Page):
     page.window.resizable = True
 
     try:
-        asyncio.create_task(INICIALIZAR_BASE_DATOS())
-        print("Inicializando base de datos en background...")
+        INICIALIZAR_BASE_DATOS()
+        print("✓ Base de datos PostgreSQL inicializada")
     except Exception as e:
-        print(f"Error iniciando BD: {e}")
+        print(f"✗ Error iniciando BD: {e}")
+        traceback.print_exc()
 
     try:
-        print("Cargando página de Login")
+        print("Cargando página de Login...")
 
         login = PaginaLogin(page)
         page.controls = [login]
         page.update()
 
-        print("Login cargado correctamente")
+        print("✓ Login cargado correctamente")
 
     except Exception as e:
-        print(f"Error crítico cargando login:")
+        print(f"✗ Error crítico cargando login:")
         traceback.print_exc()
 
         page.controls = [
@@ -84,9 +85,15 @@ def main(page: ft.Page):
 
 if __name__ == "__main__":
     print(f"\n{'='*60}")
-    print(f"Flet versión: {ft.__version__}")
-    print(f"Python versión: {sys.version}")
-    print(f"Iniciando aplicación Cony Chips CLI...")
+    print(f"Flet version: {ft.__version__}")
+    print(f"Python version: {sys.version}")
+    print(f"Iniciando aplicación Cony Chips...")
     print(f"{'='*60}\n")
 
-    ft.run(main)
+    try:
+        # Usar ft.run() - método recomendado en Flet 0.80.3+
+        ft.run(main)
+    except Exception as e:
+        print(f"\n✗ Error al ejecutar la aplicación:")
+        print(f"{e}")
+        traceback.print_exc()

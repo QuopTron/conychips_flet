@@ -21,7 +21,7 @@ class RepositorioBase(Generic[T]):
             return ENTIDAD
         except Exception as ERROR:
             self._SESION.rollback()
-            print(f"❌ Error al crear entidad: {ERROR}")
+            print(f" Error al crear entidad: {ERROR}")
             raise
 
     def OBTENER_POR_ID(self, ID: int) -> Optional[T]:
@@ -51,7 +51,7 @@ class RepositorioBase(Generic[T]):
 
         except Exception as ERROR:
             self._SESION.rollback()
-            print(f"❌ Error al actualizar entidad: {ERROR}")
+            print(f" Error al actualizar entidad: {ERROR}")
             raise
 
     def ELIMINAR(self, ID: int) -> bool:
@@ -69,7 +69,7 @@ class RepositorioBase(Generic[T]):
 
         except Exception as ERROR:
             self._SESION.rollback()
-            print(f"❌ Error al eliminar entidad: {ERROR}")
+            print(f" Error al eliminar entidad: {ERROR}")
             raise
 
     def EXISTE(self, ID: int) -> bool:

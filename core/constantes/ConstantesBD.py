@@ -1,0 +1,5 @@
+BD_NOMBRE = "app_segura.db"
+BD_POOL_SIZE = 5
+BD_MAX_OVERFLOW = 10
+BD_POOL_TIMEOUT = 30
+BD_ECHO = False

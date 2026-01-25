@@ -109,7 +109,7 @@ class AutenticacionBloc:
                 )
 
         except Exception as ERROR:
-            print(f"❌ Error al iniciar sesión: {ERROR}")
+            print(f" Error al iniciar sesión: {ERROR}")
             self._EMITIR_ESTADO(
                 EstadoError(ERROR="Error al procesar inicio de sesión", CODIGO=500)
             )
@@ -135,7 +135,7 @@ class AutenticacionBloc:
                 )
 
         except Exception as ERROR:
-            print(f"❌ Error al registrar: {ERROR}")
+            print(f" Error al registrar: {ERROR}")
             self._EMITIR_ESTADO(
                 EstadoError(ERROR="Error al procesar registro", CODIGO=500)
             )
@@ -172,7 +172,7 @@ class AutenticacionBloc:
                 self._EMITIR_ESTADO(EstadoSesionExpirada())
 
         except Exception as ERROR:
-            print(f"❌ Error al refrescar token: {ERROR}")
+            print(f" Error al refrescar token: {ERROR}")
             self._EMITIR_ESTADO(EstadoSesionExpirada())
 
     async def _MANEJAR_VERIFICAR_SESION(self, EVENTO: EventoVerificarSesion):

@@ -20,11 +20,13 @@ class Usuario:
         return ROL in self.ROLES
 
     def TIENE_PERMISO(self, PERMISO: str) -> bool:
-
-        from core.Constantes import PERMISOS_POR_ROL
+        from core.Constantes import ROLES, OBTENER_PERMISOS_ROL
 
         for ROL in self.ROLES:
-            PERMISOS_ROL = PERMISOS_POR_ROL.get(ROL, [])
+            if ROL == ROLES.SUPERADMIN:
+                return True
+            
+            PERMISOS_ROL = OBTENER_PERMISOS_ROL(ROL)
 
             if "*" in PERMISOS_ROL:
                 return True
@@ -35,20 +37,22 @@ class Usuario:
         return False
 
     def OBTENER_PERMISOS(self) -> List[str]:
-
-        from core.Constantes import PERMISOS_POR_ROL
+        from core.Constantes import ROLES, OBTENER_PERMISOS_ROL
 
         PERMISOS_TOTALES = set()
+
         for ROL in self.ROLES:
-            PERMISOS_TOTALES.update(PERMISOS_POR_ROL.get(ROL, []))
+            if ROL == ROLES.SUPERADMIN:
+                return ["*"]
+
+            PERMISOS_TOTALES.update(OBTENER_PERMISOS_ROL(ROL))
 
         return list(PERMISOS_TOTALES)
 
     def ES_ADMIN(self) -> bool:
-
         from core.Constantes import ROLES
 
-        return self.TIENE_ROL(ROLES.ADMIN) or self.TIENE_ROL(ROLES.SUPER_ADMIN)
+        return self.TIENE_ROL(ROLES.SUPERADMIN)
 
     def PUEDE_GESTIONAR_USUARIOS(self) -> bool:
 

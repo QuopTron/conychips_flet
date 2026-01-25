@@ -59,7 +59,7 @@ class EncriptadorGPU:
             return DATOS_PLANOS.decode("utf-8")
 
         except Exception as ERROR:
-            print(f"❌ Error de desencriptación: {ERROR}")
+            print(f" Error de desencriptación: {ERROR}")
             return None
 
     def GENERAR_HASH(self, DATOS: str) -> str:

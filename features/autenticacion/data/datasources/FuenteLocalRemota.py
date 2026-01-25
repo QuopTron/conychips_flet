@@ -26,7 +26,7 @@ class FuenteAutenticacionRemota:
                             "ERROR": f"Error del servidor: {respuesta.status}",
                         }
         except Exception as ERROR:
-            print(f"❌ Error al conectar con API remota: {ERROR}")
+            print(f" Error al conectar con API remota: {ERROR}")
             return {"EXITO": False, "ERROR": "No se pudo conectar con el servidor"}
 
     async def REGISTRAR_USUARIO(
@@ -42,7 +42,7 @@ class FuenteAutenticacionRemota:
                 async with sesion.post(URL, json=DATOS) as respuesta:
                     return await respuesta.json()
         except Exception as ERROR:
-            print(f"❌ Error al registrar en API remota: {ERROR}")
+            print(f" Error al registrar en API remota: {ERROR}")
             return {"EXITO": False, "ERROR": "No se pudo conectar con el servidor"}
 
     async def VERIFICAR_TOKEN(self, TOKEN: str) -> Dict:
@@ -56,5 +56,5 @@ class FuenteAutenticacionRemota:
                 async with sesion.get(URL, headers=HEADERS) as respuesta:
                     return await respuesta.json()
         except Exception as ERROR:
-            print(f"❌ Error al verificar token: {ERROR}")
+            print(f" Error al verificar token: {ERROR}")
             return {"EXITO": False, "ERROR": "No se pudo verificar el token"}

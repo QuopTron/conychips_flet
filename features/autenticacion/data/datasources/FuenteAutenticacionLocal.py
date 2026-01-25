@@ -94,12 +94,12 @@ class FuenteAutenticacionLocal:
             SESION.commit()
             SESION.refresh(NUEVO_USUARIO)
 
-            print(f"✅ Usuario creado en BD: {EMAIL} (ID: {NUEVO_USUARIO.ID})")
+            print(f" Usuario creado en BD: {EMAIL} (ID: {NUEVO_USUARIO.ID})")
 
             return NUEVO_USUARIO
         except Exception as ERROR:
             SESION.rollback()
-            print(f"❌ Error al crear usuario: {ERROR}")
+            print(f" Error al crear usuario: {ERROR}")
             raise
         finally:
             SESION.close()
@@ -114,10 +114,10 @@ class FuenteAutenticacionLocal:
             if USUARIO:
                 USUARIO.ULTIMA_CONEXION = datetime.utcnow()
                 SESION.commit()
-                print(f"✅ Última conexión actualizada para usuario {USUARIO_ID}")
+                print(f" Última conexión actualizada para usuario {USUARIO_ID}")
         except Exception as ERROR:
             SESION.rollback()
-            print(f"❌ Error al actualizar última conexión: {ERROR}")
+            print(f" Error al actualizar última conexión: {ERROR}")
         finally:
             SESION.close()
 
@@ -151,10 +151,10 @@ class FuenteAutenticacionLocal:
             SESION.add(NUEVA_SESION)
             SESION.commit()
 
-            print(f"✅ Sesión creada para usuario {USUARIO_ID}")
+            print(f" Sesión creada para usuario {USUARIO_ID}")
         except Exception as ERROR:
             SESION.rollback()
-            print(f"❌ Error al crear sesión: {ERROR}")
+            print(f" Error al crear sesión: {ERROR}")
             raise
         finally:
             SESION.close()
@@ -178,7 +178,7 @@ class FuenteAutenticacionLocal:
                 return False
 
             if SESION_BD.FECHA_EXPIRACION < datetime.utcnow():
-                print(f"⚠️ Sesión expirada para usuario {USUARIO_ID}")
+                print(f" Sesión expirada para usuario {USUARIO_ID}")
                 return False
 
             return True
@@ -199,10 +199,10 @@ class FuenteAutenticacionLocal:
             if SESION_BD:
                 SESION_BD.ACTIVA = False
                 SESION.commit()
-                print(f"✅ Sesión cerrada para usuario {SESION_BD.USUARIO_ID}")
+                print(f" Sesión cerrada para usuario {SESION_BD.USUARIO_ID}")
         except Exception as ERROR:
             SESION.rollback()
-            print(f"❌ Error al cerrar sesión: {ERROR}")
+            print(f" Error al cerrar sesión: {ERROR}")
         finally:
             SESION.close()
 
@@ -218,14 +218,14 @@ class FuenteAutenticacionLocal:
                 if ROL not in USUARIO.ROLES:
                     USUARIO.ROLES.append(ROL)
                     SESION.commit()
-                    print(f"✅ Rol '{NOMBRE_ROL}' asignado a usuario {USUARIO_ID}")
+                    print(f" Rol '{NOMBRE_ROL}' asignado a usuario {USUARIO_ID}")
                 else:
-                    print(f"⚠️ Usuario {USUARIO_ID} ya tiene el rol '{NOMBRE_ROL}'")
+                    print(f" Usuario {USUARIO_ID} ya tiene el rol '{NOMBRE_ROL}'")
             else:
-                print(f"❌ Usuario o rol no encontrado")
+                print(f" Usuario o rol no encontrado")
         except Exception as ERROR:
             SESION.rollback()
-            print(f"❌ Error al asignar rol: {ERROR}")
+            print(f" Error al asignar rol: {ERROR}")
         finally:
             SESION.close()
 
@@ -241,10 +241,10 @@ class FuenteAutenticacionLocal:
                 if ROL in USUARIO.ROLES:
                     USUARIO.ROLES.remove(ROL)
                     SESION.commit()
-                    print(f"✅ Rol '{NOMBRE_ROL}' removido de usuario {USUARIO_ID}")
+                    print(f" Rol '{NOMBRE_ROL}' removido de usuario {USUARIO_ID}")
         except Exception as ERROR:
             SESION.rollback()
-            print(f"❌ Error al remover rol: {ERROR}")
+            print(f" Error al remover rol: {ERROR}")
         finally:
             SESION.close()
 

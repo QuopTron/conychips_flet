@@ -13,7 +13,16 @@ from features.autenticacion.domain.usecases.IniciarSesion import IniciarSesion
 from features.autenticacion.domain.usecases.RegistrarUsuario import RegistrarUsuario
 from features.autenticacion.domain.usecases.RefrescarToken import RefrescarToken
 from features.autenticacion.domain.usecases.VerificarPermisos import VerificarPermisos
-from core.Constantes import ROLES
+from core.Constantes import (
+    COLORES,
+    TAMANOS,
+    ICONOS,
+    ERRORES_AUTENTICACION,
+    ERRORES_VALIDACION,
+    MENSAJES_EXITO,
+    MENSAJES_CONFIRMACION,
+    ROLES,
+)
 from features.autenticacion.data.RepositorioAutenticacionImpl import (
     RepositorioAutenticacionImpl,
 )
@@ -53,30 +62,30 @@ class PaginaLogin(ft.Column):
         LOGO = ft.Container(
             content=ft.Column(
                 controls=[
-                    ft.Icon(ft.Icons.LOCK_OUTLINED, size=80, color=ft.Colors.BLUE_600),
+                    ft.Icon(ft.Icons.LOCK_OUTLINED, size=80, color=COLORES.PRIMARIO),
                     ft.Text(
                         value="Cony Chips",
-                        size=32,
+                        size=TAMANOS.TEXTO_4XL,
                         weight=ft.FontWeight.BOLD,
-                        color=ft.Colors.BLUE_600,
+                        color=COLORES.PRIMARIO,
                         text_align=ft.TextAlign.CENTER,
                     ),
                     ft.Text(
                         value="Autenticación de doble capa",
-                        size=14,
-                        color=ft.Colors.GREY_600,
+                        size=TAMANOS.TEXTO_MD,
+                        color=COLORES.TEXTO_SECUNDARIO,
                         text_align=ft.TextAlign.CENTER,
                     ),
                 ],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                spacing=10,
+                spacing=TAMANOS.ESPACIADO_MD,
             ),
-            margin=ft.margin.only(bottom=30),
+            margin=ft.Margin.only(bottom=30),
         )
 
         self._CAMPO_EMAIL = CampoTextoSeguro(
             ETIQUETA="Email",
-            ICONO=ft.Icons.EMAIL_OUTLINED,
+            ICONO=ICONOS.EMAIL,
             TIPO_TECLADO=ft.KeyboardType.EMAIL,
             VALIDADOR=self._VALIDAR_EMAIL,
             TEXTO_AYUDA="ejemplo@correo.com",
@@ -85,7 +94,7 @@ class PaginaLogin(ft.Column):
 
         self._CAMPO_CONTRASENA = CampoTextoSeguro(
             ETIQUETA="Contraseña",
-            ICONO=ft.Icons.LOCK_OUTLINED,
+            ICONO=ICONOS.CONTRASENA,
             ES_CONTRASENA=True,
             VALIDADOR=self._VALIDAR_CONTRASENA,
             TEXTO_AYUDA="Mínimo 8 caracteres",
@@ -94,8 +103,8 @@ class PaginaLogin(ft.Column):
 
         self._TEXTO_ERROR = ft.Text(
             value="",
-            color=ft.Colors.RED_400,
-            size=14,
+            color=COLORES.PELIGRO_CLARO,
+            size=TAMANOS.TEXTO_MD,
             visible=False,
             text_align=ft.TextAlign.CENTER,
             weight=ft.FontWeight.W_500,
@@ -103,17 +112,17 @@ class PaginaLogin(ft.Column):
 
         self._BOTON_LOGIN = BotonPrimario(
             TEXTO="Iniciar Sesión",
-            ICONO=ft.Icons.LOGIN_ROUNDED,
+            ICONO=ICONOS.INICIAR_SESION,
             AL_HACER_CLIC=self._MANEJAR_LOGIN,
             ANCHO=400,
             ALTURA=55,
-            COLOR_FONDO=ft.Colors.BLUE_600,
+            COLOR_FONDO=COLORES.PRIMARIO,
         )
 
         self._LINK_REGISTRO = ft.TextButton(
             "¿No tienes cuenta? Regístrate",
             on_click=self._CAMBIAR_MODO,
-            style=ft.ButtonStyle(color=ft.Colors.BLUE_600),
+            style=ft.ButtonStyle(color=COLORES.PRIMARIO),
         )
 
         FORMULARIO = ft.Container(
@@ -132,7 +141,7 @@ class PaginaLogin(ft.Column):
                 spacing=15,
             ),
             padding=40,
-            bgcolor=ft.Colors.WHITE,
+            bgcolor=COLORES.FONDO_BLANCO,
             border_radius=15,
             shadow=ft.BoxShadow(
                 spread_radius=1,
@@ -152,7 +161,7 @@ class PaginaLogin(ft.Column):
             gradient=ft.LinearGradient(
                 begin=ft.Alignment(-1, -1),
                 end=ft.Alignment(1, 1),
-                colors=[ft.Colors.BLUE_50, ft.Colors.PURPLE_50],
+                colors=[COLORES.PRIMARIO_CLARO, COLORES.SECUNDARIO_CLARO],
             ),
             expand=True,
             alignment=ft.Alignment(0, 0),
@@ -228,13 +237,13 @@ class PaginaLogin(ft.Column):
 
     def _MANEJAR_CAMBIO_ESTADO(self, ESTADO: EstadoAutenticacion):
 
-        print(f"📱 UI recibe estado: {type(ESTADO).__name__}")
+        print(f" UI recibe estado: {type(ESTADO).__name__}")
 
         if isinstance(ESTADO, EstadoCargando):
             pass
 
         elif isinstance(ESTADO, EstadoAutenticado):
-            self._MOSTRAR_EXITO("¡Bienvenido!")
+            self._MOSTRAR_EXITO(MENSAJES_EXITO.SESION_INICIADA)
             try:
                 from core.websocket.ManejadorConexion import ManejadorConexion
                 from config.ConfiguracionApp import CONFIGURACION_APP
@@ -253,20 +262,6 @@ class PaginaLogin(ft.Column):
                 import asyncio
 
                 asyncio.create_task(_crear_conn())
-            except Exception:
-                pass
-            try:
-                if ESTADO.USUARIO.TIENE_ROL(ROLES.CLIENTE):
-                    from features.productos.presentation.pages.PaginaProductos import (
-                        PaginaProductos,
-                    )
-
-                    self._PAGINA.controls.clear()
-                    self._PAGINA.controls.append(
-                        PaginaProductos(self._PAGINA, ESTADO.USUARIO.ID)
-                    )
-                    self._PAGINA.update()
-                    return
             except Exception:
                 pass
 
@@ -304,7 +299,7 @@ class PaginaLogin(ft.Column):
 
         if self._TEXTO_ERROR:
             self._TEXTO_ERROR.value = f"{MENSAJE}"
-            self._TEXTO_ERROR.color = ft.Colors.GREEN_600
+            self._TEXTO_ERROR.color = COLORES.EXITO
             self._TEXTO_ERROR.visible = True
             if getattr(self, "page", None):
                 self.update()
@@ -314,32 +309,42 @@ class PaginaLogin(ft.Column):
 
         self._PAGINA.controls.clear()
 
-        if USUARIO.TIENE_ROL(ROLES.CLIENTE):
-            from features.productos.presentation.pages.PaginaProductos import (
-                PaginaProductos,
-            )
-
-            pagina = PaginaProductos(self._PAGINA, USUARIO.ID)
-        elif USUARIO.TIENE_ROL(ROLES.ATENCION):
-            from features.atencion.presentation.pages.PaginaAtencion import (
-                PaginaAtencion,
-            )
-
-            pagina = PaginaAtencion(self._PAGINA, USUARIO.ID)
-        elif USUARIO.TIENE_ROL(ROLES.COCINERO):
-            from features.cocina.presentation.pages.PaginaCocina import PaginaCocina
-
-            pagina = PaginaCocina(self._PAGINA, USUARIO.ID)
-        elif USUARIO.TIENE_ROL(ROLES.LIMPIEZA):
-            from features.limpieza.presentation.pages.PaginaLimpieza import (
-                PaginaLimpieza,
-            )
-
-            pagina = PaginaLimpieza(self._PAGINA, USUARIO.ID)
-        elif USUARIO.TIENE_ROL(ROLES.ADMIN) or USUARIO.TIENE_ROL(ROLES.SUPER_ADMIN):
+        if USUARIO.TIENE_ROL(ROLES.SUPERADMIN):
             from features.admin.presentation.pages.PaginaAdmin import PaginaAdmin
 
-            pagina = PaginaAdmin(self._PAGINA, USUARIO.ID)
+            pagina = PaginaAdmin(self._PAGINA, USUARIO)
+        elif USUARIO.TIENE_ROL(ROLES.ADMIN):
+            from features.admin.presentation.pages.PaginaAdmin import PaginaAdmin
+
+            pagina = PaginaAdmin(self._PAGINA, USUARIO)
+        elif USUARIO.TIENE_ROL(ROLES.ATENCION):
+            from features.atencion.presentation.pages.PaginaDashboardAtencion import (
+                PaginaDashboardAtencion,
+            )
+
+            pagina = PaginaDashboardAtencion(self._PAGINA, USUARIO.ID)
+        elif USUARIO.TIENE_ROL(ROLES.COCINERO):
+            from features.cocina.presentation.pages.PaginaDashboardCocina import PaginaDashboardCocina
+
+            pagina = PaginaDashboardCocina(self._PAGINA, USUARIO.ID)
+        elif USUARIO.TIENE_ROL(ROLES.LIMPIEZA):
+            from features.limpieza.presentation.pages.PaginaDashboardLimpieza import (
+                PaginaDashboardLimpieza,
+            )
+
+            pagina = PaginaDashboardLimpieza(self._PAGINA, USUARIO.ID)
+        elif USUARIO.TIENE_ROL(ROLES.MOTORIZADO):
+            from features.motorizado.presentation.pages.PaginaDashboardMotorizado import (
+                PaginaDashboardMotorizado,
+            )
+
+            pagina = PaginaDashboardMotorizado(self._PAGINA, USUARIO.ID)
+        elif USUARIO.TIENE_ROL(ROLES.CLIENTE):
+            from features.cliente.presentation.pages.PaginaDashboardCliente import (
+                PaginaDashboardCliente,
+            )
+
+            pagina = PaginaDashboardCliente(self._PAGINA, USUARIO.ID)
         else:
             from features.autenticacion.presentation.pages.PaginaDashboard import (
                 PaginaDashboard,
@@ -347,5 +352,6 @@ class PaginaLogin(ft.Column):
 
             pagina = PaginaDashboard(self._PAGINA, USUARIO, self._BLOC)
 
+        # PaginaAdmin ya está construida como ft.Column, agregar directamente
         self._PAGINA.controls.append(pagina)
         self._PAGINA.update()

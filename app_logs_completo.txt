@@ -1,0 +1,72 @@
+INFO:flet:Assets path configured: /mnt/flox/conychips/assets
+INFO:flet:Starting up UDS server on /tmp/FhudtIp3X4
+INFO:flet:Flet app has started...
+INFO:flet:App URL: /tmp/FhudtIp3X4
+INFO:flet_desktop:Starting Flet View app...
+INFO:flet_desktop:Flet View found in: /home/parzival/.flet/client/flet-desktop-light-0.80.3
+
+(flet:10445): Atk-CRITICAL **: 09:18:06.557: atk_socket_embed: assertion 'plug_id != NULL' failed
+Gdk-Message: 09:18:06.659: Unable to load  from the cursor theme
+INFO:flet:App session started
+INFO:core.base_datos.ConfiguracionBD:Base de datos PostgreSQL inicializada - tablas creadas
+INFO:core.base_datos.ConfiguracionBD:Usuario Super Admin ya existe
+INFO:core.base_datos.ConfiguracionBD:Base de datos inicializada correctamente
+ERROR:flet:Unhandled error in 'on_click' handler
+Traceback (most recent call last):
+  File "/mnt/flox/conychips/venv/lib/python3.12/site-packages/flet/messaging/session.py", line 194, in dispatch_event
+    await control._trigger_event(event_name, event_data)
+  File "/mnt/flox/conychips/venv/lib/python3.12/site-packages/flet/controls/base_control.py", line 344, in _trigger_event
+    event_handler(e)
+  File "/mnt/flox/conychips/features/admin/presentation/pages/PaginaAdmin.py", line 632, in _VER_USUARIOS
+    VistaUsuarios(self._PAGINA, self._USUARIO, volver_dashboard)
+  File "/mnt/flox/conychips/features/admin/presentation/pages/VistaUsuarios.py", line 23, in __init__
+    self._cargar_vista()
+  File "/mnt/flox/conychips/features/admin/presentation/pages/VistaUsuarios.py", line 53, in _cargar_vista
+    self.establecer_contenido([
+  File "/mnt/flox/conychips/features/admin/presentation/widgets/VistaBase.py", line 59, in establecer_contenido
+    self.update()
+  File "/mnt/flox/conychips/venv/lib/python3.12/site-packages/flet/controls/base_control.py", line 253, in update
+    if not self.page:
+           ^^^^^^^^^
+  File "/mnt/flox/conychips/venv/lib/python3.12/site-packages/flet/controls/base_control.py", line 200, in page
+    raise RuntimeError(
+RuntimeError: VistaUsuarios(208) Control must be added to the page first
+embedder.cc (2575): 'FlutterEngineRemoveView' returned 'kInvalidArguments'. Remove view info was invalid. The implicit view cannot be removed.
+
+** (flet:10445): WARNING **: 09:18:42.143: Failed to cleanup compositor shaders, unable to make OpenGL context current
+
+(flet:10445): Gtk-CRITICAL **: 09:18:42.144: gtk_window_get_position: assertion 'GTK_IS_WINDOW (window)' failed
+
+(flet:10445): Gtk-CRITICAL **: 09:18:42.144: gtk_window_get_size: assertion 'GTK_IS_WINDOW (window)' failed
+
+(flet:10445): Gtk-CRITICAL **: 09:18:42.145: gtk_window_get_position: assertion 'GTK_IS_WINDOW (window)' failed
+
+(flet:10445): Gtk-CRITICAL **: 09:18:42.145: gtk_window_get_size: assertion 'GTK_IS_WINDOW (window)' failed
+
+** (flet:10445): WARNING **: 09:18:42.194: Attempted to set message handler on an FlBinaryMessenger without an engine
+
+** (flet:10445): WARNING **: 09:18:42.194: Attempted to set message handler on an FlBinaryMessenger without an engine
+✓ Conexión Redis establecida: redis://localhost:6379/0
+
+============================================================
+Flet version: 0.80.3
+Python version: 3.12.7 (main, Jan 23 2026, 05:48:14) [GCC 15.2.1 20260103]
+Iniciando aplicación Cony Chips...
+============================================================
+
+✓ Base de datos PostgreSQL inicializada
+Cargando página de Login...
+✓ Login cargado correctamente
+BLoC recibe evento: EventoIniciarSesion
+BLoC emite: EstadoCargando
+ UI recibe estado: EstadoCargando
+Iniciando sesión para: superadmin@conychips.com
+✓ Nuevo App Token generado: a62689c5-15e2-4c...
+ Sesión creada para usuario 1
+ Última conexión actualizada para usuario 1
+✓ Login exitoso para: superadmin@conychips.com
+BLoC emite: EstadoAutenticado
+ UI recibe estado: EstadoAutenticado
+ Servidor WebSocket configurado: ws://localhost:8765
+ Conectando a WebSocket: ws://localhost:8765
+ Error al conectar WebSocket: Multiple exceptions: [Errno 111] Connect call failed ('::1', 8765, 0, 0), [Errno 111] Connect call failed ('127.0.0.1', 8765)

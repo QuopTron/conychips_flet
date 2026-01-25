@@ -67,3 +67,28 @@ class RepositorioAutenticacion(ABC):
     async def OBTENER_SESIONES_ACTIVAS(self, USUARIO_ID: int) -> List:
 
         pass
+
+    @abstractmethod
+    async def ACTUALIZAR_TOKEN_RESET(self, USUARIO_ID: int, TOKEN: str, EXPIRA: datetime):
+
+        pass
+
+    @abstractmethod
+    async def OBTENER_USUARIO_POR_TOKEN_RESET(self, TOKEN: str):
+
+        pass
+
+    @abstractmethod
+    async def ACTUALIZAR_CONTRASENA(self, USUARIO_ID: int, NUEVA_CONTRASENA_HASH: str):
+
+        pass
+
+    @abstractmethod
+    async def LIMPIAR_TOKEN_RESET(self, USUARIO_ID: int):
+
+        pass
+
+    @abstractmethod
+    async def VERIFICAR_EMAIL(self, USUARIO_ID: int):
+
+        pass

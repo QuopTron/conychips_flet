@@ -1,5 +1,14 @@
 import flet as ft
 from core.base_datos.ConfiguracionBD import OBTENER_SESION, MODELO_USUARIO
+from core.Constantes import (
+    COLORES,
+    TAMANOS,
+    ICONOS,
+    ERRORES_AUTENTICACION,
+    ERRORES_VALIDACION,
+    MENSAJES_EXITO,
+    MENSAJES_CONFIRMACION,
+)
 
 
 class PaginaPerfil(ft.Column):
@@ -19,16 +28,16 @@ class PaginaPerfil(ft.Column):
         self._CONSTRUIR()
 
     def _CONSTRUIR(self):
-        HEADER = ft.Text("Mi Perfil", size=24, weight=ft.FontWeight.BOLD)
+        HEADER = ft.Text("Mi Perfil", size=TAMANOS.TEXTO_3XL, weight=ft.FontWeight.BOLD)
 
         AVATAR = ft.CircleAvatar(
             content=ft.Text(
                 self._USUARIO.NOMBRE_USUARIO[0].upper(),
                 size=28,
                 weight=ft.FontWeight.BOLD,
-                color=ft.Colors.WHITE,
+                color=COLORES.TEXTO_BLANCO,
             ),
-            bgcolor=ft.Colors.BLUE_600,
+            bgcolor=COLORES.PRIMARIO,
             radius=48,
         )
 
@@ -64,18 +73,18 @@ class PaginaPerfil(ft.Column):
                 ],
                 spacing=15,
             ),
-            padding=20,
-            bgcolor=ft.Colors.WHITE,
-            border_radius=10,
-            border=ft.border.all(1, ft.Colors.GREY_300),
+            padding=TAMANOS.PADDING_XL,
+            bgcolor=COLORES.FONDO_BLANCO,
+            border_radius=TAMANOS.RADIO_MD,
+            border=ft.border.all(1, COLORES.BORDE),
         )
 
         self.controls = [
             ft.Container(
                 content=ft.Column(
-                    [HEADER, ft.Container(height=10), tarjeta], spacing=10
+                    [HEADER, ft.Container(height=TAMANOS.ESPACIADO_MD), tarjeta], spacing=TAMANOS.ESPACIADO_MD
                 ),
-                padding=20,
+                padding=TAMANOS.PADDING_XL,
                 expand=True,
             )
         ]

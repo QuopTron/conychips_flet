@@ -30,7 +30,9 @@ class Rol:
 
     def ES_SUPER_ADMIN(self) -> bool:
 
-        return "*" in self.PERMISOS or self.NOMBRE == "super_admin"
+        from core.Constantes import ROLES
+
+        return "*" in self.PERMISOS or self.NOMBRE == ROLES.SUPERADMIN
 
     def __str__(self) -> str:
         return f"Rol(NOMBRE={self.NOMBRE}, PERMISOS={len(self.PERMISOS)})"

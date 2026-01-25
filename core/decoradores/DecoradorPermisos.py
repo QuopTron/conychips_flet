@@ -61,7 +61,7 @@ def SOLO_SUPER_ADMIN(FUNCION: Callable) -> Callable:
         PAYLOAD_JWT = KWARGS.get("PAYLOAD_JWT", {})
         ROLES_USUARIO = PAYLOAD_JWT.get("ROLES", [])
 
-        if ROLES.SUPER_ADMIN not in ROLES_USUARIO:
+        if ROLES.SUPERADMIN not in ROLES_USUARIO:
             return {
                 "EXITO": False,
                 "ERROR": "Esta acción requiere privilegios de super administrador",
