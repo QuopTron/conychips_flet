@@ -331,29 +331,6 @@ class PaginaAdmin(ft.Column):
     # =========================================================================
     # Gestión de Roles
     # =========================================================================
-        try:
-            if not self._USUARIO.TIENE_ROL(ROLES.SUPERADMIN):
-                self._MOSTRAR_ERROR(ERRORES_AUTENTICACION.PERMISOS_INSUFICIENTES)
-                return
-            
-            from features.admin.presentation.pages.PaginaGestionRoles import PaginaGestionRoles
-            
-            def volver_dashboard():
-                self._PAGINA.controls.clear()
-                self._PAGINA.controls.append(PaginaAdmin(self._PAGINA, self._USUARIO))
-                self._PAGINA.update()
-            
-            pagina_roles = PaginaGestionRoles(self._PAGINA, self._USUARIO, volver_dashboard)
-            self._PAGINA.controls.clear()
-            self._PAGINA.add(pagina_roles)
-            self._PAGINA.update()
-            
-        except Exception as error:
-            print(f"Error abriendo gestión de roles: {error}")
-            self._MOSTRAR_ERROR(f"Error: {str(error)}")    
-    # =========================================================================
-    # Gestión de Roles
-    # =========================================================================
     
     def _ABRIR_GESTION_ROLES(self, e):
         """Navega a la vista de gestión de roles"""
@@ -362,16 +339,10 @@ class PaginaAdmin(ft.Column):
                 self._MOSTRAR_ERROR(ERRORES_AUTENTICACION.PERMISOS_INSUFICIENTES)
                 return
             
-            from features.admin.presentation.pages.PaginaGestionRoles import PaginaGestionRoles
+            from features.admin.presentation.pages.gestion.RolesPage import RolesPage
             
-            def volver_dashboard():
-                self._PAGINA.controls.clear()
-                self._PAGINA.controls.append(PaginaAdmin(self._PAGINA, self._USUARIO))
-                self._PAGINA.update()
-            
-            pagina_roles = PaginaGestionRoles(self._PAGINA, self._USUARIO, volver_dashboard)
             self._PAGINA.controls.clear()
-            self._PAGINA.add(pagina_roles)
+            self._PAGINA.add(RolesPage(self._PAGINA, self._USUARIO))
             self._PAGINA.update()
             
         except Exception as error:
@@ -445,17 +416,10 @@ class PaginaAdmin(ft.Column):
 
     def _VER_USUARIOS(self, e):
         """Abre vista de gestión de usuarios"""
-        from features.admin.presentation.pages.VistaUsuarios import VistaUsuarios
-        
-        def volver_dashboard():
-            self._PAGINA.controls.clear()
-            self._PAGINA.controls.append(PaginaAdmin(self._PAGINA, self._USUARIO))
-            self._PAGINA.update()
+        from features.admin.presentation.pages.gestion.UsuariosPage import UsuariosPage
         
         self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(
-            VistaUsuarios(self._PAGINA, self._USUARIO, volver_dashboard)
-        )
+        self._PAGINA.controls.append(UsuariosPage(self._PAGINA, self._USUARIO))
         self._PAGINA.update()
 
     def _ABRIR_CAMBIO_ROL(self, USUARIO):
@@ -545,176 +509,127 @@ class PaginaAdmin(ft.Column):
 
     def _VER_PRODUCTOS(self, e):
         """Abre vista de gestión de productos"""
-        from features.admin.presentation.pages.VistaProductos import VistaProductos
-        
-        def volver_dashboard():
-            self._PAGINA.controls.clear()
-            self._PAGINA.controls.append(PaginaAdmin(self._PAGINA, self._USUARIO))
-            self._PAGINA.update()
+        from features.admin.presentation.pages.gestion.ProductosPage import ProductosPage
         
         self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(VistaProductos(self._PAGINA, self._USUARIO, volver_dashboard))
+        self._PAGINA.controls.append(ProductosPage(self._PAGINA, self._USUARIO))
         self._PAGINA.update()
 
 
     def _VER_SUCURSALES(self, e):
         """Abre vista de gestión de sucursales"""
-        from features.admin.presentation.pages.VistaSucursales import VistaSucursales
-        
-        def volver_dashboard():
-            self._PAGINA.controls.clear()
-            self._PAGINA.controls.append(PaginaAdmin(self._PAGINA, self._USUARIO))
-            self._PAGINA.update()
+        from features.admin.presentation.pages.gestion.SucursalesPage import SucursalesPage
         
         self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(VistaSucursales(self._PAGINA, self._USUARIO, volver_dashboard))
+        self._PAGINA.controls.append(SucursalesPage(self._PAGINA, self._USUARIO))
         self._PAGINA.update()
 
 
     def _VER_USUARIOS_AVANZADO(self, e):
         """Abre vista avanzada de gestión de usuarios"""
-        from features.admin.presentation.pages.VistaUsuarios import VistaUsuarios
-        
-        def volver_dashboard():
-            self._PAGINA.controls.clear()
-            self._PAGINA.controls.append(PaginaAdmin(self._PAGINA, self._USUARIO))
-            self._PAGINA.update()
+        from features.admin.presentation.pages.gestion.UsuariosPage import UsuariosPage
         
         self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(VistaUsuarios(self._PAGINA, self._USUARIO, volver_dashboard))
+        self._PAGINA.controls.append(UsuariosPage(self._PAGINA, self._USUARIO))
         self._PAGINA.update()
 
 
     def _VER_EXTRAS(self, e):
         """Abre vista de gestión de extras"""
-        from features.admin.presentation.pages.VistaExtras import VistaExtras
-        
-        def volver_dashboard():
-            self._PAGINA.controls.clear()
-            self._PAGINA.controls.append(PaginaAdmin(self._PAGINA, self._USUARIO))
-            self._PAGINA.update()
+        from features.admin.presentation.pages.gestion.ExtrasPage import ExtrasPage
         
         self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(VistaExtras(self._PAGINA, self._USUARIO, volver_dashboard))
+        self._PAGINA.controls.append(ExtrasPage(self._PAGINA, self._USUARIO))
         self._PAGINA.update()
 
 
     def _VER_OFERTAS(self, e):
         """Abre vista de gestión de ofertas"""
-        from features.admin.presentation.pages.VistaOfertas import VistaOfertas
-        
-        def volver_dashboard():
-            self._PAGINA.controls.clear()
-            self._PAGINA.controls.append(PaginaAdmin(self._PAGINA, self._USUARIO))
-            self._PAGINA.update()
+        from features.admin.presentation.pages.gestion.OfertasPage import OfertasPage
         
         self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(VistaOfertas(self._PAGINA, self._USUARIO, volver_dashboard))
+        self._PAGINA.controls.append(OfertasPage(self._PAGINA, self._USUARIO))
         self._PAGINA.update()
 
 
     def _VER_HORARIOS(self, e):
         """Abre vista de gestión de horarios"""
-        from features.admin.presentation.pages.VistaHorarios import VistaHorarios
-        
-        def volver_dashboard():
-            self._PAGINA.controls.clear()
-            self._PAGINA.controls.append(PaginaAdmin(self._PAGINA, self._USUARIO))
-            self._PAGINA.update()
+        from features.admin.presentation.pages.gestion.HorariosPage import HorariosPage
         
         self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(VistaHorarios(self._PAGINA, self._USUARIO, volver_dashboard))
+        self._PAGINA.controls.append(HorariosPage(self._PAGINA, self._USUARIO))
         self._PAGINA.update()
 
 
     def _VER_PEDIDOS_ADMIN(self, e):
-        from features.admin.presentation.pages.PaginaPedidos import PaginaPedidos
+        """Abre vista de pedidos administrativos"""
+        from features.admin.presentation.pages.vistas.PedidosPage import PedidosPage
 
         self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(PaginaPedidos(self._PAGINA, self._USUARIO))
+        self._PAGINA.controls.append(PedidosPage(self._PAGINA, self._USUARIO))
         self._PAGINA.update()
 
 
     def _VER_INSUMOS(self, e):
         """Abre vista de gestión de insumos"""
-        from features.admin.presentation.pages.VistaInsumos import VistaInsumos
-        
-        def volver_dashboard():
-            self._PAGINA.controls.clear()
-            self._PAGINA.controls.append(PaginaAdmin(self._PAGINA, self._USUARIO))
-            self._PAGINA.update()
+        from features.admin.presentation.pages.gestion.InsumosPage import InsumosPage
         
         self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(VistaInsumos(self._PAGINA, self._USUARIO, volver_dashboard))
+        self._PAGINA.controls.append(InsumosPage(self._PAGINA, self._USUARIO))
         self._PAGINA.update()
 
 
     def _VER_PROVEEDORES(self, e):
         """Abre vista de gestión de proveedores"""
-        from features.admin.presentation.pages.VistaProveedores import VistaProveedores
-        
-        def volver_dashboard():
-            self._PAGINA.controls.clear()
-            self._PAGINA.controls.append(PaginaAdmin(self._PAGINA, self._USUARIO))
-            self._PAGINA.update()
+        from features.admin.presentation.pages.gestion.ProveedoresPage import ProveedoresPage
         
         self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(VistaProveedores(self._PAGINA, self._USUARIO, volver_dashboard))
+        self._PAGINA.controls.append(ProveedoresPage(self._PAGINA, self._USUARIO))
         self._PAGINA.update()
 
 
     def _VER_CAJA(self, e):
         """Abre vista de gestión de caja"""
-        from features.admin.presentation.pages.VistaCaja import VistaCaja
-        
-        def volver_dashboard():
-            self._PAGINA.controls.clear()
-            self._PAGINA.controls.append(PaginaAdmin(self._PAGINA, self._USUARIO))
-            self._PAGINA.update()
+        from features.admin.presentation.pages.gestion.CajaPage import CajaPage
         
         self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(VistaCaja(self._PAGINA, self._USUARIO, volver_dashboard))
+        self._PAGINA.controls.append(CajaPage(self._PAGINA, self._USUARIO))
         self._PAGINA.update()
 
 
     def _VER_AUDITORIA(self, e):
         """Abre vista de auditoría"""
-        from features.admin.presentation.pages.VistaAuditoria import VistaAuditoria
-        
-        def volver_dashboard():
-            self._PAGINA.controls.clear()
-            self._PAGINA.controls.append(PaginaAdmin(self._PAGINA, self._USUARIO))
-            self._PAGINA.update()
+        from features.admin.presentation.pages.vistas.AuditoriaPage import AuditoriaPage
         
         self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(VistaAuditoria(self._PAGINA, self._USUARIO, volver_dashboard))
+        self._PAGINA.controls.append(AuditoriaPage(self._PAGINA, self._USUARIO))
         self._PAGINA.update()
 
 
     def _VER_RESENAS(self, e):
         """Abre vista de reseñas"""
-        from features.admin.presentation.pages.PaginaResenas import PaginaResenas
+        from features.admin.presentation.pages.vistas.ResenasPage import ResenasPage
 
         self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(PaginaResenas(self._PAGINA, self._USUARIO))
+        self._PAGINA.controls.append(ResenasPage(self._PAGINA, self._USUARIO))
         self._PAGINA.update()
     
     
     def _VER_FINANZAS(self, e):
         """Abre vista de finanzas"""
-        from features.admin.presentation.pages.PaginaFinanzas import PaginaFinanzas
+        from features.admin.presentation.pages.vistas.FinanzasPage import FinanzasPage
 
         self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(PaginaFinanzas(self._PAGINA, self._USUARIO).CONSTRUIR())
+        self._PAGINA.controls.append(FinanzasPage(self._PAGINA, self._USUARIO))
         self._PAGINA.update()
     
     
     def _VER_VALIDAR_VOUCHERS(self, e):
         """Abre vista de validación de vouchers"""
-        from features.admin.presentation.pages.PaginaValidarVouchers import PaginaValidarVouchers
+        from features.admin.presentation.pages.vistas.VouchersPage import VouchersPage
 
         self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(PaginaValidarVouchers(self._PAGINA, self._USUARIO).CONSTRUIR())
+        self._PAGINA.controls.append(VouchersPage(self._PAGINA, self._USUARIO))
         self._PAGINA.update()
 
 
