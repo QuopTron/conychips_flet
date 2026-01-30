@@ -5,7 +5,6 @@ import os
 from typing import Optional, Callable, List
 from core.Constantes import WS_INTENTOS_RECONEXION, WS_TIMEOUT
 
-
 class ClienteWebSocket:
 
     def __init__(self, URL: str, TOKEN_ACCESS: str):

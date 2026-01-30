@@ -1,5 +1,5 @@
 import flet as ft
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import func
 
 from core.base_datos.ConfiguracionBD import (
@@ -11,7 +11,6 @@ from core.base_datos.ConfiguracionBD import (
 )
 from core.constantes import COLORES, TAMANOS, ICONOS
 from core.decoradores.DecoradorVistas import REQUIERE_ROL
-
 
 @REQUIERE_ROL("ADMIN", "SUPERADMIN")
 class PaginaFinanzas:
@@ -70,7 +69,7 @@ class PaginaFinanzas:
     def _CARGAR_GRAFICO(self):
         sesion = OBTENER_SESION()
         
-        FECHA_INICIO = datetime.utcnow() - timedelta(days=7)
+        FECHA_INICIO = datetime.now(timezone.utc) - timedelta(days=7)
         
         INGRESOS_DIA = {}
         EGRESOS_DIA = {}
@@ -183,7 +182,7 @@ class PaginaFinanzas:
                             ),
                         ]),
                         padding=10,
-                        border=ft.border.all(1, COLORES.BORDE),
+                        border=ft.Border.all(1, COLORES.BORDE),
                         border_radius=TAMANOS.RADIO_BORDE,
                     )
                 )
@@ -239,13 +238,13 @@ class PaginaFinanzas:
                                 size=12
                             ),
                             ft.Row([
-                                ft.ElevatedButton(
+                                ft.Button(
                                     "Aprobar",
                                     icon=ICONOS.CONFIRMAR,
                                     bgcolor=COLORES.EXITO,
                                     on_click=lambda e, s=solicitud: self._APROBAR_REFILL(s)
                                 ),
-                                ft.ElevatedButton(
+                                ft.Button(
                                     "Rechazar",
                                     icon=ICONOS.CANCELAR,
                                     bgcolor=COLORES.ERROR,
@@ -254,7 +253,7 @@ class PaginaFinanzas:
                             ], spacing=10),
                         ], spacing=10),
                         padding=15,
-                        border=ft.border.all(1, COLORES.ADVERTENCIA),
+                        border=ft.Border.all(1, COLORES.ADVERTENCIA),
                         border_radius=TAMANOS.RADIO_BORDE,
                         bgcolor=COLORES.FONDO_TARJETA,
                     )
@@ -273,7 +272,7 @@ class PaginaFinanzas:
         if solicitud:
             solicitud.ESTADO = "aprobado"
             solicitud.APROBADO_POR = self.USUARIO_ID
-            solicitud.FECHA_APROBACION = datetime.utcnow()
+            solicitud.FECHA_APROBACION = datetime.now(timezone.utc)
             sesion.commit()
             
             from core.base_datos.ConfiguracionBD import MODELO_INSUMO
@@ -301,7 +300,7 @@ class PaginaFinanzas:
         if solicitud:
             solicitud.ESTADO = "rechazado"
             solicitud.APROBADO_POR = self.USUARIO_ID
-            solicitud.FECHA_APROBACION = datetime.utcnow()
+            solicitud.FECHA_APROBACION = datetime.now(timezone.utc)
             sesion.commit()
         
         sesion.close()
@@ -321,7 +320,7 @@ class PaginaFinanzas:
             ft.Row([
                 ft.Text("Finanzas y Control", size=TAMANOS.TITULO, weight=ft.FontWeight.BOLD),
                 ft.Container(expand=True),
-                ft.ElevatedButton("Menú", icon=ICONOS.DASHBOARD, on_click=self._IR_MENU),
+                ft.Button("Menú", icon=ICONOS.DASHBOARD, on_click=self._IR_MENU),
             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
             
             ft.Row([
@@ -331,7 +330,7 @@ class PaginaFinanzas:
                         self.INGRESOS_TOTALES,
                     ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
                     padding=20,
-                    border=ft.border.all(2, COLORES.EXITO),
+                    border=ft.Border.all(2, COLORES.EXITO),
                     border_radius=TAMANOS.RADIO_BORDE,
                     expand=True,
                 ),
@@ -341,7 +340,7 @@ class PaginaFinanzas:
                         self.EGRESOS_TOTALES,
                     ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
                     padding=20,
-                    border=ft.border.all(2, COLORES.ERROR),
+                    border=ft.Border.all(2, COLORES.ERROR),
                     border_radius=TAMANOS.RADIO_BORDE,
                     expand=True,
                 ),
@@ -351,7 +350,7 @@ class PaginaFinanzas:
                         self.BALANCE,
                     ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
                     padding=20,
-                    border=ft.border.all(2, COLORES.PRIMARIO),
+                    border=ft.Border.all(2, COLORES.PRIMARIO),
                     border_radius=TAMANOS.RADIO_BORDE,
                     expand=True,
                 ),
@@ -360,37 +359,26 @@ class PaginaFinanzas:
             ft.Divider(),
             
             ft.Tabs(
+                content=ft.Column([
+                    ft.TabBar(
+                        tabs=[
+                            ft.Tab(label="Gráfico Semanal", icon=ICONOS.ESTADISTICAS),
+                            ft.Tab(label="Movimientos", icon=ICONOS.HISTORIAL),
+                            ft.Tab(label="Solicitudes Refill", icon=ICONOS.ALERTA),
+                        ],
+                    ),
+                    ft.TabBarView(
+                        controls=[
+                            ft.Container(content=self.GRAFICO_MOVIMIENTOS, padding=10),
+                            ft.Container(content=self.MOVIMIENTOS_RECIENTES, padding=10),
+                            ft.Container(content=self.SOLICITUDES_REFILL, padding=10),
+                        ],
+                    ),
+                ], expand=True),
+                length=3,
                 selected_index=0,
-                tabs=[
-                    ft.Tab(
-                        text="Gráfico Semanal",
-                        icon=ICONOS.ESTADISTICAS,
-                        content=ft.Container(
-                            content=self.GRAFICO_MOVIMIENTOS,
-                            padding=10,
-                        )
-                    ),
-                    ft.Tab(
-                        text="Movimientos",
-                        icon=ICONOS.HISTORIAL,
-                        content=ft.Container(
-                            content=self.MOVIMIENTOS_RECIENTES,
-                            padding=10,
-                        )
-                    ),
-                    ft.Tab(
-                        text="Solicitudes Refill",
-                        icon=ICONOS.ALERTA,
-                        content=ft.Container(
-                            content=self.SOLICITUDES_REFILL,
-                            padding=10,
-                        )
-                    ),
-                ],
-                expand=True,
             )
         ], expand=True)
-
 
     def _IR_MENU(self, e):
         from features.admin.presentation.pages.PaginaAdmin import PaginaAdmin

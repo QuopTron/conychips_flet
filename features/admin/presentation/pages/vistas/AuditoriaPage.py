@@ -1,93 +1,98 @@
-"""
-Página de visualización de auditoría del sistema.
-Solo lectura - No es CRUD.
-Arquitectura: Clean Architecture + Hexagonal
-"""
 import flet as ft
 from datetime import datetime, timedelta
 from core.base_datos.ConfiguracionBD import OBTENER_SESION, MODELO_AUDITORIA
 from core.Constantes import COLORES, TAMANOS, ICONOS, ROLES
 from core.decoradores.DecoradorVistas import REQUIERE_ROL
-from features.admin.presentation.widgets.ComponentesGlobales import (
-    HeaderAdmin, TablaGenerica, BarraBusqueda, ContenedorPagina, Notificador
-)
-
+from features.admin.presentation.widgets import LayoutBase
+from core.ui.safe_actions import safe_update
+from core.decoradores.DecoradorPermisosUI import requiere_rol_ui
+from features.admin.presentation.widgets.ComponentesGlobales import Notificador
 
 @REQUIERE_ROL(ROLES.SUPERADMIN)
-class AuditoriaPage(ft.Column):
-    """Vista de solo lectura de logs de auditoría."""
+class AuditoriaPage(LayoutBase):
     
     def __init__(self, PAGINA: ft.Page, USUARIO):
-        super().__init__()
-        self._PAGINA = PAGINA
-        self._USUARIO = USUARIO
+        # Inicializar layout base
+        super().__init__(
+            pagina=PAGINA,
+            usuario=USUARIO,
+            titulo_vista="Auditoría del Sistema",
+            mostrar_boton_volver=True,
+            index_navegacion=4,  # Auditoría es el 5to item
+            on_volver_dashboard=self._IR_MENU,
+            on_cerrar_sesion=self._SALIR
+        )
+        
         self._FILTRO = "TODOS"
         self._FECHA_INICIO = datetime.now() - timedelta(days=7)
         self._FECHA_FIN = datetime.now()
         
-        self.expand = True
         self._CONSTRUIR_UI()
         self._CARGAR_DATOS()
     
     def _CONSTRUIR_UI(self):
-        """Construye la interfaz de usuario."""
-        # Header
-        header = HeaderAdmin(
-            titulo="Auditoría del Sistema",
-            icono=ICONOS.AUDITORIA,
-            on_menu=self._IR_MENU,
-            on_salir=self._SALIR
+        filtros = ft.Container(
+            content=ft.ResponsiveRow([
+                ft.Container(
+                    ft.Dropdown(
+                        label="Tipo de Evento",
+                        options=[
+                            ft.dropdown.Option("TODOS", "Todos"),
+                            ft.dropdown.Option("LOGIN", "Inicios de Sesión"),
+                            ft.dropdown.Option("LOGOUT", "Cierres de Sesión"),
+                            ft.dropdown.Option("CREAR", "Creaciones"),
+                            ft.dropdown.Option("EDITAR", "Modificaciones"),
+                            ft.dropdown.Option("ELIMINAR", "Eliminaciones"),
+                            ft.dropdown.Option("ERROR", "Errores"),
+                        ],
+                        value=self._FILTRO,
+                        on_change=self._CAMBIAR_FILTRO,
+                    ),
+                    col={"xs": 12, "sm": 6, "md": 3}
+                ),
+                ft.Container(
+                    ft.Button(
+                        "Última Semana",
+                        icon=ft.icons.Icons.CALENDAR_TODAY,
+                        on_click=lambda e: self._APLICAR_RANGO(7)
+                    ),
+                    col={"xs": 6, "sm": 4, "md": 2}
+                ),
+                ft.Container(
+                    ft.Button(
+                        "Último Mes",
+                        icon=ft.icons.Icons.CALENDAR_MONTH,
+                        on_click=lambda e: self._APLICAR_RANGO(30)
+                    ),
+                    col={"xs": 6, "sm": 4, "md": 2}
+                ),
+                ft.Container(
+                    ft.Button(
+                        "Exportar",
+                        icon=ft.icons.Icons.DOWNLOAD,
+                        on_click=self._EXPORTAR_AUDITORIA
+                    ),
+                    col={"xs": 12, "sm": 4, "md": 2}
+                ),
+            ], spacing=6, run_spacing=6),
+            bgcolor=ft.Colors.BLUE_50,
+            border_radius=4,
+            padding=6,
+            border=ft.border.all(1, ft.Colors.BLUE_200)
         )
         
-        # Filtros
-        filtros = ft.Row(
-            controls=[
-                ft.Dropdown(
-                    label="Tipo de Evento",
-                    options=[
-                        ft.dropdown.Option("TODOS", "Todos"),
-                        ft.dropdown.Option("LOGIN", "Inicios de Sesión"),
-                        ft.dropdown.Option("LOGOUT", "Cierres de Sesión"),
-                        ft.dropdown.Option("CREAR", "Creaciones"),
-                        ft.dropdown.Option("EDITAR", "Modificaciones"),
-                        ft.dropdown.Option("ELIMINAR", "Eliminaciones"),
-                        ft.dropdown.Option("ERROR", "Errores"),
-                    ],
-                    value=self._FILTRO,
-                    on_change=self._CAMBIAR_FILTRO,
-                    width=200
-                ),
-                ft.ElevatedButton(
-                    "Última Semana",
-                    icon=ICONOS.CALENDARIO,
-                    on_click=lambda e: self._APLICAR_RANGO(7)
-                ),
-                ft.ElevatedButton(
-                    "Último Mes",
-                    icon=ICONOS.CALENDARIO,
-                    on_click=lambda e: self._APLICAR_RANGO(30)
-                ),
-                ft.ElevatedButton(
-                    "Exportar",
-                    icon=ICONOS.DESCARGAR,
-                    on_click=self._EXPORTAR_AUDITORIA
-                ),
-            ],
-            spacing=TAMANOS.ESPACIADO_MD
+        self._tabla = ft.Column(spacing=3, scroll=ft.ScrollMode.ADAPTIVE, expand=True)
+        
+        contenido = ft.Container(
+            content=ft.Column([filtros, self._tabla], expand=True, spacing=4),
+            padding=0,
+            expand=True
         )
         
-        # Tabla de resultados
-        self._tabla = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO, expand=True)
-        
-        # Contenedor principal
-        contenido = ContenedorPagina(
-            controles=[header, filtros, self._tabla]
-        )
-        
-        self.controls = [contenido]
+        # Usar LayoutBase.construir()
+        self.construir(contenido)
     
     def _CARGAR_DATOS(self):
-        """Carga los registros de auditoría."""
         try:
             sesion = OBTENER_SESION()
             query = sesion.query(MODELO_AUDITORIA).filter(
@@ -106,7 +111,6 @@ class AuditoriaPage(ft.Column):
             Notificador.ERROR(self._PAGINA, f"Error al cargar auditoría: {str(e)}")
     
     def _ACTUALIZAR_TABLA(self, registros):
-        """Actualiza la tabla con los registros."""
         self._tabla.controls.clear()
         
         if not registros:
@@ -115,7 +119,6 @@ class AuditoriaPage(ft.Column):
                        size=16, color=COLORES.TEXTO_SECUNDARIO)
             )
         else:
-            # Crear tabla
             filas = []
             for reg in registros:
                 color_evento = self._OBTENER_COLOR_EVENTO(reg.TIPO_EVENTO)
@@ -145,23 +148,22 @@ class AuditoriaPage(ft.Column):
                     ft.DataColumn(ft.Text("Detalles", weight=ft.FontWeight.BOLD)),
                 ],
                 rows=filas,
-                border=ft.border.all(1, COLORES.BORDE),
+                border=ft.Border.all(1, COLORES.BORDE),
                 heading_row_color=COLORES.FONDO_SECUNDARIO,
             )
             
             self._tabla.controls.append(
                 ft.Container(
                     content=tabla,
-                    border=ft.border.all(1, COLORES.BORDE),
+                    border=ft.Border.all(1, COLORES.BORDE),
                     border_radius=TAMANOS.RADIO_MD,
                     padding=TAMANOS.PADDING_MD
                 )
             )
         
-        self._PAGINA.update()
+        safe_update(self._PAGINA)
     
     def _OBTENER_COLOR_EVENTO(self, tipo_evento):
-        """Retorna color según tipo de evento."""
         colores_eventos = {
             "LOGIN": COLORES.EXITO,
             "LOGOUT": COLORES.INFO,
@@ -173,30 +175,26 @@ class AuditoriaPage(ft.Column):
         return colores_eventos.get(tipo_evento, COLORES.SECUNDARIO)
     
     def _CAMBIAR_FILTRO(self, e):
-        """Cambia el filtro de eventos."""
         self._FILTRO = e.control.value
         self._CARGAR_DATOS()
     
     def _APLICAR_RANGO(self, dias):
-        """Aplica rango de fechas."""
         self._FECHA_INICIO = datetime.now() - timedelta(days=dias)
         self._FECHA_FIN = datetime.now()
         self._CARGAR_DATOS()
     
+    @requiere_rol_ui(ROLES.SUPERADMIN, ROLES.ADMIN)
     def _EXPORTAR_AUDITORIA(self, e):
-        """Exporta auditoría a CSV."""
         Notificador.INFO(self._PAGINA, "Exportación en desarrollo...")
     
     def _IR_MENU(self, e=None):
-        """Retorna al menú principal."""
         from features.admin.presentation.pages.PaginaAdmin import PaginaAdmin
         self._PAGINA.controls.clear()
         self._PAGINA.add(PaginaAdmin(self._PAGINA, self._USUARIO))
-        self._PAGINA.update()
+        safe_update(self._PAGINA)
     
     def _SALIR(self, e=None):
-        """Cierra sesión."""
         from features.autenticacion.presentation.pages.PaginaLogin import PaginaLogin
         self._PAGINA.controls.clear()
         self._PAGINA.add(PaginaLogin(self._PAGINA))
-        self._PAGINA.update()
+        safe_update(self._PAGINA)

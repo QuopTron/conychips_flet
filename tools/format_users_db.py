@@ -3,7 +3,6 @@ import os
 import bcrypt
 from core.base_datos.ConfiguracionBD import RUTA_BD, OBTENER_SESION, MODELO_USUARIO
 
-
 def normalizar_email(email: str) -> str:
     if not email:
         return email
@@ -16,7 +15,6 @@ def normalizar_email(email: str) -> str:
             return email
         return f"{local}@{domain}.com"
     return email + ".com"
-
 
 def main():
     if os.path.exists(RUTA_BD):
@@ -57,7 +55,6 @@ def main():
     print(
         "Contraseñas actualizadas a 'Limpiez123.' (hash bcrypt). Revise el respaldo si quiere revertir."
     )
-
 
 if __name__ == "__main__":
     main()

@@ -12,7 +12,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker, scoped_session
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 import shutil
 import time
@@ -33,7 +33,6 @@ TABLA_USUARIO_ROLES = Table(
     Column("ROL_ID", Integer, ForeignKey("ROLES.ID")),
 )
 
-
 class MODELO_USUARIO(BASE):
 
     __tablename__ = "USUARIOS"
@@ -41,12 +40,12 @@ class MODELO_USUARIO(BASE):
     ID = Column(Integer, primary_key=True, autoincrement=True)
     EMAIL = Column(String(100), unique=True, nullable=False, index=True)
     NOMBRE_USUARIO = Column(String(50), unique=True, nullable=False)
-    CONTRASENA_HASH = Column(String(100), nullable=False)  # bcrypt hash
-    HUELLA_DISPOSITIVO = Column(String(64), nullable=False)  # SHA256 hash
-    FOTO_PERFIL = Column(String(300), nullable=True)  # Ruta de imagen
+    CONTRASENA_HASH = Column(String(100), nullable=False)
+    HUELLA_DISPOSITIVO = Column(String(64), nullable=False)
+    FOTO_PERFIL = Column(String(300), nullable=True)
     ACTIVO = Column(Boolean, default=True)
     VERIFICADO = Column(Boolean, default=False)
-    TOKEN_RESET = Column(String(64), nullable=True)  # Token UUID
+    TOKEN_RESET = Column(String(64), nullable=True)
     TOKEN_RESET_EXPIRA = Column(DateTime, nullable=True)
     FECHA_CREACION = Column(DateTime, default=datetime.utcnow)
     ULTIMA_CONEXION = Column(DateTime, nullable=True)
@@ -58,7 +57,6 @@ class MODELO_USUARIO(BASE):
         "MODELO_SESION", back_populates="USUARIO", cascade="all, delete-orphan"
     )
 
-
 class MODELO_ROL(BASE):
 
     __tablename__ = "ROLES"
@@ -66,7 +64,7 @@ class MODELO_ROL(BASE):
     ID = Column(Integer, primary_key=True, autoincrement=True)
     NOMBRE = Column(String(50), unique=True, nullable=False)
     DESCRIPCION = Column(String(200), nullable=True)
-    PERMISOS = Column(String(2000), nullable=True)  # JSON de permisos
+    PERMISOS = Column(String(2000), nullable=True)
     ACTIVO = Column(Boolean, default=True)
     FECHA_CREACION = Column(DateTime, default=datetime.utcnow)
 
@@ -74,16 +72,15 @@ class MODELO_ROL(BASE):
         "MODELO_USUARIO", secondary=TABLA_USUARIO_ROLES, back_populates="ROLES"
     )
 
-
 class MODELO_SESION(BASE):
 
     __tablename__ = "SESIONES"
 
     ID = Column(Integer, primary_key=True, autoincrement=True)
     USUARIO_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=False)
-    REFRESH_TOKEN = Column(String, unique=True, nullable=False)  # JWT token RS256 (TEXT en PostgreSQL)
-    HUELLA_DISPOSITIVO = Column(String(64), nullable=False)  # SHA256 hash
-    IP = Column(String(45), nullable=True)  # IPv4/IPv6
+    REFRESH_TOKEN = Column(String, unique=True, nullable=False)
+    HUELLA_DISPOSITIVO = Column(String(64), nullable=False)
+    IP = Column(String(45), nullable=True)
     NAVEGADOR = Column(String(150), nullable=True)
     ACTIVA = Column(Boolean, default=True)
     FECHA_CREACION = Column(DateTime, default=datetime.utcnow)
@@ -91,15 +88,14 @@ class MODELO_SESION(BASE):
 
     USUARIO = relationship("MODELO_USUARIO", back_populates="SESIONES")
 
-
 class MODELO_PRODUCTO(BASE):
     __tablename__ = "PRODUCTOS"
 
     ID = Column(Integer, primary_key=True, autoincrement=True)
     NOMBRE = Column(String(100), unique=True, nullable=False)
     DESCRIPCION = Column(String(300), nullable=True)
-    PRECIO = Column(Integer, nullable=False, default=0)  # En Bs
-    IMAGEN = Column(String(300), nullable=True)  # Ruta o URL de imagen
+    PRECIO = Column(Integer, nullable=False, default=0)
+    IMAGEN = Column(String(300), nullable=True)
     DISPONIBLE = Column(Boolean, default=True)
     FECHA_CREACION = Column(DateTime, default=datetime.utcnow)
 
@@ -109,7 +105,6 @@ class MODELO_PRODUCTO(BASE):
     EXTRAS = relationship(
         "MODELO_EXTRA", secondary="PRODUCTO_EXTRA", back_populates="PRODUCTOS"
     )
-
 
 class MODELO_SUCURSAL(BASE):
     __tablename__ = "SUCURSALES"
@@ -126,7 +121,6 @@ class MODELO_SUCURSAL(BASE):
     PEDIDOS = relationship("MODELO_PEDIDO", back_populates="SUCURSAL")
     CAJAS = relationship("MODELO_CAJA", back_populates="SUCURSAL")
 
-
 TABLA_PRODUCTO_SUCURSAL = Table(
     "PRODUCTO_SUCURSAL",
     BASE.metadata,
@@ -134,21 +128,19 @@ TABLA_PRODUCTO_SUCURSAL = Table(
     Column("SUCURSAL_ID", Integer, ForeignKey("SUCURSALES.ID")),
 )
 
-
 class MODELO_EXTRA(BASE):
     __tablename__ = "EXTRAS"
 
     ID = Column(Integer, primary_key=True, autoincrement=True)
     NOMBRE = Column(String(100), nullable=False)
     DESCRIPCION = Column(String(255))
-    PRECIO_ADICIONAL = Column(Integer, default=0)  # En Bs
+    PRECIO_ADICIONAL = Column(Integer, default=0)
     ACTIVO = Column(Boolean, default=True)
     FECHA_CREACION = Column(DateTime, default=datetime.utcnow)
 
     PRODUCTOS = relationship(
         "MODELO_PRODUCTO", secondary="PRODUCTO_EXTRA", back_populates="EXTRAS"
     )
-
 
 TABLA_PRODUCTO_EXTRA = Table(
     "PRODUCTO_EXTRA",
@@ -157,19 +149,18 @@ TABLA_PRODUCTO_EXTRA = Table(
     Column("EXTRA_ID", Integer, ForeignKey("EXTRAS.ID")),
 )
 
-
 class MODELO_PEDIDO(BASE):
     __tablename__ = "PEDIDOS"
 
     ID = Column(Integer, primary_key=True, autoincrement=True)
     CLIENTE_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=False)
     SUCURSAL_ID = Column(Integer, ForeignKey("SUCURSALES.ID"), nullable=False)
-    TIPO = Column(String(15), default="delivery")  # 'delivery' o 'presencial'
+    TIPO = Column(String(15), default="delivery")
     ESTADO = Column(
         String(30), default="pendiente"
-    )  # pendiente, confirmado, preparado, entregado
+    )
     MONTO_TOTAL = Column(Integer, nullable=False)
-    QR_PAGO = Column(String(300), nullable=True)  # Ruta imagen QR
+    QR_PAGO = Column(String(300), nullable=True)
     NOTAS = Column(String(300), nullable=True)
     FECHA_CREACION = Column(DateTime, default=datetime.utcnow)
     FECHA_CONFIRMACION = Column(DateTime, nullable=True)
@@ -180,7 +171,6 @@ class MODELO_PEDIDO(BASE):
         "MODELO_DETALLE_PEDIDO", back_populates="PEDIDO", cascade="all, delete-orphan"
     )
 
-
 class MODELO_DETALLE_PEDIDO(BASE):
     __tablename__ = "DETALLE_PEDIDO"
 
@@ -189,13 +179,12 @@ class MODELO_DETALLE_PEDIDO(BASE):
     PRODUCTO_ID = Column(Integer, ForeignKey("PRODUCTOS.ID"), nullable=False)
     CANTIDAD = Column(Integer, default=1)
     PRECIO_UNITARIO = Column(Integer, nullable=False)
-    EXTRAS_SELECCIONADOS = Column(String(500), nullable=True)  # JSON array de IDs
+    EXTRAS_SELECCIONADOS = Column(String(500), nullable=True)
 
     PEDIDO = relationship("MODELO_PEDIDO", back_populates="DETALLES")
     PRODUCTO = relationship("MODELO_PRODUCTO")
 
-
-class MODELO_ASISTENCIA(BASE):  # OPCIONAL
+class MODELO_ASISTENCIA(BASE):
     __tablename__ = "ASISTENCIAS"
 
     ID = Column(Integer, primary_key=True, autoincrement=True)
@@ -206,22 +195,19 @@ class MODELO_ASISTENCIA(BASE):  # OPCIONAL
 
     USUARIO = relationship("MODELO_USUARIO")
 
-
-class MODELO_REPORTE_LIMPIEZA(BASE):  # OPCIONAL
+class MODELO_REPORTE_LIMPIEZA(BASE):
     __tablename__ = "REPORTES_LIMPIEZA"
 
     ID = Column(Integer, primary_key=True, autoincrement=True)
     USUARIO_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=False)
     SUCURSAL_ID = Column(Integer, ForeignKey("SUCURSALES.ID"), nullable=False)
     FECHA = Column(DateTime, default=datetime.utcnow)
-    FOTO_LOCAL = Column(String(300), nullable=True)  # Ruta de imagen
+    FOTO_LOCAL = Column(String(300), nullable=True)
     NOTAS = Column(String(300), nullable=True)
 
     USUARIO = relationship("MODELO_USUARIO")
     SUCURSAL = relationship("MODELO_SUCURSAL")
 
-
-# EGRESOS
 class MODELO_CAJA(BASE):
     __tablename__ = "CAJAS"
 
@@ -238,19 +224,17 @@ class MODELO_CAJA(BASE):
     USUARIO = relationship("MODELO_USUARIO")
     SUCURSAL = relationship("MODELO_SUCURSAL", back_populates="CAJAS")
 
-
 class MODELO_OFERTA(BASE):
     __tablename__ = "OFERTAS"
 
     ID = Column(Integer, primary_key=True, autoincrement=True)
     PRODUCTO_ID = Column(Integer, ForeignKey("PRODUCTOS.ID"), nullable=False)
-    DESCUENTO_PORCENTAJE = Column(Integer, nullable=False)  # 0-100
+    DESCUENTO_PORCENTAJE = Column(Integer, nullable=False)
     FECHA_INICIO = Column(DateTime, default=datetime.utcnow)
     FECHA_FIN = Column(DateTime, nullable=True)
     ACTIVA = Column(Boolean, default=True)
 
     PRODUCTO = relationship("MODELO_PRODUCTO")
-
 
 TABLA_INSUMO_PROVEEDOR = Table(
     "INSUMO_PROVEEDOR",
@@ -258,7 +242,6 @@ TABLA_INSUMO_PROVEEDOR = Table(
     Column("INSUMO_ID", Integer, ForeignKey("INSUMOS.ID")),
     Column("PROVEEDOR_ID", Integer, ForeignKey("PROVEEDORES.ID")),
 )
-
 
 class MODELO_PROVEEDOR(BASE):
     __tablename__ = "PROVEEDORES"
@@ -275,7 +258,6 @@ class MODELO_PROVEEDOR(BASE):
     INSUMOS = relationship(
         "MODELO_INSUMO", secondary=TABLA_INSUMO_PROVEEDOR, back_populates="PROVEEDORES"
     )
-
 
 class MODELO_INSUMO(BASE):
     __tablename__ = "INSUMOS"
@@ -294,7 +276,6 @@ class MODELO_INSUMO(BASE):
     )
     SUCURSAL = relationship("MODELO_SUCURSAL")
 
-
 class MODELO_MOVIMIENTO_INSUMO(BASE):
     __tablename__ = "MOVIMIENTOS_INSUMO"
 
@@ -312,7 +293,6 @@ class MODELO_MOVIMIENTO_INSUMO(BASE):
     USUARIO = relationship("MODELO_USUARIO")
     PROVEEDOR = relationship("MODELO_PROVEEDOR")
 
-
 class MODELO_CAJA_MOVIMIENTO(BASE):
     __tablename__ = "CAJA_MOVIMIENTOS"
 
@@ -328,7 +308,6 @@ class MODELO_CAJA_MOVIMIENTO(BASE):
     USUARIO = relationship("MODELO_USUARIO")
     SUCURSAL = relationship("MODELO_SUCURSAL")
 
-
 class MODELO_AUDITORIA(BASE):
     __tablename__ = "AUDITORIA"
 
@@ -342,7 +321,6 @@ class MODELO_AUDITORIA(BASE):
 
     USUARIO = relationship("MODELO_USUARIO")
 
-
 class MODELO_RESENA_ATENCION(BASE):
     __tablename__ = "RESENAS_ATENCION"
 
@@ -354,29 +332,26 @@ class MODELO_RESENA_ATENCION(BASE):
 
     USUARIO = relationship("MODELO_USUARIO")
 
-
-class MODELO_HORARIO(BASE):#ASGINACION DE TIPOS DE HORARIO 
+class MODELO_HORARIO(BASE):
     __tablename__ = "HORARIOS"
 
     ID = Column(Integer, primary_key=True, autoincrement=True)
     USUARIO_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=False)
-    DIA_SEMANA = Column(String(10), nullable=False)  # 'lunes', 'martes', etc.
-    HORA_INICIO = Column(String(5), nullable=False)  # '08:00'
-    HORA_FIN = Column(String(5), nullable=False)  # '17:00'
+    DIA_SEMANA = Column(String(10), nullable=False)
+    HORA_INICIO = Column(String(5), nullable=False)
+    HORA_FIN = Column(String(5), nullable=False)
     ACTIVO = Column(Boolean, default=True)
 
     USUARIO = relationship("MODELO_USUARIO")
 
-
 def OBTENER_RUTA_BD():
-    if os.name == "nt":  # Windows
+    if os.name == "nt":
         appdata = os.getenv("APPDATA") or os.path.expanduser("~")
         return os.path.join(appdata, "AppSegura", "app_segura.db")
-    elif os.name == "posix":  # Linux/Mac
+    elif os.name == "posix":
         return os.path.join(os.path.expanduser("~"), ".app_segura", "app_segura.db")
-    else:  # Web/Móvil
+    else:
         return os.path.abspath("app_segura.db")
-
 
 RUTA_BD = OBTENER_RUTA_BD()
 dir_name = os.path.dirname(RUTA_BD)
@@ -427,22 +402,14 @@ SESION_FACTORY = scoped_session(
     )
 )
 
-
 def INICIALIZAR_BASE_DATOS():
-    """
-    Inicializa la base de datos y crea el usuario super admin por defecto.
-    """
-    # Primero crear todas las tablas
     BASE.metadata.create_all(MOTOR)
     
     logger.info("Base de datos PostgreSQL inicializada - tablas creadas")
 
-    # PostgreSQL no necesita migraciones manuales - SQLAlchemy maneja el schema
-    # Las columnas se crean automáticamente desde los modelos
     try:
         from sqlalchemy import text
 
-        # PostgreSQL maneja automáticamente el schema desde los modelos
     except Exception as e:
         logger.exception("Error en migración de columnas: %s", e)
 
@@ -470,7 +437,7 @@ def INICIALIZAR_BASE_DATOS():
                         DESCRIPCION=nombre,
                         PERMISOS=json.dumps(permisos),
                         ACTIVO=True,
-                        FECHA_CREACION=datetime.utcnow(),
+                        FECHA_CREACION=datetime.now(timezone.utc),
                     )
                     sesion.add(rol)
 
@@ -501,7 +468,7 @@ def INICIALIZAR_BASE_DATOS():
                     HUELLA_DISPOSITIVO="seed-device-super-admin",
                     ACTIVO=True,
                     VERIFICADO=True,
-                    FECHA_CREACION=datetime.utcnow(),
+                    FECHA_CREACION=datetime.now(timezone.utc),
                 )
 
                 rol_super = sesion.query(MODELO_ROL).filter_by(NOMBRE=ROLES.SUPERADMIN).first()
@@ -511,6 +478,40 @@ def INICIALIZAR_BASE_DATOS():
                 sesion.add(super_admin_usuario)
                 sesion.commit()
 
+            # Insertar configuraciones por defecto
+            configs_defecto = [
+                {
+                    "CLAVE": "vouchers.tiempo_bloqueo_minutos",
+                    "VALOR": "5",
+                    "TIPO": "int",
+                    "DESCRIPCION": "Tiempo en minutos antes de que un voucher se bloquee automáticamente",
+                    "CATEGORIA": "vouchers"
+                },
+                {
+                    "CLAVE": "pedidos.tiempo_preparacion_minutos",
+                    "VALOR": "30",
+                    "TIPO": "int",
+                    "DESCRIPCION": "Tiempo estimado de preparación de pedidos en minutos",
+                    "CATEGORIA": "pedidos"
+                },
+                {
+                    "CLAVE": "sistema.modo_debug",
+                    "VALOR": "false",
+                    "TIPO": "bool",
+                    "DESCRIPCION": "Activar modo debug del sistema",
+                    "CATEGORIA": "sistema"
+                }
+            ]
+            
+            for config in configs_defecto:
+                existe = sesion.query(MODELO_CONFIGURACION_SISTEMA).filter_by(CLAVE=config["CLAVE"]).first()
+                if not existe:
+                    nueva_config = MODELO_CONFIGURACION_SISTEMA(**config)
+                    sesion.add(nueva_config)
+            
+            sesion.commit()
+
+            if not existe_super:
                 logger.info("Usuario Super Admin creado: %s", email_super)
                 logger.info("Contraseña Super Admin: %s", password_super)
             else:
@@ -604,7 +605,6 @@ def INICIALIZAR_BASE_DATOS():
 
     logger.info("Base de datos inicializada correctamente")
 
-
 class MODELO_VOUCHER(BASE):
     __tablename__ = "VOUCHERS"
     ID = Column(Integer, primary_key=True, autoincrement=True)
@@ -612,12 +612,13 @@ class MODELO_VOUCHER(BASE):
     USUARIO_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=False)
     IMAGEN_URL = Column(String(500), nullable=False)
     MONTO = Column(Integer, nullable=False)
-    METODO_PAGO = Column(String(50), nullable=False)  # "transferencia", "pago_movil", etc
+    METODO_PAGO = Column(String(50), nullable=False)
     VALIDADO = Column(Boolean, default=False)
+    RECHAZADO = Column(Boolean, default=False)
+    MOTIVO_RECHAZO = Column(String(500), nullable=True)
     VALIDADO_POR = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=True)
     FECHA_SUBIDA = Column(DateTime, default=datetime.utcnow)
     FECHA_VALIDACION = Column(DateTime, nullable=True)
-
 
 class MODELO_REPORTE_LIMPIEZA_FOTO(BASE):
     __tablename__ = "REPORTES_LIMPIEZA_FOTOS"
@@ -627,7 +628,6 @@ class MODELO_REPORTE_LIMPIEZA_FOTO(BASE):
     DESCRIPCION = Column(String(300), nullable=True)
     FECHA_SUBIDA = Column(DateTime, default=datetime.utcnow)
 
-
 class MODELO_UBICACION_MOTORIZADO(BASE):
     __tablename__ = "UBICACIONES_MOTORIZADO"
     ID = Column(Integer, primary_key=True, autoincrement=True)
@@ -635,9 +635,8 @@ class MODELO_UBICACION_MOTORIZADO(BASE):
     PEDIDO_ID = Column(Integer, ForeignKey("PEDIDOS.ID"), nullable=True)
     LATITUD = Column(String(50), nullable=False)
     LONGITUD = Column(String(50), nullable=False)
-    ESTADO = Column(String(50), nullable=False)  # "salida", "en_camino", "llegada"
+    ESTADO = Column(String(50), nullable=False)
     FECHA = Column(DateTime, default=datetime.utcnow)
-
 
 class MODELO_MENSAJE_CHAT(BASE):
     __tablename__ = "MENSAJES_CHAT"
@@ -645,10 +644,9 @@ class MODELO_MENSAJE_CHAT(BASE):
     PEDIDO_ID = Column(Integer, ForeignKey("PEDIDOS.ID"), nullable=False)
     USUARIO_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=False)
     MENSAJE = Column(String(1000), nullable=False)
-    TIPO = Column(String(20), default="texto")  # "texto", "imagen", "ubicacion"
+    TIPO = Column(String(20), default="texto")
     LEIDO = Column(Boolean, default=False)
     FECHA = Column(DateTime, default=datetime.utcnow)
-
 
 class MODELO_NOTIFICACION(BASE):
     __tablename__ = "NOTIFICACIONES"
@@ -656,23 +654,21 @@ class MODELO_NOTIFICACION(BASE):
     USUARIO_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=False)
     TITULO = Column(String(100), nullable=False)
     MENSAJE = Column(String(500), nullable=False)
-    TIPO = Column(String(50), nullable=False)  # "pedido", "pago", "entrega", "sistema"
+    TIPO = Column(String(50), nullable=False)
     LEIDA = Column(Boolean, default=False)
-    DATOS_EXTRA = Column(String(1000), nullable=True)  # JSON con datos adicionales
+    DATOS_EXTRA = Column(String(1000), nullable=True)
     FECHA = Column(DateTime, default=datetime.utcnow)
-
 
 class MODELO_CALIFICACION(BASE):
     __tablename__ = "CALIFICACIONES"
     ID = Column(Integer, primary_key=True, autoincrement=True)
     PEDIDO_ID = Column(Integer, ForeignKey("PEDIDOS.ID"), nullable=False)
     USUARIO_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=False)
-    CALIFICACION_COMIDA = Column(Integer, nullable=False)  # 1-5 estrellas
-    CALIFICACION_SERVICIO = Column(Integer, nullable=False)  # 1-5 estrellas
-    CALIFICACION_ENTREGA = Column(Integer, nullable=False)  # 1-5 estrellas
+    CALIFICACION_COMIDA = Column(Integer, nullable=False)
+    CALIFICACION_SERVICIO = Column(Integer, nullable=False)
+    CALIFICACION_ENTREGA = Column(Integer, nullable=False)
     COMENTARIO = Column(String(500), nullable=True)
     FECHA = Column(DateTime, default=datetime.utcnow)
-
 
 class MODELO_REFILL_SOLICITUD(BASE):
     __tablename__ = "REFILL_SOLICITUDES"
@@ -680,15 +676,40 @@ class MODELO_REFILL_SOLICITUD(BASE):
     INSUMO_ID = Column(Integer, ForeignKey("INSUMOS.ID"), nullable=False)
     USUARIO_SOLICITA = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=False)
     CANTIDAD_SOLICITADA = Column(Integer, nullable=False)
-    ESTADO = Column(String(50), default="pendiente")  # "pendiente", "aprobado", "rechazado", "completado"
+    ESTADO = Column(String(50), default="pendiente")
     APROBADO_POR = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=True)
     FECHA_SOLICITUD = Column(DateTime, default=datetime.utcnow)
     FECHA_APROBACION = Column(DateTime, nullable=True)
 
+class MODELO_CONFIGURACION_SISTEMA(BASE):
+    """Configuraciones globales del sistema (tiempos, límites, etc)"""
+    __tablename__ = "CONFIGURACION_SISTEMA"
+    
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    CLAVE = Column(String(100), unique=True, nullable=False)
+    VALOR = Column(String(500), nullable=False)
+    TIPO = Column(String(20), nullable=False)  # int, float, bool, str
+    DESCRIPCION = Column(String(300), nullable=True)
+    CATEGORIA = Column(String(50), nullable=True)  # vouchers, pedidos, sistema, etc
+    FECHA_MODIFICACION = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    MODIFICADO_POR = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=True)
+
+class MODELO_LOG_CONFIGURACION(BASE):
+    """Historial de cambios en configuraciones del sistema"""
+    __tablename__ = "LOG_CONFIGURACION"
+    
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    CONFIGURACION_ID = Column(Integer, ForeignKey("CONFIGURACION_SISTEMA.ID"), nullable=False)
+    CLAVE = Column(String(100), nullable=False)
+    VALOR_ANTERIOR = Column(String(500), nullable=True)
+    VALOR_NUEVO = Column(String(500), nullable=False)
+    USUARIO_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=True)
+    FECHA = Column(DateTime, default=datetime.utcnow)
+    
+    USUARIO = relationship("MODELO_USUARIO")
 
 def OBTENER_SESION():
     return SESION_FACTORY()
-
 
 def CERRAR_SESION():
     SESION_FACTORY.remove()

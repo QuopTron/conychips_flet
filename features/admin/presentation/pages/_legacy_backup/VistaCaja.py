@@ -1,12 +1,8 @@
-"""
-Vista de gestión de caja con CRUD completo en popups
-"""
 import flet as ft
 from features.admin.presentation.widgets.VistaBase import VistaBase
 from core.base_datos.ConfiguracionBD import OBTENER_SESION, MODELO_MOVIMIENTO_CAJA, MODELO_USUARIO
 from core.Constantes import COLORES, TAMANOS
 from datetime import datetime
-
 
 class VistaCaja(VistaBase):
     
@@ -16,7 +12,7 @@ class VistaCaja(VistaBase):
         self._cargar_vista()
     
     def _cargar_vista(self):
-        boton_nuevo = ft.ElevatedButton("➕ Nuevo Movimiento", icon=ft.Icons.ACCOUNT_BALANCE_WALLET, on_click=self._abrir_popup_crear, bgcolor=COLORES.PRIMARIO, color=COLORES.TEXTO_BLANCO)
+        boton_nuevo = ft.Button("➕ Nuevo Movimiento", icon=ft.icons.Icons.Icons.ACCOUNT_BALANCE_WALLET, on_click=self._abrir_popup_crear, bgcolor=COLORES.PRIMARIO, color=COLORES.TEXTO_BLANCO)
         
         self._tabla = ft.DataTable(
             columns=[
@@ -29,7 +25,7 @@ class VistaCaja(VistaBase):
                 ft.DataColumn(ft.Text("Acciones", weight=ft.FontWeight.BOLD)),
             ],
             rows=[],
-            border=ft.border.all(1, COLORES.BORDE),
+            border=ft.Border.all(1, COLORES.BORDE),
             border_radius=TAMANOS.RADIO_MD,
             vertical_lines=ft.BorderSide(1, COLORES.BORDE),
             heading_row_color=COLORES.PRIMARIO_CLARO,
@@ -63,8 +59,8 @@ class VistaCaja(VistaBase):
                     ft.DataCell(ft.Text(usuario_nombre)),
                     ft.DataCell(ft.Text(item.FECHA.strftime("%d/%m/%Y %H:%M") if item.FECHA else "-")),
                     ft.DataCell(ft.Row([
-                        ft.IconButton(icon=ft.Icons.EDIT, tooltip="Editar", icon_color=COLORES.INFO, on_click=lambda e, i=item: self._abrir_popup_editar(i)),
-                        ft.IconButton(icon=ft.Icons.DELETE, tooltip="Eliminar", icon_color=COLORES.PELIGRO, on_click=lambda e, i=item: self._confirmar_eliminar(i)),
+                        ft.IconButton(icon=ft.icons.Icons.Icons.EDIT, tooltip="Editar", icon_color=COLORES.INFO, on_click=lambda e, i=item: self._abrir_popup_editar(i)),
+                        ft.IconButton(icon=ft.icons.Icons.Icons.DELETE, tooltip="Eliminar", icon_color=COLORES.PELIGRO, on_click=lambda e, i=item: self._confirmar_eliminar(i)),
                     ])),
                 ])
             )
@@ -73,7 +69,7 @@ class VistaCaja(VistaBase):
     
     def _abrir_popup_crear(self, e):
         campo_tipo = ft.Dropdown(label="Tipo de Movimiento", options=[ft.dropdown.Option("INGRESO"), ft.dropdown.Option("EGRESO")])
-        campo_monto = ft.TextField(label="Monto (centavos)", prefix_icon=ft.Icons.ATTACH_MONEY, keyboard_type=ft.KeyboardType.NUMBER, hint_text="10000 = $100.00")
+        campo_monto = ft.TextField(label="Monto (centavos)", prefix_icon=ft.icons.Icons.Icons.ATTACH_MONEY, keyboard_type=ft.KeyboardType.NUMBER, hint_text="10000 = $100.00")
         campo_descripcion = ft.TextField(label="Descripción", multiline=True, max_lines=3)
         
         def guardar(e):
@@ -101,7 +97,7 @@ class VistaCaja(VistaBase):
         dialogo = ft.AlertDialog(
             title=ft.Text("➕ Nuevo Movimiento de Caja", color=COLORES.TEXTO),
             content=ft.Container(content=ft.Column([campo_tipo, campo_monto, campo_descripcion], tight=True, spacing=TAMANOS.ESPACIADO_MD), width=400),
-            actions=[ft.TextButton("Cancelar", on_click=lambda e: self.cerrar_dialogo()), ft.ElevatedButton("Guardar", icon=ft.Icons.SAVE, on_click=guardar, bgcolor=COLORES.PRIMARIO, color=COLORES.TEXTO_BLANCO)]
+            actions=[ft.TextButton("Cancelar", on_click=lambda e: self.cerrar_dialogo()), ft.Button("Guardar", icon=ft.icons.Icons.Icons.SAVE, on_click=guardar, bgcolor=COLORES.PRIMARIO, color=COLORES.TEXTO_BLANCO)]
         )
         self.mostrar_dialogo(dialogo)
     
@@ -129,7 +125,7 @@ class VistaCaja(VistaBase):
         dialogo = ft.AlertDialog(
             title=ft.Text(f"✏️ Editar Movimiento #{item.ID}", color=COLORES.TEXTO),
             content=ft.Container(content=ft.Column([campo_tipo, campo_monto, campo_descripcion], tight=True, spacing=TAMANOS.ESPACIADO_MD), width=400),
-            actions=[ft.TextButton("Cancelar", on_click=lambda e: self.cerrar_dialogo()), ft.ElevatedButton("Actualizar", icon=ft.Icons.SAVE, on_click=guardar, bgcolor=COLORES.INFO, color=COLORES.TEXTO_BLANCO)]
+            actions=[ft.TextButton("Cancelar", on_click=lambda e: self.cerrar_dialogo()), ft.Button("Actualizar", icon=ft.icons.Icons.Icons.SAVE, on_click=guardar, bgcolor=COLORES.INFO, color=COLORES.TEXTO_BLANCO)]
         )
         self.mostrar_dialogo(dialogo)
     
@@ -151,6 +147,6 @@ class VistaCaja(VistaBase):
         dialogo = ft.AlertDialog(
             title=ft.Text("⚠️ Confirmar Eliminación", color=COLORES.PELIGRO),
             content=ft.Text(f"¿Eliminar movimiento #{item.ID} ({item.TIPO})?\n\nEsta acción no se puede deshacer."),
-            actions=[ft.TextButton("Cancelar", on_click=lambda e: self.cerrar_dialogo()), ft.ElevatedButton("Eliminar", icon=ft.Icons.DELETE_FOREVER, on_click=eliminar, bgcolor=COLORES.PELIGRO, color=COLORES.TEXTO_BLANCO)]
+            actions=[ft.TextButton("Cancelar", on_click=lambda e: self.cerrar_dialogo()), ft.Button("Eliminar", icon=ft.icons.Icons.Icons.DELETE_FOREVER, on_click=eliminar, bgcolor=COLORES.PELIGRO, color=COLORES.TEXTO_BLANCO)]
         )
         self.mostrar_dialogo(dialogo)

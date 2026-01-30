@@ -1,27 +1,25 @@
-"""
-Widget: Card de Estadística
-Presentation Layer - Componente reutilizable
-"""
 
 import flet as ft
 from core.Constantes import COLORES, TAMANOS
 
-
 class CardEstadistica(ft.Container):
-    """
-    Widget reutilizable para mostrar una estadística
-    Principio DRY - Don't Repeat Yourself
-    """
 
     def __init__(
         self,
-        icono: str,
-        valor: str,
-        etiqueta: str,
+        icono: str = None,
+        valor: str = "",
+        etiqueta: str = None,
         color_icono: str = COLORES.PRIMARIO,
+        *,
+        titulo: str = None,
+        color: str = None,
     ):
         super().__init__()
-        
+        if titulo is not None and etiqueta is None:
+            etiqueta = titulo
+        if color is not None:
+            color_icono = color
+
         self.content = ft.Column(
             controls=[
                 ft.Icon(icono, size=TAMANOS.ICONO_LG, color=color_icono),
@@ -42,11 +40,14 @@ class CardEstadistica(ft.Container):
         
         self.padding = TAMANOS.PADDING_LG
         self.bgcolor = COLORES.FONDO_BLANCO
-        self.border_radius = TAMANOS.RADIO_MD
-        self.border = ft.border.all(1, COLORES.BORDE)
+        self.border_radius = TAMANOS.RADIO_BORDE
+        self.border = ft.Border.all(1, COLORES.BORDE)
 
     def ACTUALIZAR_VALOR(self, nuevo_valor: str):
-        """Actualiza el valor mostrado"""
-        self.content.controls[1].value = nuevo_valor
-        if hasattr(self, 'update'):
-            self.update()
+        if self.content and len(self.content.controls) > 1:
+            self.content.controls[1].value = nuevo_valor
+            try:
+                if hasattr(self, 'page') and self.page:
+                    self.update()
+            except Exception as e:
+                pass

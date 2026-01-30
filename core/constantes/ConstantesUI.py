@@ -1,6 +1,5 @@
 import flet as ft
 
-
 class COLORES:
     
     PRIMARIO = ft.Colors.BLUE_600
@@ -44,7 +43,6 @@ class COLORES:
     BORDE = ft.Colors.GREY_300
     BORDE_CLARO = ft.Colors.GREY_200
     BORDE_OSCURO = ft.Colors.GREY_400
-
 
 class TAMANOS:
     
@@ -97,97 +95,101 @@ class TAMANOS:
     ANCHO_CARD = 350
     ALTO_CARD = 200
 
-
 class ICONOS:
     
-    USUARIO = ft.Icons.PERSON
-    USUARIOS = ft.Icons.PEOPLE
-    EMAIL = ft.Icons.EMAIL
-    CONTRASENA = ft.Icons.LOCK
+    USUARIO = ft.icons.Icons.PERSON
+    USUARIOS = ft.icons.Icons.PEOPLE
+    EMAIL = ft.icons.Icons.EMAIL
+    CONTRASENA = ft.icons.Icons.LOCK
     
-    INICIO = ft.Icons.HOME
-    DASHBOARD = ft.Icons.DASHBOARD_ROUNDED
-    MENU = ft.Icons.MENU
+    INICIO = ft.icons.Icons.HOME
+    DASHBOARD = ft.icons.Icons.DASHBOARD_ROUNDED
+    MENU = ft.icons.Icons.MENU
     
-    AGREGAR = ft.Icons.ADD
-    EDITAR = ft.Icons.EDIT
-    ELIMINAR = ft.Icons.DELETE
-    GUARDAR = ft.Icons.SAVE
-    CANCELAR = ft.Icons.CANCEL
+    AGREGAR = ft.icons.Icons.ADD
+    EDITAR = ft.icons.Icons.EDIT
+    ELIMINAR = ft.icons.Icons.DELETE
+    GUARDAR = ft.icons.Icons.SAVE
+    CANCELAR = ft.icons.Icons.CANCEL
     
-    BUSCAR = ft.Icons.SEARCH
-    FILTRAR = ft.Icons.FILTER_ALT
-    ORDENAR = ft.Icons.SORT
+    BUSCAR = ft.icons.Icons.SEARCH
+    FILTRAR = ft.icons.Icons.FILTER_ALT
+    ORDENAR = ft.icons.Icons.SORT
     
-    EXITO = ft.Icons.CHECK_CIRCLE
-    ERROR = ft.Icons.ERROR
-    ADVERTENCIA = ft.Icons.WARNING
-    INFO = ft.Icons.INFO
+    EXITO = ft.icons.Icons.CHECK_CIRCLE
+    ERROR = ft.icons.Icons.ERROR
+    ADVERTENCIA = ft.icons.Icons.WARNING
+    INFO = ft.icons.Icons.INFO
     
-    CERRAR_SESION = ft.Icons.LOGOUT_ROUNDED
-    INICIAR_SESION = ft.Icons.LOGIN_ROUNDED
+    CERRAR_SESION = ft.icons.Icons.LOGOUT_ROUNDED
+    INICIAR_SESION = ft.icons.Icons.LOGIN_ROUNDED
     
-    PRODUCTOS = ft.Icons.INVENTORY
-    PEDIDOS = ft.Icons.SHOPPING_CART
-    CLIENTES = ft.Icons.PEOPLE_ALT
+    PRODUCTOS = ft.icons.Icons.INVENTORY
+    PRODUCTO = ft.icons.Icons.INVENTORY
+    PEDIDOS = ft.icons.Icons.SHOPPING_CART
+    CLIENTES = ft.icons.Icons.PEOPLE_ALT
     
-    ADMIN = ft.Icons.ADMIN_PANEL_SETTINGS
-    ROLES = ft.Icons.SHIELD
-    PERMISOS = ft.Icons.BADGE
+    ADMIN = ft.icons.Icons.ADMIN_PANEL_SETTINGS
+    ROLES = ft.icons.Icons.SHIELD
+    PERMISOS = ft.icons.Icons.BADGE
     
-    COCINA = ft.Icons.RESTAURANT
-    ATENCION = ft.Icons.SUPPORT_AGENT
-    LIMPIEZA = ft.Icons.CLEANING_SERVICES
+    COCINA = ft.icons.Icons.RESTAURANT
+    ATENCION = ft.icons.Icons.SUPPORT_AGENT
+    LIMPIEZA = ft.icons.Icons.CLEANING_SERVICES
     
-    CAJA = ft.Icons.ATTACH_MONEY
-    AUDITORIA = ft.Icons.HISTORY
-    RESENAS = ft.Icons.STAR
-    INSUMOS = ft.Icons.INVENTORY_2
-    PROVEEDORES = ft.Icons.LOCAL_SHIPPING
+    CAJA = ft.icons.Icons.ATTACH_MONEY
+    AUDITORIA = ft.icons.Icons.HISTORY
+    RESENAS = ft.icons.Icons.STAR
+    ESTRELLA = ft.icons.Icons.STAR
+    INSUMOS = ft.icons.Icons.INVENTORY_2
+    PROVEEDORES = ft.icons.Icons.LOCAL_SHIPPING
     
-    CONFIGURACION = ft.Icons.SETTINGS
-    NOTIFICACIONES = ft.Icons.NOTIFICATIONS
-    AYUDA = ft.Icons.HELP
+    CONFIGURACION = ft.icons.Icons.SETTINGS
+    NOTIFICACIONES = ft.icons.Icons.NOTIFICATIONS
+    AYUDA = ft.icons.Icons.HELP
+    ACTUALIZAR = ft.icons.Icons.REFRESH
     
-    ARRIBA = ft.Icons.ARROW_UPWARD
-    ABAJO = ft.Icons.ARROW_DOWNWARD
-    IZQUIERDA = ft.Icons.ARROW_BACK
-    DERECHA = ft.Icons.ARROW_FORWARD
+    ARRIBA = ft.icons.Icons.ARROW_UPWARD
+    ABAJO = ft.icons.Icons.ARROW_DOWNWARD
+    IZQUIERDA = ft.icons.Icons.ARROW_BACK
+    DERECHA = ft.icons.Icons.ARROW_FORWARD
     
-    CARGAR = ft.Icons.REFRESH
-    EXPANDIR = ft.Icons.EXPAND_MORE
-    CONTRAER = ft.Icons.EXPAND_LESS
+    CARGAR = ft.icons.Icons.REFRESH
+    EXPANDIR = ft.icons.Icons.EXPAND_MORE
+    CONTRAER = ft.icons.Icons.EXPAND_LESS
     
-    VISIBLE = ft.Icons.VISIBILITY
-    OCULTO = ft.Icons.VISIBILITY_OFF
+    VISIBLE = ft.icons.Icons.VISIBILITY
+    OCULTO = ft.icons.Icons.VISIBILITY_OFF
     
-    CALENDARIO = ft.Icons.CALENDAR_TODAY
-    RELOJ = ft.Icons.ACCESS_TIME
-    UBICACION = ft.Icons.LOCATION_ON
-    TELEFONO = ft.Icons.PHONE
+    CALENDARIO = ft.icons.Icons.CALENDAR_TODAY
+    RELOJ = ft.icons.Icons.PENDING
+    UBICACION = ft.icons.Icons.LOCATION_ON
+    TELEFONO = ft.icons.Icons.PHONE
     
-    DESCARGAR = ft.Icons.DOWNLOAD
-    SUBIR = ft.Icons.UPLOAD
-    IMPRIMIR = ft.Icons.PRINT
-    COMPARTIR = ft.Icons.SHARE
+    DESCARGAR = ft.icons.Icons.DOWNLOAD
+    SUBIR = ft.icons.Icons.UPLOAD
+    IMPRIMIR = ft.icons.Icons.PRINT
+    COMPARTIR = ft.icons.Icons.SHARE
     
-    VOUCHER = ft.Icons.RECEIPT
-    INGRESO = ft.Icons.ARROW_CIRCLE_UP
-    EGRESO = ft.Icons.ARROW_CIRCLE_DOWN
-    DINERO = ft.Icons.ATTACH_MONEY
-    IMAGEN = ft.Icons.IMAGE
-    CHAT = ft.Icons.CHAT
-    ENVIAR = ft.Icons.SEND
-    CONFIRMAR = ft.Icons.CHECK_CIRCLE
-    VER = ft.Icons.VISIBILITY
-    ALERTA = ft.Icons.NOTIFICATION_IMPORTANT
-    FAVORITO = ft.Icons.FAVORITE
-    CARRITO = ft.Icons.SHOPPING_BAG
-    PEDIDO = ft.Icons.RECEIPT_LONG
-    HISTORIAL = ft.Icons.HISTORY
-    ESTADISTICAS = ft.Icons.ANALYTICS
-    INVENTARIO = ft.Icons.WAREHOUSE
-
+    VOUCHER = ft.icons.Icons.RECEIPT
+    INGRESO = ft.icons.Icons.ARROW_CIRCLE_UP
+    EGRESO = ft.icons.Icons.ARROW_CIRCLE_DOWN
+    DINERO = ft.icons.Icons.ATTACH_MONEY
+    IMAGEN = ft.icons.Icons.IMAGE
+    CHAT = ft.icons.Icons.CHAT
+    ENVIAR = ft.icons.Icons.SEND
+    CONFIRMAR = ft.icons.Icons.CHECK_CIRCLE
+    VER = ft.icons.Icons.VISIBILITY
+    ALERTA = ft.icons.Icons.NOTIFICATION_IMPORTANT
+    FAVORITO = ft.icons.Icons.FAVORITE
+    CARRITO = ft.icons.Icons.SHOPPING_BAG
+    PEDIDO = ft.icons.Icons.RECEIPT_LONG
+    HISTORIAL = ft.icons.Icons.HISTORY
+    ESTADISTICAS = ft.icons.Icons.ANALYTICS
+    ESTADISTICA = ft.icons.Icons.ANALYTICS
+    INVENTARIO = ft.icons.Icons.WAREHOUSE
+    FINANZAS = ft.icons.Icons.ACCOUNT_BALANCE
+    GRAFICO = ft.icons.Icons.SHOW_CHART
 
 class ANIMACIONES:
     

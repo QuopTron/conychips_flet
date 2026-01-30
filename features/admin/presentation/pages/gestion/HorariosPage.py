@@ -1,7 +1,3 @@
-"""
-Página de gestión de horarios del establecimiento.
-Arquitectura: Clean Architecture + Hexagonal
-"""
 import flet as ft
 from core.base_datos.ConfiguracionBD import MODELO_HORARIO
 from core.Constantes import ROLES
@@ -9,10 +5,8 @@ from core.decoradores.DecoradorVistas import REQUIERE_ROL
 from features.admin.presentation.widgets.PaginaCRUDBase import PaginaCRUDBase
 from features.admin.presentation.widgets.ComponentesGlobales import FormularioCRUD
 
-
-@REQUIERE_ROL(ROLES.ADMINISTRADOR)
+@REQUIERE_ROL(ROLES.ADMIN)
 class HorariosPage(PaginaCRUDBase):
-    """Gestión de horarios de apertura y cierre."""
     
     def __init__(self, PAGINA: ft.Page, USUARIO):
         super().__init__(PAGINA, USUARIO, "Horarios")
@@ -27,7 +21,6 @@ class HorariosPage(PaginaCRUDBase):
         return ["Día", "Apertura", "Cierre", "Estado"]
     
     def _CREAR_FORMULARIO(self, item=None):
-        """Crea formulario con selector de día y horas."""
         dias_semana = [
             {"label": "Lunes", "value": "LUNES"},
             {"label": "Martes", "value": "MARTES"},
@@ -61,7 +54,6 @@ class HorariosPage(PaginaCRUDBase):
         ]
     
     def _EXTRAER_DATOS_FORMULARIO(self, campos):
-        """Extrae y valida datos de horarios."""
         return {
             "DIA_SEMANA": campos[0].value,
             "HORA_APERTURA": campos[1].value.strip(),
@@ -70,7 +62,6 @@ class HorariosPage(PaginaCRUDBase):
         }
     
     def _FORMATEAR_VALOR_CELDA(self, item, campo):
-        """Formatea valores para mejor visualización."""
         if campo == "DIA_SEMANA":
             return item.DIA_SEMANA.capitalize()
         elif campo == "ACTIVO":

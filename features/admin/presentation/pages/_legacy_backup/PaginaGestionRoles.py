@@ -13,7 +13,6 @@ from core.Constantes import (
 from core.decoradores.DecoradorVistas import REQUIERE_ROL
 from core.Constantes import ROLES
 
-
 @REQUIERE_ROL(ROLES.SUPERADMIN)
 class PaginaGestionRoles(ft.Column):
 
@@ -43,14 +42,14 @@ class PaginaGestionRoles(ft.Column):
                         color=COLORES.PRIMARIO
                     ),
                     ft.Container(expand=True),
-                    ft.ElevatedButton(
+                    ft.Button(
                         "← Volver al Dashboard",
-                        icon=ft.Icons.HOME,
+                        icon=ft.icons.Icons.Icons.HOME,
                         on_click=self._volver_dashboard,
                         bgcolor=COLORES.SECUNDARIO,
                         color=COLORES.TEXTO_BLANCO,
                     ),
-                    ft.ElevatedButton(
+                    ft.Button(
                         "Nuevo Rol",
                         icon=ICONOS.AGREGAR,
                         on_click=self._MOSTRAR_DIALOGO_CREAR_ROL,
@@ -110,7 +109,7 @@ class PaginaGestionRoles(ft.Column):
                                 color=COLORES.GRIS,
                                 text_align=ft.TextAlign.CENTER,
                             ),
-                            alignment=ft.alignment.center,
+                            alignment=ft.Alignment(0, 0),
                             padding=40,
                         )
                     )
@@ -173,17 +172,17 @@ class PaginaGestionRoles(ft.Column):
                                     size=TAMANOS.TEXTO_SM,
                                     weight=ft.FontWeight.BOLD,
                                 ),
-                                padding=ft.padding.symmetric(horizontal=TAMANOS.PADDING_MD, vertical=TAMANOS.PADDING_SM),
+                                padding=ft.Padding.symmetric(horizontal=TAMANOS.PADDING_MD, vertical=TAMANOS.PADDING_SM),
                                 bgcolor=ft.Colors.GREEN_50,
                                 border_radius=TAMANOS.RADIO_LG,
-                                border=ft.border.all(1, ft.Colors.GREEN_300),
+                                border=ft.Border.all(1, ft.Colors.GREEN_300),
                             ),
                             ft.Container(
                                 content=ft.Text(
                                     "Activo" if ROL.ACTIVO else "Inactivo",
                                     size=TAMANOS.TEXTO_SM,
                                 ),
-                                padding=ft.padding.symmetric(horizontal=TAMANOS.PADDING_MD, vertical=TAMANOS.PADDING_SM),
+                                padding=ft.Padding.symmetric(horizontal=TAMANOS.PADDING_MD, vertical=TAMANOS.PADDING_SM),
                                 bgcolor=ft.Colors.GREEN_50 if ROL.ACTIVO else ft.Colors.RED_50,
                                 border_radius=TAMANOS.RADIO_LG,
                             ),
@@ -220,7 +219,7 @@ class PaginaGestionRoles(ft.Column):
             padding=TAMANOS.PADDING_XL,
             bgcolor=COLORES.FONDO_BLANCO,
             border_radius=TAMANOS.RADIO_MD,
-            border=ft.border.all(1, COLORES.BORDE),
+            border=ft.Border.all(1, COLORES.BORDE),
         )
 
     def _MOSTRAR_DIALOGO_CREAR_ROL(self, e):
@@ -256,7 +255,7 @@ class PaginaGestionRoles(ft.Column):
                 scroll=ft.ScrollMode.AUTO,
                 height=300,
             ),
-            border=ft.border.all(1, COLORES.BORDE),
+            border=ft.Border.all(1, COLORES.BORDE),
             border_radius=TAMANOS.RADIO_SM,
             padding=TAMANOS.ESPACIADO_MD,
         )
@@ -301,7 +300,7 @@ class PaginaGestionRoles(ft.Column):
             ),
             actions=[
                 ft.TextButton("Cancelar", on_click=lambda e: self._CERRAR_DIALOGO()),
-                ft.ElevatedButton(
+                ft.Button(
                     "Crear Rol",
                     icon=ICONOS.GUARDAR,
                     on_click=CREAR_ROL_HANDLER,
@@ -337,7 +336,7 @@ class PaginaGestionRoles(ft.Column):
                     DESCRIPCION=DESCRIPCION,
                     PERMISOS=json.dumps(PERMISOS),
                     ACTIVO=True,
-                    FECHA_CREACION=datetime.utcnow()
+                    FECHA_CREACION=datetime.now(timezone.utc)
                 )
                 
                 sesion.add(nuevo_rol)
@@ -409,7 +408,7 @@ class PaginaGestionRoles(ft.Column):
             content=ft.Text(f"¿Estás seguro de eliminar el rol '{ROL.NOMBRE}'?"),
             actions=[
                 ft.TextButton("Cancelar", on_click=lambda e: self._CERRAR_DIALOGO()),
-                ft.ElevatedButton(
+                ft.Button(
                     "Eliminar",
                     on_click=CONFIRMAR_ELIMINACION,
                     bgcolor=COLORES.PELIGRO,
@@ -432,12 +431,11 @@ class PaginaGestionRoles(ft.Column):
         self._PAGINA.update()
 
     def _volver_dashboard(self, e):
-        """Vuelve al dashboard principal"""
         if self._on_volver_dashboard:
             self._on_volver_dashboard()
         else:
-            # Fallback: volver manualmente
             from features.admin.presentation.pages.PaginaAdmin import PaginaAdmin
+from datetime import timezone
             self._PAGINA.controls.clear()
             self._PAGINA.controls.append(PaginaAdmin(self._PAGINA, self._USUARIO))
             self._PAGINA.update()

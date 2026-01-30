@@ -1,7 +1,3 @@
-"""
-Vista de gestión de productos - REFACTORIZADA con BLoC + PaginaCRUDBase
-Código reducido 90% - Sin duplicación
-"""
 import flet as ft
 from typing import List, Dict, Any
 
@@ -9,7 +5,6 @@ from core.base_datos.ConfiguracionBD import MODELO_PRODUCTO
 from core.Constantes import ICONOS
 from features.admin.presentation.widgets.PaginaCRUDBase import PaginaCRUDBase
 from features.admin.presentation.widgets.ComponentesGlobales import FormularioCRUD
-
 
 class ProductosPage(PaginaCRUDBase):
     

@@ -1,6 +1,3 @@
-"""
-BLoC del módulo Admin
-"""
 
 from .AdminBloc import AdminBloc, ADMIN_BLOC
 from .AdminEstado import (

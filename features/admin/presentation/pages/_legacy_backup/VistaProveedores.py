@@ -1,11 +1,7 @@
-"""
-Vista de gestión de proveedores con CRUD completo en popups
-"""
 import flet as ft
 from features.admin.presentation.widgets.VistaBase import VistaBase
 from core.base_datos.ConfiguracionBD import OBTENER_SESION, MODELO_PROVEEDOR
 from core.Constantes import COLORES, TAMANOS
-
 
 class VistaProveedores(VistaBase):
     
@@ -15,7 +11,7 @@ class VistaProveedores(VistaBase):
         self._cargar_vista()
     
     def _cargar_vista(self):
-        boton_nuevo = ft.ElevatedButton("➕ Nuevo Proveedor", icon=ft.Icons.BUSINESS, on_click=self._abrir_popup_crear, bgcolor=COLORES.PRIMARIO, color=COLORES.TEXTO_BLANCO)
+        boton_nuevo = ft.Button("➕ Nuevo Proveedor", icon=ft.icons.Icons.Icons.BUSINESS, on_click=self._abrir_popup_crear, bgcolor=COLORES.PRIMARIO, color=COLORES.TEXTO_BLANCO)
         
         self._tabla = ft.DataTable(
             columns=[
@@ -27,7 +23,7 @@ class VistaProveedores(VistaBase):
                 ft.DataColumn(ft.Text("Acciones", weight=ft.FontWeight.BOLD)),
             ],
             rows=[],
-            border=ft.border.all(1, COLORES.BORDE),
+            border=ft.Border.all(1, COLORES.BORDE),
             border_radius=TAMANOS.RADIO_MD,
             vertical_lines=ft.BorderSide(1, COLORES.BORDE),
             heading_row_color=COLORES.PRIMARIO_CLARO,
@@ -49,8 +45,8 @@ class VistaProveedores(VistaBase):
                     ft.DataCell(ft.Text(item.TELEFONO or "-")),
                     ft.DataCell(ft.Text(item.EMAIL or "-")),
                     ft.DataCell(ft.Row([
-                        ft.IconButton(icon=ft.Icons.EDIT, tooltip="Editar", icon_color=COLORES.INFO, on_click=lambda e, i=item: self._abrir_popup_editar(i)),
-                        ft.IconButton(icon=ft.Icons.DELETE, tooltip="Eliminar", icon_color=COLORES.PELIGRO, on_click=lambda e, i=item: self._confirmar_eliminar(i)),
+                        ft.IconButton(icon=ft.icons.Icons.Icons.EDIT, tooltip="Editar", icon_color=COLORES.INFO, on_click=lambda e, i=item: self._abrir_popup_editar(i)),
+                        ft.IconButton(icon=ft.icons.Icons.Icons.DELETE, tooltip="Eliminar", icon_color=COLORES.PELIGRO, on_click=lambda e, i=item: self._confirmar_eliminar(i)),
                     ])),
                 ])
             )
@@ -58,10 +54,10 @@ class VistaProveedores(VistaBase):
         self.actualizar_ui()
     
     def _abrir_popup_crear(self, e):
-        campo_nombre = ft.TextField(label="Nombre de la Empresa", prefix_icon=ft.Icons.BUSINESS)
-        campo_contacto = ft.TextField(label="Persona de Contacto", prefix_icon=ft.Icons.PERSON)
-        campo_telefono = ft.TextField(label="Teléfono", prefix_icon=ft.Icons.PHONE)
-        campo_email = ft.TextField(label="Email", prefix_icon=ft.Icons.EMAIL, keyboard_type=ft.KeyboardType.EMAIL)
+        campo_nombre = ft.TextField(label="Nombre de la Empresa", prefix_icon=ft.icons.Icons.Icons.BUSINESS)
+        campo_contacto = ft.TextField(label="Persona de Contacto", prefix_icon=ft.icons.Icons.Icons.PERSON)
+        campo_telefono = ft.TextField(label="Teléfono", prefix_icon=ft.icons.Icons.Icons.PHONE)
+        campo_email = ft.TextField(label="Email", prefix_icon=ft.icons.Icons.Icons.EMAIL, keyboard_type=ft.KeyboardType.EMAIL)
         
         def guardar(e):
             if not campo_nombre.value:
@@ -87,15 +83,15 @@ class VistaProveedores(VistaBase):
         dialogo = ft.AlertDialog(
             title=ft.Text("➕ Nuevo Proveedor", color=COLORES.TEXTO),
             content=ft.Container(content=ft.Column([campo_nombre, campo_contacto, campo_telefono, campo_email], tight=True, spacing=TAMANOS.ESPACIADO_MD), width=400),
-            actions=[ft.TextButton("Cancelar", on_click=lambda e: self.cerrar_dialogo()), ft.ElevatedButton("Guardar", icon=ft.Icons.SAVE, on_click=guardar, bgcolor=COLORES.PRIMARIO, color=COLORES.TEXTO_BLANCO)]
+            actions=[ft.TextButton("Cancelar", on_click=lambda e: self.cerrar_dialogo()), ft.Button("Guardar", icon=ft.icons.Icons.Icons.SAVE, on_click=guardar, bgcolor=COLORES.PRIMARIO, color=COLORES.TEXTO_BLANCO)]
         )
         self.mostrar_dialogo(dialogo)
     
     def _abrir_popup_editar(self, item):
-        campo_nombre = ft.TextField(label="Nombre de la Empresa", value=item.NOMBRE, prefix_icon=ft.Icons.BUSINESS)
-        campo_contacto = ft.TextField(label="Persona de Contacto", value=item.CONTACTO or "", prefix_icon=ft.Icons.PERSON)
-        campo_telefono = ft.TextField(label="Teléfono", value=item.TELEFONO or "", prefix_icon=ft.Icons.PHONE)
-        campo_email = ft.TextField(label="Email", value=item.EMAIL or "", prefix_icon=ft.Icons.EMAIL)
+        campo_nombre = ft.TextField(label="Nombre de la Empresa", value=item.NOMBRE, prefix_icon=ft.icons.Icons.Icons.BUSINESS)
+        campo_contacto = ft.TextField(label="Persona de Contacto", value=item.CONTACTO or "", prefix_icon=ft.icons.Icons.Icons.PERSON)
+        campo_telefono = ft.TextField(label="Teléfono", value=item.TELEFONO or "", prefix_icon=ft.icons.Icons.Icons.PHONE)
+        campo_email = ft.TextField(label="Email", value=item.EMAIL or "", prefix_icon=ft.icons.Icons.Icons.EMAIL)
         
         def guardar(e):
             try:
@@ -117,7 +113,7 @@ class VistaProveedores(VistaBase):
         dialogo = ft.AlertDialog(
             title=ft.Text(f"✏️ Editar: {item.NOMBRE}", color=COLORES.TEXTO),
             content=ft.Container(content=ft.Column([campo_nombre, campo_contacto, campo_telefono, campo_email], tight=True, spacing=TAMANOS.ESPACIADO_MD), width=400),
-            actions=[ft.TextButton("Cancelar", on_click=lambda e: self.cerrar_dialogo()), ft.ElevatedButton("Actualizar", icon=ft.Icons.SAVE, on_click=guardar, bgcolor=COLORES.INFO, color=COLORES.TEXTO_BLANCO)]
+            actions=[ft.TextButton("Cancelar", on_click=lambda e: self.cerrar_dialogo()), ft.Button("Actualizar", icon=ft.icons.Icons.Icons.SAVE, on_click=guardar, bgcolor=COLORES.INFO, color=COLORES.TEXTO_BLANCO)]
         )
         self.mostrar_dialogo(dialogo)
     
@@ -139,6 +135,6 @@ class VistaProveedores(VistaBase):
         dialogo = ft.AlertDialog(
             title=ft.Text("⚠️ Confirmar Eliminación", color=COLORES.PELIGRO),
             content=ft.Text(f"¿Eliminar proveedor '{item.NOMBRE}'?\n\nEsta acción no se puede deshacer."),
-            actions=[ft.TextButton("Cancelar", on_click=lambda e: self.cerrar_dialogo()), ft.ElevatedButton("Eliminar", icon=ft.Icons.DELETE_FOREVER, on_click=eliminar, bgcolor=COLORES.PELIGRO, color=COLORES.TEXTO_BLANCO)]
+            actions=[ft.TextButton("Cancelar", on_click=lambda e: self.cerrar_dialogo()), ft.Button("Eliminar", icon=ft.icons.Icons.Icons.DELETE_FOREVER, on_click=eliminar, bgcolor=COLORES.PELIGRO, color=COLORES.TEXTO_BLANCO)]
         )
         self.mostrar_dialogo(dialogo)

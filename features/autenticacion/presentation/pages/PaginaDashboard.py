@@ -15,7 +15,6 @@ from core.Constantes import (
     MENSAJES_CONFIRMACION,
 )
 
-
 class PaginaDashboard(ft.Column):
 
     def __init__(self, PAGINA: ft.Page, USUARIO: Usuario, BLOC: AutenticacionBloc):
@@ -114,8 +113,7 @@ class PaginaDashboard(ft.Column):
                     ft.Container(
                         content=ft.Row(
                             controls=[
-                                ft.Icon(
-                                    ft.Icons.VERIFIED_USER,
+                                ft.Icon(ft.icons.Icons.VERIFIED_USER,
                                     size=TAMANOS.ICONO_XS,
                                     color=COLORES.EXITO,
                                 ),
@@ -166,7 +164,7 @@ class PaginaDashboard(ft.Column):
 
         if self._USUARIO.TIENE_PERMISO("reportes.ver"):
             MENU_ITEMS.append(
-                {"icono": ft.Icons.ANALYTICS_ROUNDED, "texto": "Reportes", "permiso": "reportes.ver"}
+                {"icono": ft.icons.Icons.ANALYTICS_ROUNDED, "texto": "Reportes", "permiso": "reportes.ver"}
             )
 
         from core.Constantes import ROLES
@@ -192,7 +190,7 @@ class PaginaDashboard(ft.Column):
             )
 
         MENU_ITEMS.append(
-            {"icono": ft.Icons.HISTORY_ROUNDED, "texto": "Historial", "permiso": None}
+            {"icono": ft.icons.Icons.HISTORY_ROUNDED, "texto": "Historial", "permiso": None}
         )
         MENU_ITEMS.append(
             {"icono": ICONOS.CONFIGURACION, "texto": "Configuración", "permiso": None}
@@ -245,7 +243,7 @@ class PaginaDashboard(ft.Column):
             ),
             width=280,
             bgcolor=COLORES.FONDO_BLANCO,
-            padding=ft.padding.only(bottom=TAMANOS.PADDING_XL),
+            padding=ft.Padding.only(bottom=TAMANOS.PADDING_XL),
         )
 
     def _CREAR_CONTENIDO_PRINCIPAL(self) -> ft.Container:
@@ -257,7 +255,7 @@ class PaginaDashboard(ft.Column):
                         value="Dashboard Principal", size=28, weight=ft.FontWeight.BOLD
                     ),
                     ft.Container(expand=True),
-                    ft.Icon(ft.Icons.NOTIFICATIONS_OUTLINED, size=TAMANOS.ICONO_MD),
+                    ft.Icon(ft.icons.Icons.NOTIFICATIONS_OUTLINED, size=TAMANOS.ICONO_MD),
                     ft.IconButton(
                         icon=ICONOS.CERRAR_SESION,
                         icon_color=COLORES.PELIGRO,
@@ -274,12 +272,12 @@ class PaginaDashboard(ft.Column):
         STATS = ft.Row(
             controls=[
                 self._CREAR_CARD_STAT(
-                    "Sesiones Activas", "1", ft.Icons.PHONE_ANDROID, COLORES.PRIMARIO
+                    "Sesiones Activas", "1", ft.icons.Icons.PHONE_ANDROID, COLORES.PRIMARIO
                 ),
                 self._CREAR_CARD_STAT(
                     "Permisos",
                     str(len(self._USUARIO.OBTENER_PERMISOS())),
-                    ft.Icons.SECURITY,
+                    ft.icons.Icons.SECURITY,
                     COLORES.EXITO,
                 ),
                 self._CREAR_CARD_STAT(
@@ -333,7 +331,7 @@ class PaginaDashboard(ft.Column):
             padding=TAMANOS.PADDING_XL,
             bgcolor=COLORES.FONDO_BLANCO,
             border_radius=TAMANOS.RADIO_MD,
-            border=ft.border.all(1, COLORES.BORDE),
+            border=ft.Border.all(1, COLORES.BORDE),
         )
 
         LISTA_PERMISOS = ft.Container(
@@ -345,8 +343,7 @@ class PaginaDashboard(ft.Column):
                         controls=[
                             ft.Row(
                                 [
-                                    ft.Icon(
-                                        ICONOS.EXITO,
+                                    ft.Icon(ICONOS.EXITO,
                                         size=TAMANOS.ICONO_XS,
                                         color=COLORES.EXITO,
                                     ),
@@ -364,7 +361,7 @@ class PaginaDashboard(ft.Column):
             padding=TAMANOS.PADDING_XL,
             bgcolor=COLORES.FONDO_BLANCO,
             border_radius=TAMANOS.RADIO_MD,
-            border=ft.border.all(1, COLORES.BORDE),
+            border=ft.Border.all(1, COLORES.BORDE),
         )
 
         CONTENIDO = ft.Container(
@@ -414,7 +411,7 @@ class PaginaDashboard(ft.Column):
             padding=TAMANOS.PADDING_XL,
             bgcolor=COLORES.FONDO_BLANCO,
             border_radius=TAMANOS.RADIO_MD,
-            border=ft.border.all(1, COLORES.BORDE),
+            border=ft.Border.all(1, COLORES.BORDE),
             width=200,
         )
 

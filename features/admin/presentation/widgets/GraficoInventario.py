@@ -1,19 +1,10 @@
-"""
-Widget: Gráfico de Inventario
-Presentation Layer - Componente reutilizable
-"""
 
 import flet as ft
 
 from core.Constantes import COLORES, TAMANOS, ICONOS
 from ...domain.entities.EstadisticasDashboard import EstadisticaInventario
 
-
 class GraficoInventario(ft.Column):
-    """
-    Widget para mostrar estado del inventario
-    Componente reutilizable
-    """
 
     def __init__(self, estadisticas: EstadisticaInventario = None):
         super().__init__()
@@ -22,14 +13,13 @@ class GraficoInventario(ft.Column):
             self.ACTUALIZAR_DATOS(estadisticas)
 
     def ACTUALIZAR_DATOS(self, estadisticas: EstadisticaInventario):
-        """Actualiza los datos mostrados"""
         self.controls.clear()
         
         items = [
             ("Insumos", estadisticas.total_insumos, ICONOS.INSUMOS, COLORES.INFO),
             ("Proveedores", estadisticas.total_proveedores, ICONOS.PROVEEDORES, COLORES.SECUNDARIO),
-            ("Ofertas Activas", estadisticas.ofertas_activas, ft.Icons.LOCAL_OFFER, COLORES.ADVERTENCIA),
-            ("Extras", estadisticas.total_extras, ft.Icons.ADD_CIRCLE, COLORES.PRIMARIO),
+            ("Ofertas Activas", estadisticas.ofertas_activas, ft.icons.Icons.LOCAL_OFFER, COLORES.ADVERTENCIA),
+            ("Extras", estadisticas.total_extras, ft.icons.Icons.ADD_CIRCLE, COLORES.PRIMARIO),
         ]
         
         for nombre, cantidad, icono, color in items:
@@ -50,7 +40,7 @@ class GraficoInventario(ft.Column):
                                     color=COLORES.TEXTO_BLANCO,
                                     weight=ft.FontWeight.BOLD,
                                 ),
-                                padding=ft.padding.symmetric(
+                                padding=ft.Padding.symmetric(
                                     horizontal=TAMANOS.PADDING_MD,
                                     vertical=TAMANOS.PADDING_XS
                                 ),
@@ -60,9 +50,12 @@ class GraficoInventario(ft.Column):
                         ],
                         spacing=TAMANOS.ESPACIADO_SM,
                     ),
-                    padding=ft.padding.symmetric(vertical=TAMANOS.PADDING_XS),
+                    padding=ft.Padding.symmetric(vertical=TAMANOS.PADDING_XS),
                 )
             )
         
-        if hasattr(self, 'update'):
-            self.update()
+        try:
+            if hasattr(self, 'page') and self.page:
+                self.update()
+        except Exception as e:
+            pass

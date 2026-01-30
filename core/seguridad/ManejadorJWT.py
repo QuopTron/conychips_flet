@@ -1,6 +1,6 @@
 import jwt
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
@@ -8,7 +8,6 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-
 
 class ManejadorJWT:
     
@@ -59,7 +58,7 @@ class ManejadorJWT:
     
     
     def GENERAR_APP_TOKEN(self, DISPOSITIVO_ID: str, METADATA: Optional[Dict] = None) -> str:
-        AHORA = datetime.utcnow()
+        AHORA = datetime.now(timezone.utc)
         TOKEN_ID = str(uuid.uuid4())
         
         PAYLOAD = {
@@ -87,7 +86,7 @@ class ManejadorJWT:
         PERMISOS: list,
         APP_TOKEN_ID: Optional[str] = None
     ) -> str:
-        AHORA = datetime.utcnow()
+        AHORA = datetime.now(timezone.utc)
         TOKEN_ID = str(uuid.uuid4())
         
         PAYLOAD = {
@@ -134,7 +133,7 @@ class ManejadorJWT:
         USUARIO_ID: int,
         APP_TOKEN_ID: Optional[str] = None
     ) -> str:
-        AHORA = datetime.utcnow()
+        AHORA = datetime.now(timezone.utc)
         TOKEN_ID = str(uuid.uuid4())
         
         PAYLOAD = {
@@ -172,17 +171,15 @@ class ManejadorJWT:
                     "verify_exp": True,
                     "verify_nbf": True,
                     "verify_iat": True,
-                    "verify_aud": False,  # Desactivar verificación automática
-                    "verify_iss": False,  # Desactivar verificación automática
+                    "verify_aud": False,
+                    "verify_iss": False,
                     "require": ["exp", "iss", "aud", "jti", "tipo"]
                 }
             )
             
-            # Verificación manual de emisor
             if PAYLOAD.get("iss") != self._EMISOR:
                 return None
             
-            # Verificación manual de audiencia (puede ser string o list)
             AUD = PAYLOAD.get("aud")
             if isinstance(AUD, list):
                 if self._AUDIENCIA not in AUD:
@@ -207,15 +204,6 @@ class ManejadorJWT:
     
     
     def REVOCAR_TOKEN(self, TOKEN: str) -> bool:
-        """
-        Revoca un token agregándolo a la blacklist
-        
-        Args:
-            TOKEN: Token JWT a revocar
-        
-        Returns:
-            True si se revocó correctamente, False si no
-        """
         try:
             PAYLOAD = jwt.decode(
                 TOKEN,
@@ -233,7 +221,7 @@ class ManejadorJWT:
             EXP = PAYLOAD.get("exp")
             
             if TOKEN_ID and EXP:
-                TTL = int(EXP - datetime.utcnow().timestamp())
+                TTL = int(EXP - datetime.now(timezone.utc).timestamp())
                 if TTL > 0:
                     from core.cache.GestorRedis import REDIS_GLOBAL
                     return REDIS_GLOBAL.AGREGAR_TOKEN_BLACKLIST(TOKEN_ID, TTL)
@@ -275,11 +263,10 @@ class ManejadorJWT:
             )
             EXP = PAYLOAD.get("exp")
             if EXP:
-                RESTANTE = int(EXP - datetime.utcnow().timestamp())
+                RESTANTE = int(EXP - datetime.now(timezone.utc).timestamp())
                 return max(0, RESTANTE)
             return None
         except:
             return None
-
 
 MANEJADOR_JWT_GLOBAL = ManejadorJWT()

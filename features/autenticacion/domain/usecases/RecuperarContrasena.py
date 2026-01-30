@@ -1,5 +1,5 @@
 from typing import Dict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import secrets
 import bcrypt
 import smtplib
@@ -13,7 +13,6 @@ from core.decoradores.DecoradorValidacion import (
     VALIDAR_CAMPOS_REQUERIDOS,
 )
 from config.ConfiguracionApp import CONFIGURACION_APP
-
 
 class SolicitarResetContrasena:
     def __init__(self, REPO: RepositorioAutenticacion):
@@ -30,7 +29,7 @@ class SolicitarResetContrasena:
             return {"EXITO": False, "ERROR": "Usuario inactivo", "CODIGO": 403}
 
         token = secrets.token_urlsafe(32)
-        expira = datetime.utcnow() + timedelta(hours=1)
+        expira = datetime.now(timezone.utc) + timedelta(hours=1)
 
         await self._REPO.ACTUALIZAR_TOKEN_RESET(usuario.ID, token, expira)
 
@@ -55,7 +54,6 @@ class SolicitarResetContrasena:
         servidor.sendmail(CONFIGURACION_APP.EMAIL_FROM, [EMAIL], mensaje.as_string())
         servidor.quit()
 
-
 class ResetearContrasena:
     def __init__(self, REPO: RepositorioAutenticacion):
         self._REPO = REPO
@@ -67,7 +65,7 @@ class ResetearContrasena:
         if not usuario:
             return {"EXITO": False, "ERROR": "Token inválido o expirado", "CODIGO": 400}
 
-        if not usuario.TOKEN_RESET_EXPIRA or datetime.utcnow() > usuario.TOKEN_RESET_EXPIRA:
+        if not usuario.TOKEN_RESET_EXPIRA or datetime.now(timezone.utc) > usuario.TOKEN_RESET_EXPIRA:
             return {"EXITO": False, "ERROR": "Token expirado", "CODIGO": 400}
 
         sal = bcrypt.gensalt(rounds=12)

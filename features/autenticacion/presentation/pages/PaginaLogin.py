@@ -26,9 +26,16 @@ from core.Constantes import (
 from features.autenticacion.data.RepositorioAutenticacionImpl import (
     RepositorioAutenticacionImpl,
 )
+from core.ui.fondo_animado import FondoAnimadoLogin
+from core.ui.colores import (
+    PRIMARIO,
+    SECUNDARIO,
+    obtener_gradiente_primario,
+    obtener_sombra_elevada,
+)
+from core.ui.animaciones import animar_hover
 import re
 from typing import Optional
-
 
 class PaginaLogin(ft.Column):
 
@@ -58,29 +65,43 @@ class PaginaLogin(ft.Column):
         self._CONSTRUIR()
 
     def _CONSTRUIR(self):
+        # Crear fondo animado con emojis cayendo
+        ancho_ventana = self._PAGINA.width or 1200
+        alto_ventana = self._PAGINA.height or 800
+        
+        self._FONDO_ANIMADO = FondoAnimadoLogin(ancho_ventana, alto_ventana)
+        
+        # Iniciar animación de emojis
+        self._PAGINA.run_task(self._FONDO_ANIMADO.iniciar_animacion, self._PAGINA)
 
         LOGO = ft.Container(
             content=ft.Column(
                 controls=[
-                    ft.Icon(ft.Icons.LOCK_OUTLINED, size=80, color=COLORES.PRIMARIO),
+                    ft.Icon(ft.icons.Icons.RESTAURANT_MENU,
+                        size=60,
+                        color=ft.Colors.ORANGE,
+                    ),
                     ft.Text(
                         value="Cony Chips",
                         size=TAMANOS.TEXTO_4XL,
                         weight=ft.FontWeight.BOLD,
-                        color=COLORES.PRIMARIO,
+                        color=ft.Colors.WHITE,
                         text_align=ft.TextAlign.CENTER,
                     ),
                     ft.Text(
                         value="Autenticación de doble capa",
                         size=TAMANOS.TEXTO_MD,
-                        color=COLORES.TEXTO_SECUNDARIO,
+                        color=ft.Colors.with_opacity(0.9, ft.Colors.WHITE),
                         text_align=ft.TextAlign.CENTER,
                     ),
                 ],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 spacing=TAMANOS.ESPACIADO_MD,
             ),
-            margin=ft.Margin.only(bottom=30),
+            gradient=obtener_gradiente_primario(),
+            padding=30,
+            border_radius=15,
+            margin=ft.margin.only(bottom=30),
         )
 
         self._CAMPO_EMAIL = CampoTextoSeguro(
@@ -91,6 +112,9 @@ class PaginaLogin(ft.Column):
             TEXTO_AYUDA="ejemplo@correo.com",
             ANCHO=400,
         )
+        self._CAMPO_EMAIL.bgcolor = ft.Colors.with_opacity(0.05, ft.Colors.BLACK)
+        self._CAMPO_EMAIL.focused_border_color = SECUNDARIO
+        self._CAMPO_EMAIL.border_color = PRIMARIO
 
         self._CAMPO_CONTRASENA = CampoTextoSeguro(
             ETIQUETA="Contraseña",
@@ -100,6 +124,9 @@ class PaginaLogin(ft.Column):
             TEXTO_AYUDA="Mínimo 8 caracteres",
             ANCHO=400,
         )
+        self._CAMPO_CONTRASENA.bgcolor = ft.Colors.with_opacity(0.05, ft.Colors.BLACK)
+        self._CAMPO_CONTRASENA.focused_border_color = SECUNDARIO
+        self._CAMPO_CONTRASENA.border_color = PRIMARIO
 
         self._TEXTO_ERROR = ft.Text(
             value="",
@@ -116,7 +143,13 @@ class PaginaLogin(ft.Column):
             AL_HACER_CLIC=self._MANEJAR_LOGIN,
             ANCHO=400,
             ALTURA=55,
-            COLOR_FONDO=COLORES.PRIMARIO,
+            COLOR_FONDO=PRIMARIO,
+        )
+        # Agregar efecto hover al botón
+        animar_hover(
+            self._BOTON_LOGIN,
+            PRIMARIO,
+            ft.Colors.with_opacity(0.9, PRIMARIO)
         )
 
         self._LINK_REGISTRO = ft.TextButton(
@@ -141,33 +174,19 @@ class PaginaLogin(ft.Column):
                 spacing=15,
             ),
             padding=40,
-            bgcolor=COLORES.FONDO_BLANCO,
-            border_radius=15,
-            shadow=ft.BoxShadow(
-                spread_radius=1,
-                blur_radius=15,
-                color=ft.Colors.with_opacity(0.1, ft.Colors.BLACK),
-                offset=ft.Offset(0, 5),
-            ),
-            width=500,
+            bgcolor=ft.Colors.WHITE,
         )
 
-        self._CONTENEDOR_PRINCIPAL = ft.Container(
-            content=ft.Column(
-                controls=[FORMULARIO],
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                alignment=ft.MainAxisAlignment.CENTER,
-            ),
-            gradient=ft.LinearGradient(
-                begin=ft.Alignment(-1, -1),
-                end=ft.Alignment(1, 1),
-                colors=[COLORES.PRIMARIO_CLARO, COLORES.SECUNDARIO_CLARO],
-            ),
-            expand=True,
-            alignment=ft.Alignment(0, 0),
+        # Centrar formulario sobre el fondo animado
+        self._FONDO_ANIMADO.controls.append(
+            ft.Container(
+                content=FORMULARIO,
+                alignment=ft.Alignment(0, 0),
+                expand=True,
+            )
         )
 
-        self.controls = [self._CONTENEDOR_PRINCIPAL]
+        self.controls = [self._FONDO_ANIMADO]
         self.expand = True
 
     def _VALIDAR_EMAIL(self, EMAIL: str) -> Optional[str]:
@@ -307,16 +326,29 @@ class PaginaLogin(ft.Column):
     def _NAVEGAR_A_DASHBOARD(self, USUARIO):
         from core.Constantes import ROLES
 
+        print(f"🔴 _NAVEGAR_A_DASHBOARD - Usuario: {USUARIO.NOMBRE_USUARIO}, Roles: {[r.NOMBRE if hasattr(r, 'NOMBRE') else r for r in USUARIO.ROLES]}")
+        print("🔴 Limpiando page.controls")
         self._PAGINA.controls.clear()
+        # Default: permitir que Superadmin (y en general) tenga selección global de sucursal (Todas)
+        try:
+            # Añadir atributo de selección de sucursal en el objeto usuario
+            if not hasattr(USUARIO, 'SUCURSAL_SELECCIONADA'):
+                USUARIO.SUCURSAL_SELECCIONADA = None  # None = Todas
+        except Exception:
+            pass
 
         if USUARIO.TIENE_ROL(ROLES.SUPERADMIN):
+            print("🔴 Usuario es SUPERADMIN - Creando PaginaAdmin")
             from features.admin.presentation.pages.PaginaAdmin import PaginaAdmin
 
             pagina = PaginaAdmin(self._PAGINA, USUARIO)
+            print(f"🔴 PaginaAdmin creada. Tipo: {type(pagina).__name__}, controls: {len(pagina.controls)}")
         elif USUARIO.TIENE_ROL(ROLES.ADMIN):
+            print("🔴 Usuario es ADMIN - Creando PaginaAdmin")
             from features.admin.presentation.pages.PaginaAdmin import PaginaAdmin
 
             pagina = PaginaAdmin(self._PAGINA, USUARIO)
+            print(f"🔴 PaginaAdmin creada. Tipo: {type(pagina).__name__}, controls: {len(pagina.controls)}")
         elif USUARIO.TIENE_ROL(ROLES.ATENCION):
             from features.atencion.presentation.pages.PaginaDashboardAtencion import (
                 PaginaDashboardAtencion,
@@ -352,6 +384,9 @@ class PaginaLogin(ft.Column):
 
             pagina = PaginaDashboard(self._PAGINA, USUARIO, self._BLOC)
 
-        # PaginaAdmin ya está construida como ft.Column, agregar directamente
+        print(f"🔴 Agregando página a page.controls. Página tiene {len(pagina.controls)} controls")
         self._PAGINA.controls.append(pagina)
+        print(f"🔴 page.controls ahora tiene {len(self._PAGINA.controls)} items")
+        print("🔴 Llamando page.update()")
         self._PAGINA.update()
+        print("🔴 page.update() completado")

@@ -1,7 +1,3 @@
-"""
-Página Base CRUD - Componente base para todas las páginas de gestión
-Elimina completamente el código repetido
-"""
 
 import flet as ft
 from typing import Callable, List, Optional, Any, Dict
@@ -18,29 +14,11 @@ from .ComponentesGlobales import (
     DialogoConfirmacion,
     CargadorPagina
 )
-
+from core.decoradores.DecoradorPermisosUI import requiere_rol_ui
+from core.Constantes import ROLES
+from core.ui.safe_actions import safe_update
 
 class PaginaCRUDBase(ft.Column):
-    """
-    Clase base para todas las páginas CRUD de admin
-    
-    ELIMINA:
-    - Código repetido de navegación
-    - Lógica duplicada de CRUD
-    - Diálogos repetidos
-    - Manejo de estados duplicado
-    
-    USO:
-    class MiPagina(PaginaCRUDBase):
-        def _OBTENER_MODELO(self):
-            return MODELO_PRODUCTO
-        
-        def _OBTENER_CAMPOS_TABLA(self):
-            return ["NOMBRE", "PRECIO"]
-        
-        def _OBTENER_COLUMNAS_TABLA(self):
-            return ["Nombre", "Precio"]
-    """
     
     def __init__(
         self,
@@ -54,117 +32,117 @@ class PaginaCRUDBase(ft.Column):
         self._USUARIO = USUARIO
         self._TITULO = titulo
         self._ICONO = icono
-        self._LISTA = ft.Column(spacing=TAMANOS.ESPACIADO_MD, scroll=ft.ScrollMode.AUTO)
+        self._LISTA = ft.Column(spacing=3, scroll=ft.ScrollMode.ADAPTIVE)
         self._DATOS_CACHE = []
         
         self.expand = True
         self._CONSTRUIR_UI()
         self._CARGAR_DATOS_INICIAL()
     
-    # ========================================================================
-    # MÉTODOS ABSTRACTOS - Implementar en cada página
-    # ========================================================================
     
     @abstractmethod
     def _OBTENER_MODELO(self):
-        """Retorna el modelo de BD a usar"""
         pass
     
     @abstractmethod
     def _OBTENER_CAMPOS_TABLA(self) -> List[str]:
-        """Retorna lista de campos a mostrar en tabla"""
         pass
     
     @abstractmethod
     def _OBTENER_COLUMNAS_TABLA(self) -> List[str]:
-        """Retorna nombres de columnas para mostrar"""
         pass
     
     @abstractmethod
     def _CREAR_FORMULARIO(self, item: Any = None) -> List[ft.Control]:
-        """Crea campos del formulario (nuevo o editar)"""
         pass
     
     @abstractmethod
     def _EXTRAER_DATOS_FORMULARIO(self, campos: List[ft.Control]) -> Dict:
-        """Extrae datos del formulario para guardar"""
         pass
     
-    # ========================================================================
-    # MÉTODOS CON IMPLEMENTACIÓN POR DEFECTO (Override opcional)
-    # ========================================================================
     
     def _FILTRAR_DATOS(self, datos: List[Any]) -> List[Any]:
-        """Filtra datos si es necesario. Override para filtros personalizados"""
         return datos
     
     def _VALIDAR_DATOS(self, datos: Dict) -> tuple[bool, str]:
-        """Valida datos antes de guardar. Override para validaciones personalizadas"""
         return True, ""
     
     def _DESPUES_GUARDAR(self, exito: bool, mensaje: str):
-        """Callback después de guardar. Override para acciones adicionales"""
         if exito:
             Notificador.EXITO(self._PAGINA, mensaje)
         else:
             Notificador.ERROR(self._PAGINA, mensaje)
     
     def _OBTENER_TITULO_FORMULARIO(self, es_edicion: bool) -> str:
-        """Retorna título del formulario"""
         return f"{'Editar' if es_edicion else 'Nuevo'} {self._TITULO}"
     
-    # ========================================================================
-    # IMPLEMENTACIÓN ESTÁNDAR (NO TOCAR - Funciona para todas las páginas)
-    # ========================================================================
     
     def _CONSTRUIR_UI(self):
-        """Construye la interfaz completa"""
-        header = ft.Row(
-            [
-                ft.Icon(self._ICONO, size=TAMANOS.ICONO_LG, color=COLORES.PRIMARIO),
-                ft.Text(
-                    self._TITULO,
-                    size=TAMANOS.TEXTO_3XL,
-                    weight=ft.FontWeight.BOLD
+        header = ft.Container(
+            content=ft.ResponsiveRow([
+                ft.Container(
+                    ft.Row([
+                        ft.Icon(self._ICONO, size=24, color=COLORES.PRIMARIO),
+                        ft.Text(
+                            self._TITULO,
+                            size=20,
+                            weight=ft.FontWeight.BOLD
+                        ),
+                    ], spacing=10),
+                    col={"xs": 12, "md": 6}
                 ),
-                ft.Container(expand=True),
-                BotonesNavegacion.BOTON_NUEVO(
-                    on_click=self._ABRIR_FORMULARIO_NUEVO,
-                    texto=f"Nuevo"
+                ft.Container(
+                    ft.Row([
+                        BotonesNavegacion.BOTON_NUEVO(
+                            on_click=self._ABRIR_FORMULARIO_NUEVO,
+                            texto=f"Nuevo"
+                        ),
+                        BotonesNavegacion.BOTON_MENU(on_click=self._IR_MENU),
+                        BotonesNavegacion.BOTON_SALIR(on_click=self._SALIR),
+                    ], spacing=8, alignment=ft.MainAxisAlignment.END),
+                    col={"xs": 12, "md": 6}
                 ),
-                BotonesNavegacion.BOTON_MENU(on_click=self._IR_MENU),
-                BotonesNavegacion.BOTON_SALIR(on_click=self._SALIR),
-            ],
-            spacing=TAMANOS.ESPACIADO_MD
+            ], spacing=6, run_spacing=6),
+            bgcolor=ft.Colors.BLUE_50,
+            border_radius=4,
+            padding=8,
+            border=ft.border.all(1, ft.Colors.BLUE_200)
         )
         
         self.controls = [
             ft.Container(
                 content=ft.Column(
                     [header, self._LISTA],
-                    spacing=TAMANOS.ESPACIADO_LG
+                    spacing=4
                 ),
-                padding=TAMANOS.PADDING_XL,
+                padding=0,
                 expand=True
             )
         ]
     
     def _CARGAR_DATOS_INICIAL(self):
-        """Carga datos iniciales"""
         self._MOSTRAR_CARGANDO()
-        datos = GestorCRUD.CARGAR_DATOS(self._OBTENER_MODELO())
+        # Aplicar filtro por sucursal si el usuario tiene una selección
+        try:
+            suc_sel = getattr(self._USUARIO, 'SUCURSAL_SELECCIONADA', None)
+        except Exception:
+            suc_sel = None
+
+        filtro = None
+        if suc_sel is not None:
+            filtro = {"SUCURSAL_ID": suc_sel}
+
+        datos = GestorCRUD.CARGAR_DATOS(self._OBTENER_MODELO(), filtro=filtro)
         datos = self._FILTRAR_DATOS(datos)
         self._DATOS_CACHE = datos
         self._ACTUALIZAR_LISTA(datos)
     
     def _MOSTRAR_CARGANDO(self):
-        """Muestra indicador de carga"""
         self._LISTA.controls = [CargadorPagina()]
         if hasattr(self._PAGINA, 'update'):
-            self._PAGINA.update()
+            safe_update(self._PAGINA)
     
     def _ACTUALIZAR_LISTA(self, datos: List[Any]):
-        """Actualiza la lista de items"""
         self._LISTA.controls.clear()
         
         if not datos:
@@ -175,12 +153,11 @@ class PaginaCRUDBase(ft.Column):
                         size=TAMANOS.TEXTO_LG,
                         color=COLORES.TEXTO_SECUNDARIO
                     ),
-                    alignment=ft.alignment.center,
+                    alignment=ft.Alignment(0, 0),
                     padding=TAMANOS.PADDING_XL
                 )
             )
         else:
-            # Usar TablaCRUD para mostrar datos
             tabla = TablaCRUD(
                 columnas=self._OBTENER_COLUMNAS_TABLA(),
                 datos=datos,
@@ -202,31 +179,28 @@ class PaginaCRUDBase(ft.Column):
             )
         
         if hasattr(self._PAGINA, 'update'):
-            self._PAGINA.update()
+            safe_update(self._PAGINA)
     
+    @requiere_rol_ui(ROLES.SUPERADMIN, ROLES.ADMIN)
     def _ABRIR_FORMULARIO_NUEVO(self, e):
-        """Abre formulario para crear nuevo item"""
         self._ABRIR_FORMULARIO(None)
     
+    @requiere_rol_ui(ROLES.SUPERADMIN, ROLES.ADMIN)
     def _ABRIR_FORMULARIO_EDITAR(self, item: Any):
-        """Abre formulario para editar item"""
         self._ABRIR_FORMULARIO(item)
     
     def _ABRIR_FORMULARIO(self, item: Any = None):
-        """Abre formulario genérico (nuevo o editar)"""
         es_edicion = item is not None
         campos = self._CREAR_FORMULARIO(item)
         
         def guardar(e):
             datos = self._EXTRAER_DATOS_FORMULARIO(campos)
             
-            # Validar
             valido, mensaje_error = self._VALIDAR_DATOS(datos)
             if not valido:
                 Notificador.ERROR(self._PAGINA, mensaje_error)
                 return
             
-            # Guardar
             if es_edicion:
                 exito, mensaje = GestorCRUD.ACTUALIZAR(
                     self._OBTENER_MODELO(),
@@ -255,10 +229,10 @@ class PaginaCRUDBase(ft.Column):
         
         self._PAGINA.dialog = dialogo
         dialogo.open = True
-        self._PAGINA.update()
+        safe_update(self._PAGINA)
     
+    @requiere_rol_ui(ROLES.SUPERADMIN, ROLES.ADMIN)
     def _CONFIRMAR_ELIMINAR(self, item: Any):
-        """Confirma eliminación de item"""
         def eliminar(e):
             exito, mensaje = GestorCRUD.ELIMINAR(
                 self._OBTENER_MODELO(),
@@ -280,21 +254,18 @@ class PaginaCRUDBase(ft.Column):
         )
     
     def _CERRAR_DIALOGO(self):
-        """Cierra diálogo actual"""
         if self._PAGINA.dialog:
             self._PAGINA.dialog.open = False
-            self._PAGINA.update()
+            safe_update(self._PAGINA)
     
     def _IR_MENU(self, e):
-        """Navega al menú principal"""
         from features.admin.presentation.pages.PaginaAdmin import PaginaAdmin
         self._PAGINA.controls.clear()
         self._PAGINA.controls.append(PaginaAdmin(self._PAGINA, self._USUARIO))
-        self._PAGINA.update()
+        safe_update(self._PAGINA)
     
     def _SALIR(self, e):
-        """Cierra sesión"""
         from features.autenticacion.presentation.pages.PaginaLogin import PaginaLogin
         self._PAGINA.controls.clear()
         self._PAGINA.controls.append(PaginaLogin(self._PAGINA))
-        self._PAGINA.update()
+        safe_update(self._PAGINA)

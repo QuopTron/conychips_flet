@@ -1,23 +1,21 @@
-"""
-Vista de gestión de extras - REFACTORIZADA con PaginaCRUDBase
-Código reducido 90% - Sin duplicación
-"""
 import flet as ft
 from typing import List, Dict, Any
 
 from core.base_datos.ConfiguracionBD import MODELO_EXTRA
 from features.admin.presentation.widgets.PaginaCRUDBase import PaginaCRUDBase
 from features.admin.presentation.widgets.ComponentesGlobales import FormularioCRUD
+from core.Constantes import ROLES
+from core.decoradores.DecoradorVistas import REQUIERE_ROL
 
-
-class VistaExtrasRefactorizada(PaginaCRUDBase):
+@REQUIERE_ROL(ROLES.ADMIN)
+class ExtrasPage(PaginaCRUDBase):
     
-    def __init__(self, pagina: ft.Page, usuario, on_volver_inicio=None):
+    def __init__(self, PAGINA: ft.Page, USUARIO):
         super().__init__(
-            PAGINA=pagina,
-            USUARIO=usuario,
+            PAGINA=PAGINA,
+            USUARIO=USUARIO,
             titulo="Gestión de Extras",
-            icono=ft.Icons.ADD_CIRCLE
+            icono=ft.icons.Icons.ADD_CIRCLE
         )
     
     def _OBTENER_MODELO(self):
@@ -34,7 +32,7 @@ class VistaExtrasRefactorizada(PaginaCRUDBase):
             FormularioCRUD.CREAR_CAMPO(
                 "Nombre",
                 item.NOMBRE if item else "",
-                icono=ft.Icons.ADD_CIRCLE
+                icono=ft.icons.Icons.ADD_CIRCLE
             ),
             FormularioCRUD.CREAR_CAMPO(
                 "Descripción",

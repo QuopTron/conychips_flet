@@ -1,12 +1,8 @@
-"""
-Vista de gestión de ofertas con CRUD completo en popups
-"""
 import flet as ft
 from features.admin.presentation.widgets.VistaBase import VistaBase
 from core.base_datos.ConfiguracionBD import OBTENER_SESION, MODELO_OFERTA, MODELO_PRODUCTO
 from core.Constantes import COLORES, TAMANOS
 from datetime import datetime
-
 
 class VistaOfertas(VistaBase):
     
@@ -16,7 +12,7 @@ class VistaOfertas(VistaBase):
         self._cargar_vista()
     
     def _cargar_vista(self):
-        boton_nuevo = ft.ElevatedButton("➕ Nueva Oferta", icon=ft.Icons.LOCAL_OFFER, on_click=self._abrir_popup_crear, bgcolor=COLORES.PRIMARIO, color=COLORES.TEXTO_BLANCO)
+        boton_nuevo = ft.Button("➕ Nueva Oferta", icon=ft.icons.Icons.Icons.LOCAL_OFFER, on_click=self._abrir_popup_crear, bgcolor=COLORES.PRIMARIO, color=COLORES.TEXTO_BLANCO)
         
         self._tabla = ft.DataTable(
             columns=[
@@ -29,7 +25,7 @@ class VistaOfertas(VistaBase):
                 ft.DataColumn(ft.Text("Acciones", weight=ft.FontWeight.BOLD)),
             ],
             rows=[],
-            border=ft.border.all(1, COLORES.BORDE),
+            border=ft.Border.all(1, COLORES.BORDE),
             border_radius=TAMANOS.RADIO_MD,
             vertical_lines=ft.BorderSide(1, COLORES.BORDE),
             heading_row_color=COLORES.PRIMARIO_CLARO,
@@ -55,8 +51,8 @@ class VistaOfertas(VistaBase):
                     ft.DataCell(ft.Text(item.FECHA_FIN.strftime("%d/%m/%Y") if item.FECHA_FIN else "-")),
                     ft.DataCell(ft.Text(activa, color=COLORES.EXITO if item.ACTIVA else COLORES.PELIGRO)),
                     ft.DataCell(ft.Row([
-                        ft.IconButton(icon=ft.Icons.EDIT, tooltip="Editar", icon_color=COLORES.INFO, on_click=lambda e, i=item: self._abrir_popup_editar(i)),
-                        ft.IconButton(icon=ft.Icons.DELETE, tooltip="Eliminar", icon_color=COLORES.PELIGRO, on_click=lambda e, i=item: self._confirmar_eliminar(i)),
+                        ft.IconButton(icon=ft.icons.Icons.Icons.EDIT, tooltip="Editar", icon_color=COLORES.INFO, on_click=lambda e, i=item: self._abrir_popup_editar(i)),
+                        ft.IconButton(icon=ft.icons.Icons.Icons.DELETE, tooltip="Eliminar", icon_color=COLORES.PELIGRO, on_click=lambda e, i=item: self._confirmar_eliminar(i)),
                     ])),
                 ])
             )
@@ -69,9 +65,9 @@ class VistaOfertas(VistaBase):
         sesion.close()
         
         campo_producto = ft.Dropdown(label="Producto", options=[ft.dropdown.Option(str(p.ID), p.NOMBRE) for p in productos])
-        campo_descuento = ft.TextField(label="Descuento %", prefix_icon=ft.Icons.PERCENT, keyboard_type=ft.KeyboardType.NUMBER)
-        campo_inicio = ft.TextField(label="Fecha Inicio (YYYY-MM-DD)", prefix_icon=ft.Icons.CALENDAR_TODAY, hint_text="2026-01-25")
-        campo_fin = ft.TextField(label="Fecha Fin (YYYY-MM-DD)", prefix_icon=ft.Icons.CALENDAR_TODAY, hint_text="2026-02-25")
+        campo_descuento = ft.TextField(label="Descuento %", prefix_icon=ft.icons.Icons.Icons.PERCENT, keyboard_type=ft.KeyboardType.NUMBER)
+        campo_inicio = ft.TextField(label="Fecha Inicio (YYYY-MM-DD)", prefix_icon=ft.icons.Icons.Icons.CALENDAR_TODAY, hint_text="2026-01-25")
+        campo_fin = ft.TextField(label="Fecha Fin (YYYY-MM-DD)", prefix_icon=ft.icons.Icons.Icons.CALENDAR_TODAY, hint_text="2026-02-25")
         switch_activa = ft.Switch(label="Oferta Activa", value=True)
         
         def guardar(e):
@@ -99,7 +95,7 @@ class VistaOfertas(VistaBase):
         dialogo = ft.AlertDialog(
             title=ft.Text("➕ Nueva Oferta", color=COLORES.TEXTO),
             content=ft.Container(content=ft.Column([campo_producto, campo_descuento, campo_inicio, campo_fin, switch_activa], tight=True, spacing=TAMANOS.ESPACIADO_MD), width=400),
-            actions=[ft.TextButton("Cancelar", on_click=lambda e: self.cerrar_dialogo()), ft.ElevatedButton("Guardar", icon=ft.Icons.SAVE, on_click=guardar, bgcolor=COLORES.PRIMARIO, color=COLORES.TEXTO_BLANCO)]
+            actions=[ft.TextButton("Cancelar", on_click=lambda e: self.cerrar_dialogo()), ft.Button("Guardar", icon=ft.icons.Icons.Icons.SAVE, on_click=guardar, bgcolor=COLORES.PRIMARIO, color=COLORES.TEXTO_BLANCO)]
         )
         self.mostrar_dialogo(dialogo)
     
@@ -135,7 +131,7 @@ class VistaOfertas(VistaBase):
         dialogo = ft.AlertDialog(
             title=ft.Text(f"✏️ Editar Oferta #{item.ID}", color=COLORES.TEXTO),
             content=ft.Container(content=ft.Column([campo_producto, campo_descuento, campo_inicio, campo_fin, switch_activa], tight=True, spacing=TAMANOS.ESPACIADO_MD), width=400),
-            actions=[ft.TextButton("Cancelar", on_click=lambda e: self.cerrar_dialogo()), ft.ElevatedButton("Actualizar", icon=ft.Icons.SAVE, on_click=guardar, bgcolor=COLORES.INFO, color=COLORES.TEXTO_BLANCO)]
+            actions=[ft.TextButton("Cancelar", on_click=lambda e: self.cerrar_dialogo()), ft.Button("Actualizar", icon=ft.icons.Icons.Icons.SAVE, on_click=guardar, bgcolor=COLORES.INFO, color=COLORES.TEXTO_BLANCO)]
         )
         self.mostrar_dialogo(dialogo)
     
@@ -157,6 +153,6 @@ class VistaOfertas(VistaBase):
         dialogo = ft.AlertDialog(
             title=ft.Text("⚠️ Confirmar Eliminación", color=COLORES.PELIGRO),
             content=ft.Text(f"¿Eliminar oferta #{item.ID}?\n\nEsta acción no se puede deshacer."),
-            actions=[ft.TextButton("Cancelar", on_click=lambda e: self.cerrar_dialogo()), ft.ElevatedButton("Eliminar", icon=ft.Icons.DELETE_FOREVER, on_click=eliminar, bgcolor=COLORES.PELIGRO, color=COLORES.TEXTO_BLANCO)]
+            actions=[ft.TextButton("Cancelar", on_click=lambda e: self.cerrar_dialogo()), ft.Button("Eliminar", icon=ft.icons.Icons.Icons.DELETE_FOREVER, on_click=eliminar, bgcolor=COLORES.PELIGRO, color=COLORES.TEXTO_BLANCO)]
         )
         self.mostrar_dialogo(dialogo)

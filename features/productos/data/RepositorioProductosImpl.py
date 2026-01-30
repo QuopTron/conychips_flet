@@ -2,7 +2,6 @@ from typing import List, Optional
 from features.productos.domain.RepositorioProductos import RepositorioProductos
 from core.base_datos.ConfiguracionBD import OBTENER_SESION, MODELO_PRODUCTO
 
-
 class RepositorioProductosImpl(RepositorioProductos):
     def __init__(self):
         pass

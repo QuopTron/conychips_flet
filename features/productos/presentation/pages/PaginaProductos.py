@@ -14,7 +14,6 @@ from core.base_datos.ConfiguracionBD import (
     MODELO_PRODUCTO,
 )
 
-
 class PaginaProductos(ft.Column):
     def __init__(self, PAGINA: ft.Page, USUARIO_ID: int):
         super().__init__()
@@ -23,7 +22,7 @@ class PaginaProductos(ft.Column):
         self._REPO_PROD = RepositorioProductosImpl()
         self._REPO_PED = RepositorioPedidosImpl()
         self._LISTA_CONTROLES = ft.Column()
-        self._CARRITO = []  # Lista de {producto, cantidad, extras}
+        self._CARRITO = []
         self._SUCURSAL_SELECCIONADA = None
         self._CONSTRUIR()
 
@@ -80,7 +79,7 @@ class PaginaProductos(ft.Column):
                         HEADER,
                         ft.Container(
                             content=CONTROLES_SUPERIORES,
-                            padding=ft.padding.only(top=10, bottom=10),
+                            padding=ft.Padding.only(top=10, bottom=10),
                         ),
                         self._LISTA_CONTROLES,
                     ]
@@ -187,7 +186,7 @@ class PaginaProductos(ft.Column):
             tipo_val = (p.get("TIPO") or "gaseosa").capitalize()
             tipo_chip = ft.Container(
                 content=ft.Text(tipo_val, size=12, color=ft.Colors.WHITE),
-                padding=ft.padding.symmetric(horizontal=8, vertical=4),
+                padding=ft.Padding.symmetric(horizontal=8, vertical=4),
                 bgcolor=ft.Colors.BLUE_600,
                 border_radius=8,
             )
@@ -198,14 +197,14 @@ class PaginaProductos(ft.Column):
 
             precio_badge = ft.Container(
                 content=precio_text,
-                padding=ft.padding.symmetric(horizontal=8, vertical=6),
+                padding=ft.Padding.symmetric(horizontal=8, vertical=6),
                 bgcolor=ft.Colors.YELLOW_100,
                 border_radius=8,
             )
 
             btn_anadir = ft.Button(
                 "",
-                icon=ft.Icons.ADD_SHOPPING_CART_ROUNDED,
+                icon=ft.icons.Icons.ADD_SHOPPING_CART_ROUNDED,
                 on_click=lambda e, prod=p: self._ANADIR_CARRITO(prod),
                 bgcolor=ft.Colors.GREEN_600,
                 color=ft.Colors.WHITE,
@@ -214,7 +213,7 @@ class PaginaProductos(ft.Column):
             )
             btn_detalles = ft.Button(
                 "",
-                icon=ft.Icons.INFO_OUTLINE,
+                icon=ft.icons.Icons.INFO_OUTLINE,
                 on_click=lambda e, prod=p: self._VER_DETALLES(prod),
                 width=44,
                 height=36,
@@ -227,7 +226,7 @@ class PaginaProductos(ft.Column):
                         imagen_container,
                         ft.Container(
                             content=nombre_desc,
-                            padding=ft.padding.only(top=8, bottom=6),
+                            padding=ft.Padding.only(top=8, bottom=6),
                         ),
                         ft.Row(
                             [
@@ -245,7 +244,7 @@ class PaginaProductos(ft.Column):
                 padding=12,
                 bgcolor=ft.Colors.WHITE,
                 border_radius=12,
-                border=ft.border.all(1, ft.Colors.GREY_200),
+                border=ft.Border.all(1, ft.Colors.GREY_200),
                 width=300,
                 height=320,
                 shadow=ft.BoxShadow(
@@ -308,19 +307,19 @@ class PaginaProductos(ft.Column):
             )
 
             btn_menos = ft.IconButton(
-                icon=ft.Icons.REMOVE,
+                icon=ft.icons.Icons.REMOVE,
                 on_click=lambda e, pid=prod["ID"]: self._CAMBIAR_CANTIDAD(pid, -1),
             )
             txt_cant = ft.Container(
                 content=ft.Text(str(cant)), width=40, alignment=ft.alignment(1, 1)
             )
             btn_mas = ft.IconButton(
-                icon=ft.Icons.ADD,
+                icon=ft.icons.Icons.ADD,
                 on_click=lambda e, pid=prod["ID"]: self._CAMBIAR_CANTIDAD(pid, 1),
             )
 
             btn_quitar = ft.IconButton(
-                icon=ft.Icons.DELETE_OUTLINE,
+                icon=ft.icons.Icons.DELETE_OUTLINE,
                 tooltip="Quitar",
                 on_click=lambda e, pid=prod["ID"]: self._REMOVER_ITEM(pid),
             )
@@ -329,7 +328,7 @@ class PaginaProductos(ft.Column):
                 [
                     thumb,
                     ft.Container(
-                        content=lbl, padding=ft.padding.only(left=8), expand=True
+                        content=lbl, padding=ft.Padding.only(left=8), expand=True
                     ),
                     ft.Row([btn_menos, txt_cant, btn_mas]),
                     ft.Text(f"{precio} Bs", weight=ft.FontWeight.BOLD),

@@ -18,7 +18,6 @@ from core.Constantes import ROLES
 from features.autenticacion.domain.entities.Usuario import Usuario
 from core.decoradores.DecoradorVistas import REQUIERE_ROL
 
-
 @REQUIERE_ROL(ROLES.SUPERADMIN, ROLES.ADMIN)
 class PaginaPedidos(ft.Column):
 
@@ -30,7 +29,6 @@ class PaginaPedidos(ft.Column):
         self._FILTRO_ESTADO = None
         self._FILTRO_SUCURSAL = None
         self._CONSTRUIR()
-
 
     def _CONSTRUIR(self):
         sesion = OBTENER_SESION()
@@ -53,7 +51,7 @@ class PaginaPedidos(ft.Column):
                 ft.dropdown.Option("Listo", "Listo"),
                 ft.dropdown.Option("Entregado", "Entregado"),
             ],
-            on_change=self._APLICAR_FILTROS,
+            on_select=self._APLICAR_FILTROS,
         )
 
         self._DROPDOWN_SUCURSAL = ft.Dropdown(
@@ -61,13 +59,12 @@ class PaginaPedidos(ft.Column):
             value="",
             width=250,
             options=opciones_sucursales,
-            on_change=self._APLICAR_FILTROS,
+            on_select=self._APLICAR_FILTROS,
         )
 
         HEADER = ft.Row(
             controls=[
-                ft.Icon(
-                    ICONOS.PEDIDOS,
+                ft.Icon(ICONOS.PEDIDOS,
                     size=TAMANOS.ICONO_LG,
                     color=COLORES.EXITO
                 ),
@@ -80,14 +77,14 @@ class PaginaPedidos(ft.Column):
                 ft.Container(expand=True),
                 self._DROPDOWN_ESTADO,
                 self._DROPDOWN_SUCURSAL,
-                ft.ElevatedButton(
+                ft.Button(
                     "Menú",
                     icon=ICONOS.DASHBOARD,
                     on_click=self._IR_MENU,
                     bgcolor=COLORES.PRIMARIO,
                     color=COLORES.TEXTO_BLANCO
                 ),
-                ft.ElevatedButton(
+                ft.Button(
                     "Salir",
                     icon=ICONOS.CERRAR_SESION,
                     on_click=self._SALIR,
@@ -117,12 +114,10 @@ class PaginaPedidos(ft.Column):
         self.expand = True
         self._CARGAR_DATOS()
 
-
     def _APLICAR_FILTROS(self, e):
         self._FILTRO_ESTADO = self._DROPDOWN_ESTADO.value if self._DROPDOWN_ESTADO.value else None
         self._FILTRO_SUCURSAL = int(self._DROPDOWN_SUCURSAL.value) if self._DROPDOWN_SUCURSAL.value else None
         self._CARGAR_DATOS()
-
 
     def _CARGAR_DATOS(self):
         self._LISTA.controls.clear()
@@ -148,7 +143,7 @@ class PaginaPedidos(ft.Column):
                         color=COLORES.TEXTO_SECUNDARIO,
                         text_align=ft.TextAlign.CENTER,
                     ),
-                    alignment=ft.alignment.center,
+                    alignment=ft.Alignment(0, 0),
                     padding=TAMANOS.PADDING_2XL,
                 )
             )
@@ -158,7 +153,6 @@ class PaginaPedidos(ft.Column):
 
         if hasattr(self, "update"):
             self.update()
-
 
     def _CREAR_CARD(self, PEDIDO):
         sesion = OBTENER_SESION()
@@ -181,8 +175,7 @@ class PaginaPedidos(ft.Column):
         return ft.Container(
             content=ft.Row(
                 controls=[
-                    ft.Icon(
-                        ICONOS.PEDIDOS,
+                    ft.Icon(ICONOS.PEDIDOS,
                         size=TAMANOS.ICONO_XL,
                         color=COLORES.EXITO
                     ),
@@ -233,13 +226,13 @@ class PaginaPedidos(ft.Column):
                     ft.Row(
                         controls=[
                             ft.IconButton(
-                                icon=ft.Icons.VISIBILITY,
+                                icon=ft.icons.Icons.Icons.VISIBILITY,
                                 icon_color=COLORES.INFO,
                                 tooltip="Ver detalles",
                                 on_click=lambda e, p=PEDIDO: self._VER_DETALLES(p),
                             ),
                             ft.IconButton(
-                                icon=ft.Icons.ARROW_FORWARD,
+                                icon=ft.icons.Icons.Icons.ARROW_FORWARD,
                                 icon_color=COLORES.PRIMARIO,
                                 tooltip="Cambiar estado",
                                 on_click=lambda e, p=PEDIDO: self._CAMBIAR_ESTADO(p),
@@ -253,9 +246,8 @@ class PaginaPedidos(ft.Column):
             padding=TAMANOS.PADDING_LG,
             bgcolor=COLORES.FONDO_BLANCO,
             border_radius=TAMANOS.RADIO_MD,
-            border=ft.border.all(1, COLORES.BORDE),
+            border=ft.Border.all(1, COLORES.BORDE),
         )
-
 
     def _VER_DETALLES(self, PEDIDO):
         sesion = OBTENER_SESION()
@@ -294,7 +286,6 @@ class PaginaPedidos(ft.Column):
         DLG.open = True
         self._PAGINA.update()
 
-
     def _CAMBIAR_ESTADO(self, PEDIDO):
         estados = {
             "Pendiente": "En preparación",
@@ -330,9 +321,9 @@ class PaginaPedidos(ft.Column):
             ),
             actions=[
                 ft.TextButton("Cancelar", on_click=lambda e: self._CERRAR_DIALOGO()),
-                ft.ElevatedButton(
+                ft.Button(
                     "Confirmar",
-                    icon=ft.Icons.CHECK,
+                    icon=ft.icons.Icons.Icons.CHECK,
                     on_click=CONFIRMAR,
                     bgcolor=COLORES.PRIMARIO,
                     color=COLORES.TEXTO_BLANCO
@@ -344,12 +335,10 @@ class PaginaPedidos(ft.Column):
         DLG.open = True
         self._PAGINA.update()
 
-
     def _CERRAR_DIALOGO(self):
         if hasattr(self._PAGINA, "dialog") and self._PAGINA.dialog:
             self._PAGINA.dialog.open = False
             self._PAGINA.update()
-
 
     def _IR_MENU(self, e):
         from features.admin.presentation.pages.PaginaAdmin import PaginaAdmin
@@ -358,14 +347,12 @@ class PaginaPedidos(ft.Column):
         self._PAGINA.controls.append(PaginaAdmin(self._PAGINA, self._USUARIO))
         self._PAGINA.update()
 
-
     def _SALIR(self, e):
         from features.autenticacion.presentation.pages.PaginaLogin import PaginaLogin
         
         self._PAGINA.controls.clear()
         self._PAGINA.controls.append(PaginaLogin(self._PAGINA))
         self._PAGINA.update()
-
 
     def _MOSTRAR_ERROR(self, MENSAJE: str):
         snackbar = ft.SnackBar(
@@ -375,7 +362,6 @@ class PaginaPedidos(ft.Column):
         self._PAGINA.overlay.append(snackbar)
         snackbar.open = True
         self._PAGINA.update()
-
 
     def _MOSTRAR_EXITO(self, MENSAJE: str):
         snackbar = ft.SnackBar(

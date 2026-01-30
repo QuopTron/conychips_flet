@@ -1,5 +1,5 @@
 import flet as ft
-from datetime import datetime
+from datetime import datetime, timezone
 
 from core.base_datos.ConfiguracionBD import (
     OBTENER_SESION,
@@ -9,7 +9,6 @@ from core.base_datos.ConfiguracionBD import (
 )
 from core.constantes import COLORES, TAMANOS, ICONOS
 from core.decoradores.DecoradorVistas import REQUIERE_ROL
-
 
 @REQUIERE_ROL("ADMIN", "SUPERADMIN")
 class PaginaValidarVouchers:
@@ -137,14 +136,14 @@ class PaginaValidarVouchers:
                         icon=ICONOS.IMAGEN,
                         on_click=lambda e, v=VOUCHER: self._VER_IMAGEN(v)
                     ),
-                    ft.ElevatedButton(
+                    ft.Button(
                         "Validar",
                         icon=ICONOS.CONFIRMAR,
                         bgcolor=COLORES.EXITO,
                         on_click=lambda e, v=VOUCHER: self._VALIDAR_VOUCHER(v),
                         visible=PENDIENTE
                     ),
-                    ft.ElevatedButton(
+                    ft.Button(
                         "Rechazar",
                         icon=ICONOS.CANCELAR,
                         bgcolor=COLORES.ERROR,
@@ -154,7 +153,7 @@ class PaginaValidarVouchers:
                 ], spacing=10),
             ], spacing=10),
             padding=15,
-            border=ft.border.all(1, COLORES.BORDE),
+            border=ft.Border.all(1, COLORES.BORDE),
             border_radius=TAMANOS.RADIO_BORDE,
             bgcolor=COLORES.FONDO_TARJETA,
         )
@@ -189,13 +188,33 @@ class PaginaValidarVouchers:
         if voucher:
             voucher.VALIDADO = True
             voucher.VALIDADO_POR = self.USUARIO_ID
-            voucher.FECHA_VALIDACION = datetime.utcnow()
+            voucher.FECHA_VALIDACION = datetime.now(timezone.utc)
             sesion.commit()
             
             pedido = sesion.query(MODELO_PEDIDO).filter_by(ID=voucher.PEDIDO_ID).first()
             if pedido and pedido.ESTADO == "pendiente":
                 pedido.ESTADO = "confirmado"
                 sesion.commit()
+
+            # Notify realtime broker about validation
+            try:
+                from core.realtime.broker_notify import notify
+                sucursal_id = None
+                try:
+                    sucursal_id = getattr(pedido, 'SUCURSAL_ID', None)
+                except Exception:
+                    sucursal_id = None
+
+                payload = {
+                    'type': 'voucher_actualizado',
+                    'voucher_id': voucher.ID,
+                    'nuevo_estado': 'APROBADO'
+                }
+                if sucursal_id is not None:
+                    payload['sucursal_id'] = sucursal_id
+                notify(payload)
+            except Exception:
+                pass
         
         sesion.close()
         
@@ -216,6 +235,17 @@ class PaginaValidarVouchers:
         if voucher:
             sesion.delete(voucher)
             sesion.commit()
+            # Notify realtime broker about rejection / deletion
+            try:
+                from core.realtime.broker_notify import notify
+                payload = {
+                    'type': 'voucher_actualizado',
+                    'voucher_id': voucher.ID,
+                    'nuevo_estado': 'RECHAZADO'
+                }
+                notify(payload)
+            except Exception:
+                pass
         
         sesion.close()
         
@@ -240,33 +270,28 @@ class PaginaValidarVouchers:
             ft.Row([
                 ft.Text("Validar Vouchers de Pago", size=TAMANOS.TITULO, weight=ft.FontWeight.BOLD),
                 ft.Container(expand=True),
-                ft.ElevatedButton("Menú", icon=ICONOS.DASHBOARD, on_click=self._IR_MENU),
+                ft.Button("Menú", icon=ICONOS.DASHBOARD, on_click=self._IR_MENU),
             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
             
             ft.Tabs(
+                content=ft.Column([
+                    ft.TabBar(
+                        tabs=[
+                            ft.Tab(label="Pendientes", icon=ICONOS.ALERTA),
+                            ft.Tab(label="Validados", icon=ICONOS.CONFIRMAR),
+                        ],
+                    ),
+                    ft.TabBarView(
+                        controls=[
+                            ft.Container(content=self.VOUCHERS_PENDIENTES, padding=10),
+                            ft.Container(content=self.VOUCHERS_VALIDADOS, padding=10),
+                        ],
+                    ),
+                ], expand=True),
+                length=2,
                 selected_index=0,
-                tabs=[
-                    ft.Tab(
-                        text="Pendientes",
-                        icon=ICONOS.ALERTA,
-                        content=ft.Container(
-                            content=self.VOUCHERS_PENDIENTES,
-                            padding=10,
-                        )
-                    ),
-                    ft.Tab(
-                        text="Validados",
-                        icon=ICONOS.CONFIRMAR,
-                        content=ft.Container(
-                            content=self.VOUCHERS_VALIDADOS,
-                            padding=10,
-                        )
-                    ),
-                ],
-                expand=True,
             )
         ], expand=True)
-
 
     def _IR_MENU(self, e):
         from features.admin.presentation.pages.PaginaAdmin import PaginaAdmin

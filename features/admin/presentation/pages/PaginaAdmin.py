@@ -1,16 +1,11 @@
-"""
-Página Admin Refactorizada
-Presentation Layer - Clean Architecture + BLoC Pattern
-Separación de responsabilidades y código limpio
-"""
 
 import flet as ft
 
 from core.Constantes import COLORES, TAMANOS, ICONOS, ROLES, ERRORES_AUTENTICACION
 from features.autenticacion.domain.entities.Usuario import Usuario
 from core.decoradores.DecoradorVistas import REQUIERE_ROL
+from core.ui.safe_actions import safe_update
 
-# BLoC Pattern
 from ..bloc import (
     ADMIN_BLOC,
     AdminEstado,
@@ -23,38 +18,36 @@ from ..bloc import (
     ActualizarRol,
 )
 
-# Widgets reutilizables
 from ..widgets import (
     CardEstadistica,
     GraficoRoles,
     GraficoSucursales,
     GraficoSemanal,
     GraficoInventario,
+    LayoutBase,
 )
 
-# Casos de uso
 from ...domain.usecases import ObtenerRolesDisponibles
 from ...data.RepositorioAdminImpl import REPOSITORIO_ADMIN_IMPL
 
-
 @REQUIERE_ROL(ROLES.SUPERADMIN, ROLES.ADMIN)
-class PaginaAdmin(ft.Column):
-    """
-    Página principal del dashboard de administración
-    Refactorizada con BLoC Pattern y Clean Architecture
-    
-    Responsabilidades:
-    - Renderizar UI basada en el estado del BLoC
-    - Disparar eventos al BLoC
-    - Delegar navegación a otras vistas
-    """
+class PaginaAdmin(LayoutBase):
+    """Dashboard Admin usando LayoutBase global"""
 
     def __init__(self, PAGINA: ft.Page, USUARIO: Usuario):
-        super().__init__()
-        self._PAGINA = PAGINA
-        self._USUARIO = USUARIO
+        print("🔵 PaginaAdmin.__init__ - INICIO")
+        # Inicializar layout base
+        super().__init__(
+            pagina=PAGINA,
+            usuario=USUARIO,
+            titulo_vista="Dashboard Administrativo",
+            mostrar_boton_volver=False,
+            index_navegacion=0,  # Dashboard es el primer item
+            on_volver_dashboard=None,  # No hay volver en dashboard
+            on_cerrar_sesion=self._SALIR
+        )
+        print("🔵 PaginaAdmin - super().__init__ completado")
         
-        # Widgets reutilizables - se actualizarán cuando cambie el estado
         self._card_usuarios: CardEstadistica = None
         self._card_pedidos: CardEstadistica = None
         self._card_ganancias: CardEstadistica = None
@@ -65,231 +58,206 @@ class PaginaAdmin(ft.Column):
         self._grafico_semanal: GraficoSemanal = None
         self._grafico_inventario: GraficoInventario = None
         
-        # Construir UI
-        self._CONSTRUIR()
+        # Construir contenido
+        print("🔵 PaginaAdmin - Llamando _CONSTRUIR_CONTENIDO()")
+        self._CONSTRUIR_CONTENIDO()
+        print(f"🔵 PaginaAdmin - _CONSTRUIR_CONTENIDO() completado. self.controls tiene {len(self.controls)} items")
         
-        # Suscribirse al BLoC
+        ADMIN_BLOC.CONFIGURAR_PAGINA(PAGINA)
         ADMIN_BLOC.AGREGAR_LISTENER(self._ON_ESTADO_CAMBIO)
         
-        # Cargar datos iniciales
-        ADMIN_BLOC.AGREGAR_EVENTO(CargarDashboard())
+        # Cargar dashboard con sucursales seleccionadas
+        sucursales = self.obtener_sucursales_seleccionadas()
+        sucursal_id = sucursales[0] if sucursales and len(sucursales) == 1 else None
+        print(f"🔵 PaginaAdmin - Cargando dashboard con sucursal_id={sucursal_id}")
+        ADMIN_BLOC.AGREGAR_EVENTO(CargarDashboard(sucursal_id=sucursal_id))
+        print("🔵 PaginaAdmin.__init__ - FIN")
+    
+    def _on_sucursales_change(self, sucursales_ids):
+        """OVERRIDE: Callback cuando cambian las sucursales seleccionadas"""
+        # Recargar dashboard con nuevas sucursales
+        if sucursales_ids is None or len(sucursales_ids) == 0:
+            # Todas las sucursales
+            ADMIN_BLOC.AGREGAR_EVENTO(CargarDashboard(sucursal_id=None))
+        elif len(sucursales_ids) == 1:
+            # Una sola sucursal
+            ADMIN_BLOC.AGREGAR_EVENTO(CargarDashboard(sucursal_id=sucursales_ids[0]))
+        else:
+            # Múltiples sucursales - cargar sin filtro (todas)
+            ADMIN_BLOC.AGREGAR_EVENTO(CargarDashboard(sucursal_id=None))
 
-    def _CONSTRUIR(self):
-        """Construye la interfaz de usuario"""
-        # Header con navegación
-        header = self._CONSTRUIR_HEADER()
+    def _CONSTRUIR_CONTENIDO(self):
+        """Construye el contenido específico del dashboard"""
+        # LayoutBase ya crea el NavbarGlobal automáticamente
         
-        # Cards de estadísticas generales
         self._card_usuarios = CardEstadistica(
             icono=ICONOS.USUARIOS,
-            valor="0",
+            valor="...",
             etiqueta="Usuarios",
             color_icono=COLORES.PRIMARIO
         )
         
         self._card_pedidos = CardEstadistica(
             icono=ICONOS.PEDIDOS,
-            valor="0",
+            valor="...",
             etiqueta="Pedidos Hoy",
             color_icono=COLORES.EXITO
         )
         
         self._card_ganancias = CardEstadistica(
             icono=ICONOS.CAJA,
-            valor="0 Bs",
+            valor="...",
             etiqueta="Ganancias Hoy",
             color_icono=COLORES.ADVERTENCIA
         )
         
         self._card_productos = CardEstadistica(
             icono=ICONOS.PRODUCTOS,
-            valor="0",
+            valor="...",
             etiqueta="Productos",
             color_icono=COLORES.INFO
         )
         
-        stats_row = ft.Row(
+        stats_row = ft.ResponsiveRow(
             [
-                self._card_usuarios,
-                self._card_pedidos,
-                self._card_ganancias,
-                self._card_productos,
+                ft.Container(self._card_usuarios, col={"xs": 12, "sm": 6, "md": 3}),
+                ft.Container(self._card_pedidos, col={"xs": 12, "sm": 6, "md": 3}),
+                ft.Container(self._card_ganancias, col={"xs": 12, "sm": 6, "md": 3}),
+                ft.Container(self._card_productos, col={"xs": 12, "sm": 6, "md": 3}),
             ],
-            alignment=ft.MainAxisAlignment.SPACE_EVENLY,
-            wrap=True,
+            spacing=10,
+            run_spacing=10,
         )
         
-        # Gráficos
         self._grafico_roles = GraficoRoles()
         self._grafico_sucursales = GraficoSucursales()
         self._grafico_semanal = GraficoSemanal()
         self._grafico_inventario = GraficoInventario()
         
-        graficos_row = ft.Row(
+        graficos_row = ft.ResponsiveRow(
             [
-                self._CREAR_CONTENEDOR_GRAFICO(
-                    "Usuarios por Rol",
-                    self._grafico_roles
+                ft.Container(
+                    self._CREAR_CONTENEDOR_GRAFICO(
+                        "Usuarios por Rol",
+                        self._grafico_roles
+                    ),
+                    col={"xs": 12, "md": 6}
                 ),
-                self._CREAR_CONTENEDOR_GRAFICO(
-                    "Pedidos por Sucursal",
-                    self._grafico_sucursales
+                ft.Container(
+                    self._CREAR_CONTENEDOR_GRAFICO(
+                        "Pedidos por Sucursal",
+                        self._grafico_sucursales
+                    ),
+                    col={"xs": 12, "md": 6}
                 ),
             ],
-            spacing=TAMANOS.ESPACIADO_MD,
+            spacing=10,
+            run_spacing=10,
         )
         
-        graficos_row2 = ft.Row(
+        graficos_row2 = ft.ResponsiveRow(
             [
-                self._CREAR_CONTENEDOR_GRAFICO(
-                    "Pedidos Última Semana",
-                    self._grafico_semanal
+                ft.Container(
+                    self._CREAR_CONTENEDOR_GRAFICO(
+                        "Pedidos Última Semana",
+                        self._grafico_semanal
+                    ),
+                    col={"xs": 12, "md": 6}
                 ),
-                self._CREAR_CONTENEDOR_GRAFICO(
-                    "Estado Inventario",
-                    self._grafico_inventario
+                ft.Container(
+                    self._CREAR_CONTENEDOR_GRAFICO(
+                        "Estado Inventario",
+                        self._grafico_inventario
+                    ),
+                    col={"xs": 12, "md": 6}
                 ),
             ],
-            spacing=TAMANOS.ESPACIADO_MD,
+            spacing=10,
+            run_spacing=10,
         )
         
-        # Botones de gestión
-        botones_gestion = self._CONSTRUIR_BOTONES_GESTION()
-        
-        # Contenido completo
-        contenido = ft.Column(
-            [
-                header,
-                ft.Divider(height=1, color=COLORES.BORDE),
-                stats_row,
-                ft.Divider(height=1, color=COLORES.BORDE),
-                graficos_row,
-                graficos_row2,
-                ft.Divider(height=1, color=COLORES.BORDE),
-                ft.Text(
-                    "Gestión del Sistema",
-                    size=TAMANOS.TEXTO_XL,
-                    weight=ft.FontWeight.BOLD,
-                    color=COLORES.TEXTO
-                ),
-                botones_gestion,
-            ],
-            spacing=TAMANOS.ESPACIADO_LG,
-            scroll=ft.ScrollMode.AUTO,
+        contenido = ft.Container(
+            content=ft.Column(
+                [
+                    stats_row,
+                    ft.Divider(height=1, color=COLORES.BORDE),
+                    graficos_row,
+                    graficos_row2,
+                ],
+                spacing=15,
+                scroll=ft.ScrollMode.AUTO,
+            ),
+            padding=15,
+            expand=True
         )
 
-        self.controls = [
-            ft.Container(
-                content=contenido,
-                padding=TAMANOS.PADDING_XL,
-                expand=True,
-                bgcolor=COLORES.FONDO,
-            )
-        ]
-        self.expand = True
-    
-    def _CONSTRUIR_HEADER(self) -> ft.Row:
-        """Construye el header con título y botones de navegación"""
-        return ft.Row(
-            controls=[
-                ft.Icon(
-                    ICONOS.ADMIN,
-                    size=TAMANOS.ICONO_LG,
-                    color=COLORES.PRIMARIO
-                ),
-                ft.Text(
-                    "Dashboard Admin",
-                    size=TAMANOS.TEXTO_3XL,
-                    weight=ft.FontWeight.BOLD,
-                    color=COLORES.TEXTO
-                ),
-                ft.Container(expand=True),
-                ft.ElevatedButton(
-                    "Menú",
-                    icon=ICONOS.DASHBOARD,
-                    on_click=self._IR_MENU,
-                    bgcolor=COLORES.PRIMARIO,
-                    color=COLORES.TEXTO_BLANCO
-                ),
-                ft.ElevatedButton(
-                    "Salir",
-                    icon=ICONOS.CERRAR_SESION,
-                    on_click=self._SALIR,
-                    bgcolor=COLORES.PELIGRO,
-                    color=COLORES.TEXTO_BLANCO
-                ),
-            ],
-            spacing=TAMANOS.ESPACIADO_MD,
-        )
+        # Llamar a construir() del layout base
+        self.construir(contenido)
     
     def _CREAR_CONTENEDOR_GRAFICO(self, titulo: str, grafico: ft.Control) -> ft.Container:
-        """Crea un contenedor estilizado para un gráfico"""
         return ft.Container(
             content=ft.Column(
                 controls=[
                     ft.Text(
                         titulo,
-                        size=TAMANOS.TEXTO_XL,
+                        size=16,
                         weight=ft.FontWeight.BOLD,
                         color=COLORES.TEXTO
                     ),
-                    grafico,
+                    ft.Container(
+                        content=grafico,
+                        expand=True
+                    ),
                 ],
-                spacing=TAMANOS.ESPACIADO_MD,
+                spacing=10,
+                expand=True
             ),
-            padding=TAMANOS.PADDING_LG,
+            padding=15,
             bgcolor=COLORES.FONDO_BLANCO,
             border_radius=TAMANOS.RADIO_MD,
-            border=ft.border.all(1, COLORES.BORDE),
+            border=ft.Border.all(1, COLORES.BORDE),
             expand=True,
         )
     
     def _CONSTRUIR_BOTONES_GESTION(self) -> ft.Row:
-        """Construye la fila de botones de gestión (DRY)"""
+        # Botones comunes para ADMIN y SUPERADMIN
         botones = [
-            self._CREAR_BOTON_GESTION("Gestionar Roles", ICONOS.ROLES, self._ABRIR_GESTION_ROLES, COLORES.SECUNDARIO),
-            self._CREAR_BOTON_GESTION("Gestionar Usuarios", ICONOS.USUARIOS, self._VER_USUARIOS, COLORES.PRIMARIO),
-            self._CREAR_BOTON_GESTION("Usuarios Avanzado", ICONOS.USUARIOS, self._VER_USUARIOS_AVANZADO, COLORES.PRIMARIO_CLARO),
+            self._CREAR_BOTON_GESTION("Gestión de Usuarios", ICONOS.USUARIOS, self._VER_GESTION_USUARIOS, COLORES.PRIMARIO),
             self._CREAR_BOTON_GESTION("Gestionar Productos", ICONOS.PRODUCTOS, self._VER_PRODUCTOS, COLORES.EXITO),
-            self._CREAR_BOTON_GESTION("Gestionar Sucursales", ft.Icons.STORE, self._VER_SUCURSALES, COLORES.ADVERTENCIA),
-            self._CREAR_BOTON_GESTION("Extras", ft.Icons.ADD_CIRCLE, self._VER_EXTRAS, COLORES.INFO_OSCURO),
-            self._CREAR_BOTON_GESTION("Ofertas", ft.Icons.LOCAL_OFFER, self._VER_OFERTAS, COLORES.ADVERTENCIA),
-            self._CREAR_BOTON_GESTION("Horarios", ft.Icons.SCHEDULE, self._VER_HORARIOS, COLORES.INFO),
             self._CREAR_BOTON_GESTION("Gestión Pedidos", ICONOS.PEDIDOS, self._VER_PEDIDOS_ADMIN, COLORES.EXITO),
+            self._CREAR_BOTON_GESTION("Validar Vouchers", ICONOS.VOUCHER, self._VER_VALIDAR_VOUCHERS, COLORES.ADVERTENCIA),
+            self._CREAR_BOTON_GESTION("Finanzas y Control", ICONOS.CAJA, self._VER_FINANZAS, COLORES.EXITO),
+            self._CREAR_BOTON_GESTION("Extras", ft.icons.Icons.ADD_CIRCLE, self._VER_EXTRAS, COLORES.INFO_OSCURO),
+            self._CREAR_BOTON_GESTION("Ofertas", ft.icons.Icons.LOCAL_OFFER, self._VER_OFERTAS, COLORES.ADVERTENCIA),
+            self._CREAR_BOTON_GESTION("Horarios", ft.icons.Icons.SCHEDULE, self._VER_HORARIOS, COLORES.INFO),
             self._CREAR_BOTON_GESTION("Insumos", ICONOS.INSUMOS, self._VER_INSUMOS, COLORES.INFO),
             self._CREAR_BOTON_GESTION("Proveedores", ICONOS.PROVEEDORES, self._VER_PROVEEDORES, COLORES.PRIMARIO_OSCURO),
             self._CREAR_BOTON_GESTION("Caja", ICONOS.CAJA, self._VER_CAJA, COLORES.EXITO_OSCURO),
-            self._CREAR_BOTON_GESTION("Auditoría", ICONOS.AUDITORIA, self._VER_AUDITORIA, COLORES.GRIS_OSCURO),
             self._CREAR_BOTON_GESTION("Reseñas", ICONOS.RESENAS, self._VER_RESENAS, COLORES.ADVERTENCIA_OSCURO),
-            self._CREAR_BOTON_GESTION("Finanzas y Control", ICONOS.CAJA, self._VER_FINANZAS, COLORES.EXITO),
-            self._CREAR_BOTON_GESTION("Validar Vouchers", ICONOS.VOUCHER, self._VER_VALIDAR_VOUCHERS, COLORES.ADVERTENCIA),
         ]
         
-        return ft.Row(
-            botones,
-            wrap=True,
-            spacing=TAMANOS.ESPACIADO_MD,
+        # Botones EXCLUSIVOS para SUPERADMIN
+        rol_usuario = self._usuario.ROLES[0].NOMBRE if hasattr(self._usuario.ROLES[0], 'NOMBRE') else self._usuario.ROLES[0]
+        if rol_usuario == "SUPERADMIN":
+            botones.insert(0, self._CREAR_BOTON_GESTION("Gestionar Roles", ICONOS.ROLES, self._ABRIR_GESTION_ROLES, COLORES.SECUNDARIO))
+            botones.insert(4, self._CREAR_BOTON_GESTION("Gestionar Sucursales", ft.icons.Icons.STORE, self._VER_SUCURSALES, COLORES.ADVERTENCIA))
+            botones.append(self._CREAR_BOTON_GESTION("Auditoría", ICONOS.AUDITORIA, self._VER_AUDITORIA, COLORES.GRIS_OSCURO))
+        
+        return ft.ResponsiveRow(
+            [ft.Container(btn, col={"xs": 12, "sm": 6, "md": 4, "lg": 3}) for btn in botones],
+            spacing=10,
+            run_spacing=10,
         )
     
-    def _CREAR_BOTON_GESTION(self, texto: str, icono: str, handler, bgcolor: str) -> ft.ElevatedButton:
-        """Factory method para crear botones de gestión (DRY)"""
-        return ft.ElevatedButton(
-            texto,
+    def _CREAR_BOTON_GESTION(self, texto: str, icono: str, handler, bgcolor: str) -> ft.Button:
+        return ft.Button(
+            content=ft.Text(texto, color=COLORES.TEXTO_BLANCO),
             icon=icono,
             on_click=handler,
             bgcolor=bgcolor,
-            color=COLORES.TEXTO_BLANCO,
         )
     
-    # =========================================================================
-    # Gestión de Estado con BLoC Pattern
-    # =========================================================================
-    
     def _ON_ESTADO_CAMBIO(self, estado: AdminEstado):
-        """
-        Callback cuando el BLoC cambia de estado
-        Actualiza la UI reactivamente
-        """
         if isinstance(estado, AdminCargando):
             self._MOSTRAR_CARGANDO()
         
@@ -305,52 +273,58 @@ class PaginaAdmin(ft.Column):
             self._MOSTRAR_ERROR(estado.mensaje)
     
     def _MOSTRAR_CARGANDO(self):
-        """Muestra indicador de carga"""
-        # Aquí podrías agregar un spinner si lo deseas
         pass
     
     def _ACTUALIZAR_UI_CON_DATOS(self, dashboard):
-        """Actualiza la UI con los datos del dashboard"""
-        # Actualizar cards de estadísticas generales
-        stats = dashboard.estadisticas_generales
-        self._card_usuarios.ACTUALIZAR_VALOR(str(stats.total_usuarios))
-        self._card_pedidos.ACTUALIZAR_VALOR(str(stats.total_pedidos_hoy))
-        self._card_ganancias.ACTUALIZAR_VALOR(f"{stats.ganancias_hoy} Bs")
-        self._card_productos.ACTUALIZAR_VALOR(str(stats.total_productos))
-        
-        # Actualizar gráficos
-        self._grafico_roles.ACTUALIZAR_DATOS(dashboard.estadisticas_roles)
-        self._grafico_sucursales.ACTUALIZAR_DATOS(dashboard.estadisticas_sucursales)
-        self._grafico_semanal.ACTUALIZAR_DATOS(dashboard.estadisticas_semanales)
-        self._grafico_inventario.ACTUALIZAR_DATOS(dashboard.estadisticas_inventario)
-        
-        # Forzar actualización
-        if hasattr(self, 'update'):
-            self.update()
-    
-    # =========================================================================
-    # Gestión de Roles
-    # =========================================================================
+        try:
+            stats = dashboard.estadisticas_generales
+            
+            if self._card_usuarios and self._card_usuarios.content:
+                self._card_usuarios.content.controls[1].value = str(stats.total_usuarios)
+            
+            if self._card_pedidos and self._card_pedidos.content:
+                self._card_pedidos.content.controls[1].value = str(stats.total_pedidos_hoy)
+            
+            if self._card_ganancias and self._card_ganancias.content:
+                self._card_ganancias.content.controls[1].value = f"{stats.ganancias_hoy:.2f} Bs"
+            
+            if self._card_productos and self._card_productos.content:
+                self._card_productos.content.controls[1].value = str(stats.total_productos)
+            
+            if self._grafico_roles:
+                self._grafico_roles.ACTUALIZAR_DATOS(dashboard.estadisticas_roles)
+            
+            if self._grafico_sucursales:
+                self._grafico_sucursales.ACTUALIZAR_DATOS(dashboard.estadisticas_sucursales)
+            
+            if self._grafico_semanal:
+                self._grafico_semanal.ACTUALIZAR_DATOS(dashboard.estadisticas_semanales)
+            
+            if self._grafico_inventario:
+                self._grafico_inventario.ACTUALIZAR_DATOS(dashboard.estadisticas_inventario)
+            
+            if self._pagina and hasattr(self._pagina, 'update'):
+                safe_update(self._pagina)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
     
     def _ABRIR_GESTION_ROLES(self, e):
-        """Navega a la vista de gestión de roles"""
         try:
-            if not self._USUARIO.TIENE_ROL(ROLES.SUPERADMIN):
+            if not self._usuario.TIENE_ROL(ROLES.SUPERADMIN):
                 self._MOSTRAR_ERROR(ERRORES_AUTENTICACION.PERMISOS_INSUFICIENTES)
                 return
             
             from features.admin.presentation.pages.gestion.RolesPage import RolesPage
             
-            self._PAGINA.controls.clear()
-            self._PAGINA.add(RolesPage(self._PAGINA, self._USUARIO))
-            self._PAGINA.update()
+            self._pagina.controls.clear()
+            self._pagina.add(RolesPage(self._pagina, self._usuario))
+            safe_update(self._pagina)
             
         except Exception as error:
-            print(f"Error abriendo gestión de roles: {error}")
             self._MOSTRAR_ERROR(f"Error: {str(error)}")
 
     def _ABRIR_CAMBIO_ROL(self, USUARIO):
-        """Abre diálogo para cambiar rol de usuario (usando BLoC)"""
         usecase_roles = ObtenerRolesDisponibles(REPOSITORIO_ADMIN_IMPL)
         roles = usecase_roles.EJECUTAR()
         
@@ -372,7 +346,6 @@ class PaginaAdmin(ft.Column):
                 self._MOSTRAR_ERROR("Selecciona un rol")
                 return
 
-            # Disparar evento al BLoC
             ADMIN_BLOC.AGREGAR_EVENTO(
                 ActualizarRol(
                     usuario_id=USUARIO.ID,
@@ -393,7 +366,7 @@ class PaginaAdmin(ft.Column):
             ),
             actions=[
                 ft.TextButton("Cancelar", on_click=lambda e: self._CERRAR_DLG(e)),
-                ft.ElevatedButton(
+                ft.Button(
                     "Guardar",
                     on_click=GUARDAR,
                     bgcolor=COLORES.PRIMARIO,
@@ -402,28 +375,20 @@ class PaginaAdmin(ft.Column):
             ],
         )
 
-        self._PAGINA.dialog = dlg
+        self._pagina.dialog = dlg
         dlg.open = True
-        self._PAGINA.update()
-    
-    # =========================================================================
-    # Navegación a Otras Vistas (Delegación)
-    # =========================================================================    
-    # =========================================================================
-    # Navegación a Otras Vistas (Delegación)
-    # =========================================================================
+        safe_update(self._pagina)
 
-
-    def _VER_USUARIOS(self, e):
-        """Abre vista de gestión de usuarios"""
-        from features.admin.presentation.pages.gestion.UsuariosPage import UsuariosPage
+    def _VER_GESTION_USUARIOS(self, e):
+        """Abre la nueva página de gestión de usuarios refactorizada"""
+        from features.gestion_usuarios.presentation.pages.PaginaGestionUsuarios import PaginaGestionUsuarios
         
-        self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(UsuariosPage(self._PAGINA, self._USUARIO))
-        self._PAGINA.update()
+        ADMIN_BLOC.REMOVER_LISTENER(self._ON_ESTADO_CAMBIO)
+        self._pagina.controls.clear()
+        self._pagina.controls.append(PaginaGestionUsuarios(self._pagina, self._usuario))
+        safe_update(self._pagina)
 
     def _ABRIR_CAMBIO_ROL(self, USUARIO):
-        """Abre diálogo para cambiar rol de usuario (usando BLoC)"""
         usecase_roles = ObtenerRolesDisponibles(REPOSITORIO_ADMIN_IMPL)
         roles = usecase_roles.EJECUTAR()
         
@@ -445,7 +410,6 @@ class PaginaAdmin(ft.Column):
                 self._MOSTRAR_ERROR("Selecciona un rol")
                 return
 
-            # Disparar evento al BLoC
             ADMIN_BLOC.AGREGAR_EVENTO(
                 ActualizarRol(
                     usuario_id=USUARIO.ID,
@@ -466,7 +430,7 @@ class PaginaAdmin(ft.Column):
             ),
             actions=[
                 ft.TextButton("Cancelar", on_click=lambda e: self._CERRAR_DLG(e)),
-                ft.ElevatedButton(
+                ft.Button(
                     "Guardar",
                     on_click=GUARDAR,
                     bgcolor=COLORES.PRIMARIO,
@@ -475,203 +439,166 @@ class PaginaAdmin(ft.Column):
             ],
         )
 
-        self._PAGINA.dialog = dlg
+        self._pagina.dialog = dlg
         dlg.open = True
-        self._PAGINA.update()
-
+        safe_update(self._pagina)
 
     def _OBTENER_ROLES(self):
-        """Obsoleto - ahora se usa el caso de uso"""
         usecase = ObtenerRolesDisponibles(REPOSITORIO_ADMIN_IMPL)
         return usecase.EJECUTAR()
 
-
     def _ACTUALIZAR_ROL_USUARIO(self, USUARIO_ID: int, NOMBRE_ROL: str):
-        """Obsoleto - ahora se usa el BLoC"""
         ADMIN_BLOC.AGREGAR_EVENTO(
             ActualizarRol(usuario_id=USUARIO_ID, nombre_rol=NOMBRE_ROL)
         )
 
-
     def _CERRAR_DLG(self, e):
-        """Cierra el diálogo modal"""
-        if hasattr(self._PAGINA, "dialog") and self._PAGINA.dialog:
-            self._PAGINA.dialog.open = False
-            self._PAGINA.update()
-    
-    # =========================================================================
-    # Métodos de Navegación (Delegación - mantienen compatibilidad)
-    # =========================================================================
-    # =========================================================================
-    # Métodos de Navegación (Delegación - mantienen compatibilidad)
-    # =========================================================================
-
+        if hasattr(self._pagina, "dialog") and self._pagina.dialog:
+            self._pagina.dialog.open = False
+            safe_update(self._pagina)
 
     def _VER_PRODUCTOS(self, e):
-        """Abre vista de gestión de productos"""
         from features.admin.presentation.pages.gestion.ProductosPage import ProductosPage
         
-        self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(ProductosPage(self._PAGINA, self._USUARIO))
-        self._PAGINA.update()
-
+        self._pagina.controls.clear()
+        self._pagina.controls.append(ProductosPage(self._pagina, self._usuario))
+        safe_update(self._pagina)
 
     def _VER_SUCURSALES(self, e):
-        """Abre vista de gestión de sucursales"""
         from features.admin.presentation.pages.gestion.SucursalesPage import SucursalesPage
         
-        self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(SucursalesPage(self._PAGINA, self._USUARIO))
-        self._PAGINA.update()
-
+        self._pagina.controls.clear()
+        self._pagina.controls.append(SucursalesPage(self._pagina, self._usuario))
+        safe_update(self._pagina)
 
     def _VER_USUARIOS_AVANZADO(self, e):
-        """Abre vista avanzada de gestión de usuarios"""
         from features.admin.presentation.pages.gestion.UsuariosPage import UsuariosPage
         
-        self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(UsuariosPage(self._PAGINA, self._USUARIO))
-        self._PAGINA.update()
-
+        self._pagina.controls.clear()
+        self._pagina.controls.append(UsuariosPage(self._pagina, self._usuario))
+        safe_update(self._pagina)
 
     def _VER_EXTRAS(self, e):
-        """Abre vista de gestión de extras"""
         from features.admin.presentation.pages.gestion.ExtrasPage import ExtrasPage
         
-        self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(ExtrasPage(self._PAGINA, self._USUARIO))
-        self._PAGINA.update()
-
+        self._pagina.controls.clear()
+        self._pagina.controls.append(ExtrasPage(self._pagina, self._usuario))
+        safe_update(self._pagina)
 
     def _VER_OFERTAS(self, e):
-        """Abre vista de gestión de ofertas"""
         from features.admin.presentation.pages.gestion.OfertasPage import OfertasPage
         
-        self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(OfertasPage(self._PAGINA, self._USUARIO))
-        self._PAGINA.update()
-
+        self._pagina.controls.clear()
+        self._pagina.controls.append(OfertasPage(self._pagina, self._usuario))
+        safe_update(self._pagina)
 
     def _VER_HORARIOS(self, e):
-        """Abre vista de gestión de horarios"""
         from features.admin.presentation.pages.gestion.HorariosPage import HorariosPage
         
-        self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(HorariosPage(self._PAGINA, self._USUARIO))
-        self._PAGINA.update()
-
+        self._pagina.controls.clear()
+        self._pagina.controls.append(HorariosPage(self._pagina, self._usuario))
+        safe_update(self._pagina)
 
     def _VER_PEDIDOS_ADMIN(self, e):
-        """Abre vista de pedidos administrativos"""
         from features.admin.presentation.pages.vistas.PedidosPage import PedidosPage
 
-        self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(PedidosPage(self._PAGINA, self._USUARIO))
-        self._PAGINA.update()
-
+        self._pagina.controls.clear()
+        self._pagina.controls.append(PedidosPage(self._pagina, self._usuario))
+        safe_update(self._pagina)
 
     def _VER_INSUMOS(self, e):
-        """Abre vista de gestión de insumos"""
         from features.admin.presentation.pages.gestion.InsumosPage import InsumosPage
         
-        self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(InsumosPage(self._PAGINA, self._USUARIO))
-        self._PAGINA.update()
-
+        self._pagina.controls.clear()
+        self._pagina.controls.append(InsumosPage(self._pagina, self._usuario))
+        safe_update(self._pagina)
 
     def _VER_PROVEEDORES(self, e):
-        """Abre vista de gestión de proveedores"""
         from features.admin.presentation.pages.gestion.ProveedoresPage import ProveedoresPage
         
-        self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(ProveedoresPage(self._PAGINA, self._USUARIO))
-        self._PAGINA.update()
-
+        self._pagina.controls.clear()
+        self._pagina.controls.append(ProveedoresPage(self._pagina, self._usuario))
+        safe_update(self._pagina)
 
     def _VER_CAJA(self, e):
-        """Abre vista de gestión de caja"""
         from features.admin.presentation.pages.gestion.CajaPage import CajaPage
         
-        self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(CajaPage(self._PAGINA, self._USUARIO))
-        self._PAGINA.update()
-
+        self._pagina.controls.clear()
+        self._pagina.controls.append(CajaPage(self._pagina, self._usuario))
+        safe_update(self._pagina)
 
     def _VER_AUDITORIA(self, e):
-        """Abre vista de auditoría"""
         from features.admin.presentation.pages.vistas.AuditoriaPage import AuditoriaPage
         
-        self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(AuditoriaPage(self._PAGINA, self._USUARIO))
-        self._PAGINA.update()
-
+        self._pagina.controls.clear()
+        self._pagina.controls.append(AuditoriaPage(self._pagina, self._usuario))
+        safe_update(self._pagina)
 
     def _VER_RESENAS(self, e):
-        """Abre vista de reseñas"""
         from features.admin.presentation.pages.vistas.ResenasPage import ResenasPage
 
-        self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(ResenasPage(self._PAGINA, self._USUARIO))
-        self._PAGINA.update()
+        self._pagina.controls.clear()
+        self._pagina.controls.append(ResenasPage(self._pagina, self._usuario))
+        safe_update(self._pagina)
     
     
     def _VER_FINANZAS(self, e):
-        """Abre vista de finanzas"""
         from features.admin.presentation.pages.vistas.FinanzasPage import FinanzasPage
 
-        self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(FinanzasPage(self._PAGINA, self._USUARIO))
-        self._PAGINA.update()
+        self._pagina.controls.clear()
+        self._pagina.controls.append(FinanzasPage(self._pagina, self._usuario))
+        safe_update(self._pagina)
     
     
     def _VER_VALIDAR_VOUCHERS(self, e):
-        """Abre vista de validación de vouchers"""
         from features.admin.presentation.pages.vistas.VouchersPage import VouchersPage
 
-        self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(VouchersPage(self._PAGINA, self._USUARIO))
-        self._PAGINA.update()
-
-
-    def _IR_MENU(self, e):
-        """Recarga el dashboard"""
-        self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(PaginaAdmin(self._PAGINA, self._USUARIO))
-        self._PAGINA.update()
-
+        self._pagina.controls.clear()
+        vouchers_page = VouchersPage(self._pagina, self._usuario)
+        self._pagina.controls.append(vouchers_page)
+        safe_update(self._pagina)
+        
+        if hasattr(vouchers_page, '_cargar_datos_iniciales'):
+            vouchers_page._cargar_datos_iniciales()
 
     def _SALIR(self, e):
-        """Cierra sesión y vuelve al login"""
         from features.autenticacion.presentation.pages.PaginaLogin import PaginaLogin
 
-        # Limpiar listener del BLoC
         ADMIN_BLOC.REMOVER_LISTENER(self._ON_ESTADO_CAMBIO)
         
-        self._PAGINA.controls.clear()
-        self._PAGINA.controls.append(PaginaLogin(self._PAGINA))
-        self._PAGINA.update()
-    
-    # =========================================================================
-    # Utilidades
-    # =========================================================================
+        self._pagina.controls.clear()
+        self._pagina.controls.append(PaginaLogin(self._pagina))
+        safe_update(self._pagina)
 
     def _MOSTRAR_ERROR(self, MENSAJE: str):
-        """Muestra mensaje de error"""
         snackbar = ft.SnackBar(
             content=ft.Text(MENSAJE, color=COLORES.TEXTO_BLANCO),
             bgcolor=COLORES.PELIGRO,
         )
-        self._PAGINA.overlay.append(snackbar)
+        _overlay = getattr(self._pagina, 'overlay', None)
+        if _overlay is not None:
+            _overlay.append(snackbar)
+        else:
+            try:
+                self._pagina.controls.append(snackbar)
+            except Exception:
+                pass
         snackbar.open = True
-        self._PAGINA.update()
+        safe_update(self._pagina)
     
     def _MOSTRAR_EXITO(self, MENSAJE: str):
-        """Muestra mensaje de éxito"""
         snackbar = ft.SnackBar(
             content=ft.Text(MENSAJE, color=COLORES.TEXTO_BLANCO),
             bgcolor=COLORES.EXITO,
         )
-        self._PAGINA.overlay.append(snackbar)
+        _overlay = getattr(self._pagina, 'overlay', None)
+        if _overlay is not None:
+            _overlay.append(snackbar)
+        else:
+            try:
+                self._pagina.controls.append(snackbar)
+            except Exception:
+                pass
         snackbar.open = True
-        self._PAGINA.update()
+        safe_update(self._pagina)
 

@@ -1,7 +1,6 @@
 import aiohttp
 from typing import Dict, Optional
 
-
 class FuenteAutenticacionRemota:
 
     def __init__(self, URL_BASE: str):

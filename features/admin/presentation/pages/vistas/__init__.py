@@ -1,7 +1,3 @@
-"""
-Módulo de páginas de visualización administrativa.
-Vistas especializadas de solo lectura y reportes.
-"""
 
 from .AuditoriaPage import AuditoriaPage
 from .FinanzasPage import FinanzasPage

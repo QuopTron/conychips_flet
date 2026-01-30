@@ -11,7 +11,6 @@ from core.Constantes import (
 from core.decoradores.DecoradorVistas import REQUIERE_ROL
 from core.Constantes import ROLES
 
-
 @REQUIERE_ROL(ROLES.SUPERADMIN)
 class PaginaAuditoria(ft.Column):
     def __init__(self, PAGINA: ft.Page, USUARIO):
@@ -27,8 +26,8 @@ class PaginaAuditoria(ft.Column):
             controls=[
                 ft.Text("Auditoría", size=TAMANOS.TEXTO_3XL, weight=ft.FontWeight.BOLD),
                 ft.Container(expand=True),
-                ft.ElevatedButton("Menú", icon=ICONOS.DASHBOARD, on_click=self._IR_MENU),
-                ft.ElevatedButton("Salir", icon=ICONOS.CERRAR_SESION, on_click=self._SALIR, bgcolor=COLORES.PELIGRO, color=COLORES.TEXTO_BLANCO),
+                ft.Button("Menú", icon=ICONOS.DASHBOARD, on_click=self._IR_MENU),
+                ft.Button("Salir", icon=ICONOS.CERRAR_SESION, on_click=self._SALIR, bgcolor=COLORES.PELIGRO, color=COLORES.TEXTO_BLANCO),
             ],
             spacing=TAMANOS.ESPACIADO_MD,
         )
@@ -66,7 +65,7 @@ class PaginaAuditoria(ft.Column):
                     padding=TAMANOS.PADDING_MD,
                     bgcolor=COLORES.FONDO_BLANCO,
                     border_radius=TAMANOS.RADIO_SM,
-                    border=ft.border.all(1, COLORES.BORDE),
+                    border=ft.Border.all(1, COLORES.BORDE),
                 )
             )
 

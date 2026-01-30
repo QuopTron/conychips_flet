@@ -5,7 +5,6 @@ from features.autenticacion.domain.RepositorioAutenticacion import (
 )
 from core.seguridad.GeneradorHuella import GeneradorHuella
 
-
 class RegistrarUsuario:
 
     def __init__(self, REPOSITORIO: RepositorioAutenticacion):

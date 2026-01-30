@@ -11,7 +11,7 @@ from core.base_datos.ConfiguracionBD import (
 from core.constantes import COLORES, TAMANOS, ICONOS
 from core.decoradores.DecoradorVistas import REQUIERE_ROL
 from core.websocket.GestorNotificaciones import GestorNotificaciones
-
+from core.realtime import dispatcher
 
 @REQUIERE_ROL("COCINERO", "ADMIN", "SUPERADMIN")
 class PaginaDashboardCocina:
@@ -26,6 +26,11 @@ class PaginaDashboardCocina:
         self.SOLICITUDES_REFILL = ft.ListView(spacing=10, expand=True)
         
         self._CARGAR_DATOS()
+        # register for realtime cocina alerts
+        try:
+            dispatcher.register('pedido_alerta_cocina', self._on_realtime_alert)
+        except Exception:
+            pass
     
     
     def _CARGAR_DATOS(self):
@@ -60,6 +65,31 @@ class PaginaDashboardCocina:
         
         if self.PAGINA:
             self.PAGINA.update()
+
+    def _on_realtime_alert(self, payload: dict):
+        pid = payload.get('pedido_id')
+        # Filter by sucursal if event provides it
+        sucursal_evt = payload.get('sucursal_id')
+        try:
+            sesion = OBTENER_SESION()
+            usuario = sesion.query(MODELO_USUARIO).filter_by(ID=self.USUARIO_ID).first()
+            usuario_suc = getattr(usuario, 'SUCURSAL_ID', None) if usuario else None
+            sesion.close()
+        except Exception:
+            usuario_suc = None
+
+        if sucursal_evt is not None and usuario_suc is not None and sucursal_evt != usuario_suc:
+            return
+
+        self.PEDIDOS_PREPARACION.controls.insert(0, ft.Container(content=ft.Row([
+            ft.Icon(ICONOS.ALERTA, color=COLORES.ERROR),
+            ft.Text(f"ALERTA: Pedido #{pid} - revisar ingredientes", weight=ft.FontWeight.BOLD),
+        ]), padding=10, border=ft.Border.all(1, COLORES.ERROR), border_radius=8))
+        # keep list manageable
+        if len(self.PEDIDOS_PREPARACION.controls) > 200:
+            self.PEDIDOS_PREPARACION.controls.pop()
+        if self.PAGINA:
+            self.PAGINA.update()
     
     
     def _CREAR_TARJETA_PEDIDO(self, PEDIDO):
@@ -80,14 +110,14 @@ class PaginaDashboardCocina:
                     size=12
                 ),
                 ft.Row([
-                    ft.ElevatedButton(
+                    ft.Button(
                         "Iniciar Preparación",
                         icon=ICONOS.COCINA,
                         bgcolor=COLORES.ADVERTENCIA,
                         on_click=lambda e, p=PEDIDO: self._INICIAR_PREPARACION(p),
                         visible=PEDIDO.ESTADO == "confirmado"
                     ),
-                    ft.ElevatedButton(
+                    ft.Button(
                         "Marcar Listo",
                         icon=ICONOS.CONFIRMAR,
                         bgcolor=COLORES.EXITO,
@@ -97,7 +127,7 @@ class PaginaDashboardCocina:
                 ], spacing=10),
             ], spacing=10),
             padding=15,
-            border=ft.border.all(1, COLORES.BORDE),
+            border=ft.Border.all(1, COLORES.BORDE),
             border_radius=TAMANOS.RADIO_BORDE,
             bgcolor=COLORES.FONDO_TARJETA,
         )
@@ -110,7 +140,12 @@ class PaginaDashboardCocina:
         if pedido:
             pedido.ESTADO = "en_preparacion"
             sesion.commit()
-            
+            try:
+                from core.realtime.broker_notify import notify
+                notify({'type': 'pedido_actualizado', 'pedido_id': pedido.ID, 'nuevo_estado': 'en_preparacion', 'sucursal_id': getattr(pedido, 'SUCURSAL_ID', None)})
+            except Exception:
+                pass
+
             await self.GESTOR_NOTIFICACIONES.NOTIFICAR_CAMBIO_ESTADO_PEDIDO(
                 PEDIDO_ID=pedido.ID,
                 NUEVO_ESTADO="en_preparacion",
@@ -136,7 +171,12 @@ class PaginaDashboardCocina:
         if pedido:
             pedido.ESTADO = "listo"
             sesion.commit()
-            
+            try:
+                from core.realtime.broker_notify import notify
+                notify({'type': 'pedido_actualizado', 'pedido_id': pedido.ID, 'nuevo_estado': 'listo', 'sucursal_id': getattr(pedido, 'SUCURSAL_ID', None)})
+            except Exception:
+                pass
+
             await self.GESTOR_NOTIFICACIONES.NOTIFICAR_CAMBIO_ESTADO_PEDIDO(
                 PEDIDO_ID=pedido.ID,
                 NUEVO_ESTADO="listo",
@@ -189,7 +229,7 @@ class PaginaDashboardCocina:
                         ),
                     ]),
                     padding=10,
-                    border=ft.border.all(1, COLORES.ERROR if STOCK_BAJO else COLORES.BORDE),
+                    border=ft.Border.all(1, COLORES.ERROR if STOCK_BAJO else COLORES.BORDE),
                     border_radius=TAMANOS.RADIO_BORDE,
                     bgcolor=COLORES.FONDO_TARJETA,
                 )
@@ -235,6 +275,11 @@ class PaginaDashboardCocina:
                 CANTIDAD=float(CANTIDAD.value),
                 USUARIOS_ADMIN=ADMIN_IDS
             )
+            try:
+                from core.realtime.broker_notify import notify
+                notify({'type': 'refill_solicitado', 'insumo_id': INSUMO.ID, 'insumo_nombre': INSUMO.NOMBRE, 'cantidad': float(CANTIDAD.value)})
+            except Exception:
+                pass
             
             self._CERRAR_DIALOG()
             self._CARGAR_SOLICITUDES_REFILL()
@@ -255,7 +300,7 @@ class PaginaDashboardCocina:
             ], tight=True),
             actions=[
                 ft.TextButton("Cancelar", on_click=lambda e: self._CERRAR_DIALOG()),
-                ft.ElevatedButton("Solicitar", on_click=ENVIAR_SOLICITUD),
+                ft.Button("Solicitar", on_click=ENVIAR_SOLICITUD),
             ]
         )
         
@@ -310,7 +355,7 @@ class PaginaDashboardCocina:
                             ),
                         ], spacing=5),
                         padding=10,
-                        border=ft.border.all(1, COLORES.BORDE),
+                        border=ft.Border.all(1, COLORES.BORDE),
                         border_radius=TAMANOS.RADIO_BORDE,
                     )
                 )
@@ -332,33 +377,23 @@ class PaginaDashboardCocina:
             ft.Text("Dashboard Cocina", size=TAMANOS.TITULO, weight=ft.FontWeight.BOLD),
             
             ft.Tabs(
+                content=ft.Column([
+                    ft.TabBar(
+                        tabs=[
+                            ft.Tab(label="Pedidos", icon=ICONOS.PEDIDO),
+                            ft.Tab(label="Inventario", icon=ICONOS.INVENTARIO),
+                            ft.Tab(label="Mis Solicitudes", icon=ICONOS.HISTORIAL),
+                        ],
+                    ),
+                    ft.TabBarView(
+                        controls=[
+                            ft.Container(content=self.PEDIDOS_PREPARACION, padding=10),
+                            ft.Container(content=self.INSUMOS_LISTA, padding=10),
+                            ft.Container(content=self.SOLICITUDES_REFILL, padding=10),
+                        ],
+                    ),
+                ], expand=True),
+                length=3,
                 selected_index=0,
-                tabs=[
-                    ft.Tab(
-                        text="Pedidos",
-                        icon=ICONOS.PEDIDO,
-                        content=ft.Container(
-                            content=self.PEDIDOS_PREPARACION,
-                            padding=10,
-                        )
-                    ),
-                    ft.Tab(
-                        text="Inventario",
-                        icon=ICONOS.INVENTARIO,
-                        content=ft.Container(
-                            content=self.INSUMOS_LISTA,
-                            padding=10,
-                        )
-                    ),
-                    ft.Tab(
-                        text="Mis Solicitudes",
-                        icon=ICONOS.HISTORIAL,
-                        content=ft.Container(
-                            content=self.SOLICITUDES_REFILL,
-                            padding=10,
-                        )
-                    ),
-                ],
-                expand=True,
             )
         ], expand=True)

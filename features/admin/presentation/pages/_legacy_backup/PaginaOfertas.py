@@ -16,7 +16,6 @@ from core.Constantes import ROLES
 from features.autenticacion.domain.entities.Usuario import Usuario
 from core.decoradores.DecoradorVistas import REQUIERE_ROL
 
-
 @REQUIERE_ROL(ROLES.SUPERADMIN, ROLES.ADMIN)
 class PaginaOfertas(ft.Column):
 
@@ -27,12 +26,10 @@ class PaginaOfertas(ft.Column):
         self._LISTA = ft.Column(spacing=TAMANOS.ESPACIADO_MD)
         self._CONSTRUIR()
 
-
     def _CONSTRUIR(self):
         HEADER = ft.Row(
             controls=[
-                ft.Icon(
-                    ft.Icons.LOCAL_OFFER,
+                ft.Icon(ft.icons.Icons.LOCAL_OFFER,
                     size=TAMANOS.ICONO_LG,
                     color=COLORES.ADVERTENCIA
                 ),
@@ -43,21 +40,21 @@ class PaginaOfertas(ft.Column):
                     color=COLORES.TEXTO
                 ),
                 ft.Container(expand=True),
-                ft.ElevatedButton(
+                ft.Button(
                     "Menú",
                     icon=ICONOS.DASHBOARD,
                     on_click=self._IR_MENU,
                     bgcolor=COLORES.PRIMARIO,
                     color=COLORES.TEXTO_BLANCO
                 ),
-                ft.ElevatedButton(
+                ft.Button(
                     "Salir",
                     icon=ICONOS.CERRAR_SESION,
                     on_click=self._SALIR,
                     bgcolor=COLORES.PELIGRO,
                     color=COLORES.TEXTO_BLANCO
                 ),
-                ft.ElevatedButton(
+                ft.Button(
                     "Nueva Oferta",
                     icon=ICONOS.AGREGAR,
                     on_click=self._NUEVA,
@@ -87,7 +84,6 @@ class PaginaOfertas(ft.Column):
         self.expand = True
         self._CARGAR_DATOS()
 
-
     def _CARGAR_DATOS(self):
         self._LISTA.controls.clear()
         
@@ -104,7 +100,7 @@ class PaginaOfertas(ft.Column):
                         color=COLORES.TEXTO_SECUNDARIO,
                         text_align=ft.TextAlign.CENTER,
                     ),
-                    alignment=ft.alignment.center,
+                    alignment=ft.Alignment(0, 0),
                     padding=TAMANOS.PADDING_2XL,
                 )
             )
@@ -115,7 +111,6 @@ class PaginaOfertas(ft.Column):
         if hasattr(self, "update"):
             self.update()
 
-
     def _CREAR_CARD(self, OFERTA):
         fecha_inicio = OFERTA.FECHA_INICIO if OFERTA.FECHA_INICIO else "N/A"
         fecha_fin = OFERTA.FECHA_FIN if OFERTA.FECHA_FIN else "N/A"
@@ -123,8 +118,7 @@ class PaginaOfertas(ft.Column):
         return ft.Container(
             content=ft.Row(
                 controls=[
-                    ft.Icon(
-                        ft.Icons.LOCAL_OFFER,
+                    ft.Icon(ft.icons.Icons.LOCAL_OFFER,
                         size=TAMANOS.ICONO_XL,
                         color=COLORES.ADVERTENCIA
                     ),
@@ -200,17 +194,14 @@ class PaginaOfertas(ft.Column):
             padding=TAMANOS.PADDING_LG,
             bgcolor=COLORES.FONDO_BLANCO,
             border_radius=TAMANOS.RADIO_MD,
-            border=ft.border.all(1, COLORES.BORDE),
+            border=ft.Border.all(1, COLORES.BORDE),
         )
-
 
     def _NUEVA(self, e):
         self._ABRIR_FORMULARIO(None)
 
-
     def _EDITAR(self, OFERTA):
         self._ABRIR_FORMULARIO(OFERTA)
-
 
     def _ABRIR_FORMULARIO(self, OFERTA):
         ES_EDICION = OFERTA is not None
@@ -322,7 +313,7 @@ class PaginaOfertas(ft.Column):
             ),
             actions=[
                 ft.TextButton("Cancelar", on_click=lambda e: self._CERRAR_DIALOGO()),
-                ft.ElevatedButton(
+                ft.Button(
                     "Guardar",
                     icon=ICONOS.GUARDAR,
                     on_click=GUARDAR,
@@ -335,7 +326,6 @@ class PaginaOfertas(ft.Column):
         self._PAGINA.dialog = DLG
         DLG.open = True
         self._PAGINA.update()
-
 
     def _ELIMINAR(self, OFERTA):
         def CONFIRMAR(e):
@@ -359,7 +349,7 @@ class PaginaOfertas(ft.Column):
             ),
             actions=[
                 ft.TextButton("Cancelar", on_click=lambda e: self._CERRAR_DIALOGO()),
-                ft.ElevatedButton(
+                ft.Button(
                     "Eliminar",
                     icon=ICONOS.ELIMINAR,
                     on_click=CONFIRMAR,
@@ -373,12 +363,10 @@ class PaginaOfertas(ft.Column):
         DLG.open = True
         self._PAGINA.update()
 
-
     def _CERRAR_DIALOGO(self):
         if hasattr(self._PAGINA, "dialog") and self._PAGINA.dialog:
             self._PAGINA.dialog.open = False
             self._PAGINA.update()
-
 
     def _IR_MENU(self, e):
         from features.admin.presentation.pages.PaginaAdmin import PaginaAdmin
@@ -387,14 +375,12 @@ class PaginaOfertas(ft.Column):
         self._PAGINA.controls.append(PaginaAdmin(self._PAGINA, self._USUARIO))
         self._PAGINA.update()
 
-
     def _SALIR(self, e):
         from features.autenticacion.presentation.pages.PaginaLogin import PaginaLogin
         
         self._PAGINA.controls.clear()
         self._PAGINA.controls.append(PaginaLogin(self._PAGINA))
         self._PAGINA.update()
-
 
     def _MOSTRAR_ERROR(self, MENSAJE: str):
         snackbar = ft.SnackBar(
@@ -404,7 +390,6 @@ class PaginaOfertas(ft.Column):
         self._PAGINA.overlay.append(snackbar)
         snackbar.open = True
         self._PAGINA.update()
-
 
     def _MOSTRAR_EXITO(self, MENSAJE: str):
         snackbar = ft.SnackBar(

@@ -1,6 +1,6 @@
 import asyncio
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Callable
 
 from core.base_datos.ConfiguracionBD import (
@@ -9,7 +9,6 @@ from core.base_datos.ConfiguracionBD import (
     MODELO_MENSAJE_CHAT,
     MODELO_UBICACION_MOTORIZADO,
 )
-
 
 class GestorNotificaciones:
     
@@ -94,11 +93,18 @@ class GestorNotificaciones:
             "titulo": TITULO,
             "mensaje": MENSAJE,
             "datos": DATOS_EXTRA,
-            "fecha": datetime.utcnow().isoformat(),
+            "fecha": datetime.now(timezone.utc).isoformat(),
         }
         
         sesion.close()
         
+        # Broadcast to external WS broker (best-effort)
+        try:
+            from core.realtime.broker_notify import notify
+            notify({'type': 'notificacion', 'notificacion_id': notificacion.ID, 'usuario_id': USUARIO_ID, 'titulo': TITULO, 'mensaje': MENSAJE, 'subtipo': TIPO})
+        except Exception:
+            pass
+
         await self._ENVIAR_A_USUARIO(USUARIO_ID, PAYLOAD)
         await self._EJECUTAR_CALLBACKS_TIPO(TIPO, PAYLOAD)
     
@@ -129,11 +135,17 @@ class GestorNotificaciones:
             "usuario_id": USUARIO_ID,
             "mensaje": MENSAJE,
             "tipo_mensaje": TIPO,
-            "fecha": datetime.utcnow().isoformat(),
+            "fecha": datetime.now(timezone.utc).isoformat(),
         }
         
         sesion.close()
-        
+        # Broadcast chat message to external broker
+        try:
+            from core.realtime.broker_notify import notify
+            notify({'type': 'chat', 'mensaje_id': mensaje_obj.ID, 'pedido_id': PEDIDO_ID, 'usuario_id': USUARIO_ID, 'mensaje': MENSAJE})
+        except Exception:
+            pass
+
         await self._BROADCAST_PEDIDO(PEDIDO_ID, PAYLOAD)
     
     
@@ -165,11 +177,16 @@ class GestorNotificaciones:
             "latitud": LATITUD,
             "longitud": LONGITUD,
             "estado": ESTADO,
-            "fecha": datetime.utcnow().isoformat(),
+            "fecha": datetime.now(timezone.utc).isoformat(),
         }
         
         sesion.close()
-        
+        try:
+            from core.realtime.broker_notify import notify
+            notify({'type': 'gps', 'usuario_id': USUARIO_ID, 'pedido_id': PEDIDO_ID, 'latitud': LATITUD, 'longitud': LONGITUD, 'estado': ESTADO})
+        except Exception:
+            pass
+
         await self._BROADCAST_PEDIDO(PEDIDO_ID, PAYLOAD)
     
     

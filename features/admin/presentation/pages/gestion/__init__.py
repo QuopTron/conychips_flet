@@ -1,7 +1,3 @@
-"""
-Módulo de páginas CRUD de gestión administrativa.
-Todas las páginas siguen el patrón PaginaCRUDBase.
-"""
 
 from .ExtrasPage import ExtrasPage
 from .ProveedoresPage import ProveedoresPage

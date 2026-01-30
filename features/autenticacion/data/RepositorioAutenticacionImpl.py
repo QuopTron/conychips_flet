@@ -7,7 +7,6 @@ from features.autenticacion.data.datasources.FuenteAutenticacionLocal import (
 )
 from datetime import datetime
 
-
 class RepositorioAutenticacionImpl(RepositorioAutenticacion):
 
     def __init__(self):

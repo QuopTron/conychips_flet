@@ -304,3 +304,82 @@ Password: SuperAdmin123.
 ```
 
 **¡Todo listo para producción!** 🚀
+
+---
+
+## 📚 Documentación
+
+Para documentación completa del sistema, visita la carpeta [`docs/`](docs/):
+
+- **[Arquitectura y Seguridad](docs/ARQUITECTURA_SEGURIDAD.md)** - Sistema de seguridad JWT RS256
+- **[Sistema Completo](docs/SISTEMA_COMPLETO.md)** - Guía de instalación y ejecución
+- **[Changelog](docs/CHANGELOG.md)** - Historial de cambios
+- **[Guías de Usuario](docs/guias/)** - Tutoriales y documentación de features
+
+Ver [docs/README.md](docs/README.md) para el índice completo de documentación.
+
+## 🗂️ Estructura del Proyecto
+
+```
+conychips/
+├── main.py              # Punto de entrada de la aplicación
+├── requirements.txt     # Dependencias del proyecto
+├── pytest.ini          # Configuración de pytest
+│
+├── config/             # Configuración del sistema
+│   ├── keys/           # Claves RSA para JWT
+│   └── ConfiguracionApp.py
+│
+├── core/               # Núcleo del sistema
+│   ├── base_datos/     # Configuración de BD
+│   ├── cache/          # Sistema de cache Redis
+│   ├── configuracion/  # Sistema de configuración
+│   └── constantes/     # Constantes globales
+│
+├── features/           # Módulos por funcionalidad
+│   ├── autenticacion/  # Login y JWT
+│   ├── admin/          # Panel de administración
+│   ├── pedidos/        # Gestión de pedidos
+│   ├── finanzas/       # Módulo financiero
+│   └── ...
+│
+├── docs/               # Documentación (10 documentos)
+│   ├── README.md       # Índice de documentación
+│   ├── guias/          # Guías de usuario
+│   └── ...
+│
+├── tests/              # Tests organizados por módulo (22 tests)
+│   ├── admin/          # 3 tests
+│   ├── autenticacion/  # 2 tests
+│   ├── vouchers/       # 14 tests
+│   └── ...
+│
+└── tools/              # Scripts de utilidad (22 scripts)
+    ├── README.md       # Documentación de herramientas
+    ├── generar_bloc.py # Generador de BLoCs
+    ├── configurar_sistema.py
+    └── ...
+```
+
+## 🛠️ Herramientas de Desarrollo
+
+Ver [tools/README.md](tools/README.md) para documentación completa de scripts.
+
+Scripts principales:
+- `tools/configurar_sistema.py` - Setup inicial del sistema
+- `tools/generar_bloc.py` - Generador de BLoCs
+- `tools/crear_datos_prueba.py` - Datos de prueba
+- `tools/verificar_sistema.py` - Verificar instalación
+
+## 🧪 Tests
+
+Ver [tests/README.md](tests/README.md) para información sobre tests.
+
+```bash
+# Ejecutar todos los tests
+pytest -v
+
+# Tests por módulo
+pytest tests/admin/
+pytest tests/vouchers/
+```

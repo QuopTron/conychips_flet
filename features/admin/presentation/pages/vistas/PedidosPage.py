@@ -1,8 +1,3 @@
-"""
-Página de visualización y gestión de pedidos.
-Vista compleja con filtros y estados.
-Arquitectura: Clean Architecture + Hexagonal
-"""
 import flet as ft
 from datetime import datetime
 from core.base_datos.ConfiguracionBD import OBTENER_SESION, MODELO_PEDIDO
@@ -11,11 +6,12 @@ from core.decoradores.DecoradorVistas import REQUIERE_ROL
 from features.admin.presentation.widgets.ComponentesGlobales import (
     HeaderAdmin, TablaGenerica, ContenedorPagina, Notificador, DialogoConfirmacion
 )
+from core.decoradores.DecoradorPermisosUI import requiere_rol_ui
+from core.Constantes import ROLES
+from core.ui.safe_actions import safe_update
 
-
-@REQUIERE_ROL(ROLES.SUPERVISOR)
+@REQUIERE_ROL(ROLES.ADMIN)
 class PedidosPage(ft.Column):
-    """Vista de gestión de pedidos con filtros y cambio de estado."""
     
     def __init__(self, PAGINA: ft.Page, USUARIO):
         super().__init__()
@@ -28,8 +24,6 @@ class PedidosPage(ft.Column):
         self._CARGAR_PEDIDOS()
     
     def _CONSTRUIR_UI(self):
-        """Construye la interfaz."""
-        # Header
         header = HeaderAdmin(
             titulo="Gestión de Pedidos",
             icono=ICONOS.PEDIDOS,
@@ -37,53 +31,72 @@ class PedidosPage(ft.Column):
             on_salir=self._SALIR
         )
         
-        # Filtros
-        filtros = ft.Row(
-            controls=[
-                ft.Dropdown(
-                    label="Estado",
-                    options=[
-                        ft.dropdown.Option("TODOS", "Todos"),
-                        ft.dropdown.Option("PENDIENTE", "Pendientes"),
-                        ft.dropdown.Option("EN_PREPARACION", "En Preparación"),
-                        ft.dropdown.Option("LISTO", "Listos"),
-                        ft.dropdown.Option("EN_ENTREGA", "En Entrega"),
-                        ft.dropdown.Option("COMPLETADO", "Completados"),
-                        ft.dropdown.Option("CANCELADO", "Cancelados"),
-                    ],
-                    value=self._FILTRO_ESTADO,
-                    on_change=self._CAMBIAR_FILTRO,
-                    width=200
+        filtros = ft.Container(
+            content=ft.ResponsiveRow([
+                ft.Container(
+                    ft.Dropdown(
+                        label="Estado",
+                        options=[
+                            ft.dropdown.Option("TODOS", "Todos"),
+                            ft.dropdown.Option("PENDIENTE", "Pendientes"),
+                            ft.dropdown.Option("EN_PREPARACION", "En Preparación"),
+                            ft.dropdown.Option("LISTO", "Listos"),
+                            ft.dropdown.Option("EN_ENTREGA", "En Entrega"),
+                            ft.dropdown.Option("COMPLETADO", "Completados"),
+                            ft.dropdown.Option("CANCELADO", "Cancelados"),
+                        ],
+                        value=self._FILTRO_ESTADO,
+                        on_change=self._CAMBIAR_FILTRO,
+                    ),
+                    col={"xs": 12, "sm": 6, "md": 3}
                 ),
-                ft.ElevatedButton(
-                    "Actualizar",
-                    icon=ICONOS.ACTUALIZAR,
-                    on_click=lambda e: self._CARGAR_PEDIDOS()
+                ft.Container(
+                    ft.Button(
+                        "Actualizar",
+                        icon=ft.icons.Icons.REFRESH,
+                        on_click=lambda e: self._CARGAR_PEDIDOS()
+                    ),
+                    col={"xs": 12, "sm": 6, "md": 2}
                 ),
-            ],
-            spacing=TAMANOS.ESPACIADO_MD
+            ], spacing=6, run_spacing=6),
+            bgcolor=ft.Colors.BLUE_50,
+            border_radius=4,
+            padding=6,
+            border=ft.border.all(1, ft.Colors.BLUE_200)
         )
         
-        # Tabla de pedidos
-        self._tabla = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO, expand=True)
+        self._tabla = ft.Column(spacing=3, scroll=ft.ScrollMode.ADAPTIVE, expand=True)
         
-        # Contenedor principal
-        contenido = ContenedorPagina(
-            controles=[header, filtros, self._tabla]
+        contenido = ft.Container(
+            content=ft.Column([header, filtros, self._tabla], spacing=4, expand=True),
+            padding=0,
+            expand=True
         )
         
         self.controls = [contenido]
     
     def _CARGAR_PEDIDOS(self):
-        """Carga pedidos desde BD."""
         try:
             sesion = OBTENER_SESION()
             query = sesion.query(MODELO_PEDIDO)
-            
+            # Filtrar por estado si aplica
             if self._FILTRO_ESTADO != "TODOS":
                 query = query.filter(MODELO_PEDIDO.ESTADO == self._FILTRO_ESTADO)
+
+            # Filtrar por sucursal seleccionada en navbar (None = Todas)
+            try:
+                suc_sel = getattr(self._USUARIO, 'SUCURSAL_SELECCIONADA', None)
+            except Exception:
+                suc_sel = None
+
+            if suc_sel is not None:
+                query = query.filter(MODELO_PEDIDO.SUCURSAL_ID == suc_sel)
             
-            pedidos = query.order_by(MODELO_PEDIDO.FECHA.desc()).limit(100).all()
+            fecha_attr = getattr(MODELO_PEDIDO, 'FECHA_CONFIRMACION', None) or getattr(MODELO_PEDIDO, 'FECHA_CREACION', None) or getattr(MODELO_PEDIDO, 'FECHA_PEDIDO', None)
+            if fecha_attr is not None:
+                pedidos = query.order_by(fecha_attr.desc()).limit(100).all()
+            else:
+                pedidos = query.limit(100).all()
             
             self._ACTUALIZAR_TABLA(pedidos)
             
@@ -91,7 +104,6 @@ class PedidosPage(ft.Column):
             Notificador.ERROR(self._PAGINA, f"Error al cargar pedidos: {str(e)}")
     
     def _ACTUALIZAR_TABLA(self, pedidos):
-        """Actualiza tabla de pedidos."""
         self._tabla.controls.clear()
         
         if not pedidos:
@@ -106,7 +118,6 @@ class PedidosPage(ft.Column):
                         cells=[
                             ft.DataCell(ft.Text(f"#{pedido.ID}")),
                             ft.DataCell(ft.Text(pedido.CLIENTE or "Cliente")),
-                            ft.DataCell(ft.Text(f"S/. {pedido.TOTAL:.2f}")),
                             ft.DataCell(ft.Container(
                                 content=ft.Text(
                                     pedido.ESTADO.replace("_", " "),
@@ -116,8 +127,9 @@ class PedidosPage(ft.Column):
                                 padding=5,
                                 border_radius=5
                             )),
+                            ft.DataCell(ft.Text(f"S/. {getattr(pedido, 'MONTO_TOTAL', getattr(pedido, 'TOTAL', 0)):.2f}")),
                             ft.DataCell(ft.Text(
-                                pedido.FECHA.strftime("%d/%m/%Y %H:%M")
+                                (getattr(pedido, 'FECHA_CONFIRMACION', None) or getattr(pedido, 'FECHA_CREACION', None) or getattr(pedido, 'FECHA_PEDIDO', None) or datetime.now()).strftime("%d/%m/%Y %H:%M")
                             )),
                             ft.DataCell(ft.Row([
                                 ft.IconButton(
@@ -145,23 +157,22 @@ class PedidosPage(ft.Column):
                     ft.DataColumn(ft.Text("Acciones", weight=ft.FontWeight.BOLD)),
                 ],
                 rows=filas,
-                border=ft.border.all(1, COLORES.BORDE),
+                border=ft.Border.all(1, COLORES.BORDE),
                 heading_row_color=COLORES.FONDO_SECUNDARIO,
             )
             
             self._tabla.controls.append(
                 ft.Container(
                     content=tabla,
-                    border=ft.border.all(1, COLORES.BORDE),
+                    border=ft.Border.all(1, COLORES.BORDE),
                     border_radius=TAMANOS.RADIO_MD,
                     padding=TAMANOS.PADDING_MD
                 )
             )
         
-        self._PAGINA.update()
+        safe_update(self._PAGINA)
     
     def _OBTENER_COLOR_ESTADO(self, estado):
-        """Retorna color según estado del pedido."""
         colores = {
             "PENDIENTE": COLORES.ADVERTENCIA,
             "EN_PREPARACION": COLORES.INFO,
@@ -173,28 +184,24 @@ class PedidosPage(ft.Column):
         return colores.get(estado, COLORES.SECUNDARIO)
     
     def _VER_DETALLES(self, pedido):
-        """Muestra detalles del pedido."""
         Notificador.INFO(self._PAGINA, f"Detalles del pedido #{pedido.ID}")
     
+    @requiere_rol_ui(ROLES.SUPERADMIN, ROLES.ADMIN)
     def _CAMBIAR_ESTADO(self, pedido):
-        """Cambia el estado del pedido."""
         Notificador.INFO(self._PAGINA, "Cambio de estado en desarrollo...")
     
     def _CAMBIAR_FILTRO(self, e):
-        """Cambia filtro de estado."""
         self._FILTRO_ESTADO = e.control.value
         self._CARGAR_PEDIDOS()
     
     def _IR_MENU(self, e=None):
-        """Retorna al menú principal."""
         from features.admin.presentation.pages.PaginaAdmin import PaginaAdmin
         self._PAGINA.controls.clear()
         self._PAGINA.add(PaginaAdmin(self._PAGINA, self._USUARIO))
-        self._PAGINA.update()
+        safe_update(self._PAGINA)
     
     def _SALIR(self, e=None):
-        """Cierra sesión."""
         from features.autenticacion.presentation.pages.PaginaLogin import PaginaLogin
         self._PAGINA.controls.clear()
         self._PAGINA.add(PaginaLogin(self._PAGINA))
-        self._PAGINA.update()
+        safe_update(self._PAGINA)

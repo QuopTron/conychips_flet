@@ -7,7 +7,6 @@ from features.autenticacion.domain.usecases.RegistrarUsuario import RegistrarUsu
 from features.autenticacion.domain.usecases.RefrescarToken import RefrescarToken
 from features.autenticacion.domain.usecases.VerificarPermisos import VerificarPermisos
 
-
 class AutenticacionBloc:
 
     def __init__(

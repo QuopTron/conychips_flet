@@ -2,7 +2,6 @@ import functools
 from typing import Callable
 from core.seguridad.ManejadorJWT import ManejadorJWT
 
-
 def REQUIERE_AUTENTICACION(FUNCION: Callable) -> Callable:
 
     @functools.wraps(FUNCION)
@@ -24,7 +23,6 @@ def REQUIERE_AUTENTICACION(FUNCION: Callable) -> Callable:
         return await FUNCION(*ARGS, **KWARGS)
 
     return ENVOLTURA
-
 
 def REQUIERE_REFRESH_TOKEN(FUNCION: Callable) -> Callable:
 

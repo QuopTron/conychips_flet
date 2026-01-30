@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 from typing import Optional, List
 from datetime import datetime
 
-
 class RepositorioAutenticacion(ABC):
 
     @abstractmethod

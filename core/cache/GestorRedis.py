@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-
 class GestorRedis:
     
     _INSTANCIA: Optional['GestorRedis'] = None
@@ -36,7 +35,7 @@ class GestorRedis:
                 health_check_interval=30
             )
             self._CLIENTE.ping()
-            self.CONEXION = self._CLIENTE  # Alias para acceso directo
+            self.CONEXION = self._CLIENTE
             print(f"✓ Conexión Redis establecida: {REDIS_URL}")
         except Exception as e:
             print(f"✗ Error conectando a Redis: {e}")
@@ -191,6 +190,5 @@ class GestorRedis:
                 self._CLIENTE.close()
             except:
                 pass
-
 
 REDIS_GLOBAL = GestorRedis()

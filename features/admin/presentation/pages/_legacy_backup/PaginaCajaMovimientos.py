@@ -1,6 +1,6 @@
 import flet as ft
 from core.base_datos.ConfiguracionBD import OBTENER_SESION, MODELO_CAJA_MOVIMIENTO, MODELO_SUCURSAL
-from datetime import datetime
+from datetime import datetime, timezone
 from core.Constantes import (
     COLORES,
     TAMANOS,
@@ -11,7 +11,6 @@ from core.Constantes import (
 )
 from core.decoradores.DecoradorVistas import REQUIERE_ROL
 from core.Constantes import ROLES
-
 
 @REQUIERE_ROL(ROLES.SUPERADMIN)
 class PaginaCajaMovimientos(ft.Column):
@@ -28,9 +27,9 @@ class PaginaCajaMovimientos(ft.Column):
             controls=[
                 ft.Text("Caja", size=TAMANOS.TEXTO_3XL, weight=ft.FontWeight.BOLD),
                 ft.Container(expand=True),
-                ft.ElevatedButton("Menú", icon=ICONOS.DASHBOARD, on_click=self._IR_MENU),
-                ft.ElevatedButton("Salir", icon=ICONOS.CERRAR_SESION, on_click=self._SALIR, bgcolor=COLORES.PELIGRO, color=COLORES.TEXTO_BLANCO),
-                ft.ElevatedButton("Nuevo", icon=ICONOS.AGREGAR, on_click=self._NUEVO),
+                ft.Button("Menú", icon=ICONOS.DASHBOARD, on_click=self._IR_MENU),
+                ft.Button("Salir", icon=ICONOS.CERRAR_SESION, on_click=self._SALIR, bgcolor=COLORES.PELIGRO, color=COLORES.TEXTO_BLANCO),
+                ft.Button("Nuevo", icon=ICONOS.AGREGAR, on_click=self._NUEVO),
             ],
             spacing=TAMANOS.ESPACIADO_MD,
         )
@@ -71,7 +70,7 @@ class PaginaCajaMovimientos(ft.Column):
                     padding=TAMANOS.PADDING_MD,
                     bgcolor=COLORES.FONDO_BLANCO,
                     border_radius=TAMANOS.RADIO_SM,
-                    border=ft.border.all(1, COLORES.BORDE),
+                    border=ft.Border.all(1, COLORES.BORDE),
                 )
             )
 
@@ -104,7 +103,7 @@ class PaginaCajaMovimientos(ft.Column):
                 CATEGORIA=campo_categoria.value.strip(),
                 MONTO=int(campo_monto.value or 0),
                 DESCRIPCION=campo_desc.value.strip(),
-                FECHA=datetime.utcnow(),
+                FECHA=datetime.now(timezone.utc),
             )
             sesion.add(obj)
             sesion.commit()
@@ -124,7 +123,7 @@ class PaginaCajaMovimientos(ft.Column):
             ),
             actions=[
                 ft.TextButton("Cancelar", on_click=lambda e: self._CERRAR_DIALOGO()),
-                ft.ElevatedButton("Guardar", on_click=GUARDAR),
+                ft.Button("Guardar", on_click=GUARDAR),
             ],
         )
 

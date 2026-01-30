@@ -3,7 +3,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-
 class ConfiguracionApp:
 
     NOMBRE_APP = "Sistema Seguro"
@@ -44,6 +43,5 @@ class ConfiguracionApp:
     def ES_PRODUCCION(cls) -> bool:
 
         return os.getenv("ENVIRONMENT", "development") == "production"
-
 
 CONFIGURACION_APP = ConfiguracionApp()

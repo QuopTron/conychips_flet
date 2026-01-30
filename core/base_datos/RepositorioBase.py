@@ -4,7 +4,6 @@ from core.base_datos.ConfiguracionBD import BASE
 
 T = TypeVar("T", bound=BASE)
 
-
 class RepositorioBase(Generic[T]):
 
     def __init__(self, MODELO: Type[T], SESION: Session):

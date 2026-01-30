@@ -1,205 +1,184 @@
 """
-Página de visualización de finanzas y reportes.
-Dashboard de métricas financieras.
-Arquitectura: Clean Architecture + Hexagonal
+FinanzasPage Refactorizada con LayoutBase Global
 """
 import flet as ft
-from datetime import datetime, timedelta
-from core.base_datos.ConfiguracionBD import OBTENER_SESION, MODELO_PEDIDO, MODELO_CAJA
-from core.Constantes import COLORES, TAMANOS, ICONOS, ROLES
+from typing import Optional, List
+from core.Constantes import ROLES
 from core.decoradores.DecoradorVistas import REQUIERE_ROL
-from features.admin.presentation.widgets.ComponentesGlobales import (
-    HeaderAdmin, ContenedorPagina, Notificador
+from core.ui.safe_actions import safe_update
+
+from features.admin.presentation.widgets import LayoutBase
+from features.finanzas.presentation.bloc import (
+    FinanzasBloc, CargarResumenFinanciero, FiltrarPorEstado,
+    BuscarPorCodigo, FiltrarVoucherEstado,
+    EstadoFinanzas, EstadoFinanzasCargando, EstadoFinanzasCargado, EstadoFinanzasError
 )
-from features.admin.presentation.widgets.CardEstadistica import CardEstadistica
+from features.finanzas.presentation.widgets.stats_finanzas import StatsFinanzas
+from features.finanzas.presentation.widgets.tabla_pedidos import TablaPedidos
 
 
-@REQUIERE_ROL(ROLES.ADMINISTRADOR)
-class FinanzasPage(ft.Column):
-    """Dashboard de finanzas y reportes financieros."""
+@REQUIERE_ROL(ROLES.ADMIN)
+class FinanzasPage(LayoutBase):
+    """Página de finanzas usando layout global"""
     
     def __init__(self, PAGINA: ft.Page, USUARIO):
-        super().__init__()
-        self._PAGINA = PAGINA
-        self._USUARIO = USUARIO
-        self._PERIODO = "HOY"
+        # Inicializar layout base
+        super().__init__(
+            pagina=PAGINA,
+            usuario=USUARIO,
+            titulo_vista="Finanzas y Reportes",
+            mostrar_boton_volver=True,
+            index_navegacion=2,  # Finanzas es el 3er item
+            on_volver_dashboard=self._ir_dashboard,
+            on_cerrar_sesion=self._cerrar_sesion
+        )
         
-        self.expand = True
-        self._CONSTRUIR_UI()
-        self._CARGAR_METRICAS()
+        # BLoC de finanzas
+        sucursales = self.obtener_sucursales_seleccionadas()
+        self.bloc = FinanzasBloc(sucursales_ids=sucursales)
+        
+        # Widgets
+        self.stats = StatsFinanzas()
+        self.tabla = TablaPedidos(on_ver_detalle=self._ver_detalle_pedido)
+        
+        # Conectar eventos de filtros
+        self.tabla.campo_busqueda.on_submit = self._buscar_pedido
+        self.tabla.btn_buscar.on_click = self._buscar_pedido
+        self.tabla.filtro_estado.on_select = self._filtrar_estado
+        self.tabla.filtro_voucher.on_select = self._filtrar_voucher
+        
+        # Construir UI
+        self._construir_contenido()
+        
+        # Suscribirse a cambios
+        self.bloc.subscribirse(self._actualizar_desde_estado)
+        self._cargar_inicial()
     
-    def _CONSTRUIR_UI(self):
-        """Construye interfaz del dashboard."""
-        # Header
-        header = HeaderAdmin(
-            titulo="Finanzas y Reportes",
-            icono=ICONOS.FINANZAS,
-            on_menu=self._IR_MENU,
-            on_salir=self._SALIR
+    def _construir_contenido(self):
+        """Construye el contenido específico de finanzas"""
+        
+        # Indicador de carga
+        self.indicador_carga = ft.Container(
+            content=ft.Column(
+                controls=[
+                    ft.ProgressRing(),
+                    ft.Text("Cargando datos financieros...", size=16)
+                ],
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                spacing=20
+            ),
+            alignment=ft.Alignment(0, 0),
+            expand=True
         )
         
-        # Selector de período
-        selector_periodo = ft.Row(
-            controls=[
-                ft.Text("Período:", weight=ft.FontWeight.BOLD),
-                ft.SegmentedButton(
-                    selected={"HOY"},
-                    allow_empty_selection=False,
-                    segments=[
-                        ft.Segment(value="HOY", label=ft.Text("Hoy")),
-                        ft.Segment(value="SEMANA", label=ft.Text("Esta Semana")),
-                        ft.Segment(value="MES", label=ft.Text("Este Mes")),
-                        ft.Segment(value="ANO", label=ft.Text("Este Año")),
-                    ],
-                    on_change=self._CAMBIAR_PERIODO
-                ),
-            ],
-            spacing=TAMANOS.ESPACIADO_MD
+        # Contenedor dinámico que ocupa todo el espacio disponible
+        self.contenido_dinamico = ft.Column(
+            controls=[self.indicador_carga],
+            expand=True,
+            spacing=5
         )
         
-        # Cards de métricas
-        self._cards_metricas = ft.Row(
-            controls=[],
-            spacing=TAMANOS.ESPACIADO_LG,
-            wrap=True
+        # Contenedor principal responsive sin padding - 100% expandible
+        contenido = ft.Container(
+            content=self.contenido_dinamico,
+            expand=True,
+            padding=0
         )
         
-        # Gráficos y tablas
-        self._seccion_graficos = ft.Column(
-            controls=[],
-            spacing=TAMANOS.ESPACIADO_LG
-        )
+        # Construir layout base con este contenido
+        self.construir(contenido)
+    
+    def _on_sucursales_change(self, sucursales_ids: Optional[List[int]]):
+        """Callback cuando cambian las sucursales seleccionadas"""
+        # Recrear BLoC con nuevo filtro
+        self.bloc.desuscribirse(self._actualizar_desde_estado)
+        self.bloc = FinanzasBloc(sucursales_ids=sucursales_ids)
+        self.bloc.subscribirse(self._actualizar_desde_estado)
         
-        # Contenedor principal
-        contenido = ContenedorPagina(
-            controles=[
-                header,
-                selector_periodo,
-                self._cards_metricas,
-                self._seccion_graficos
+        # Recargar datos
+        self.bloc.agregar_evento(CargarResumenFinanciero())
+    
+    def _cargar_inicial(self):
+        """Cargar datos iniciales"""
+        import threading
+        threading.Timer(0.5, lambda: self.bloc.agregar_evento(CargarResumenFinanciero())).start()
+    
+    def _actualizar_desde_estado(self, estado: EstadoFinanzas):
+        """Actualizar UI según estado del BLoC"""
+        if isinstance(estado, EstadoFinanzasCargando):
+            self.contenido_dinamico.controls = [self.indicador_carga]
+            safe_update(self._pagina)
+        
+        elif isinstance(estado, EstadoFinanzasCargado):
+            # Actualizar widgets
+            self.stats.actualizar_desde_estado(estado)
+            self.tabla.actualizar_pedidos(estado.pedidos)
+            
+            # Mostrar contenido con stats compactos y tabla 100% responsive
+            self.contenido_dinamico.controls = [
+                self.stats,
+                ft.Container(
+                    content=self.tabla,
+                    expand=True,
+                )
             ]
-        )
+            self.contenido_dinamico.expand = True
+            self.contenido_dinamico.spacing = 3
+            safe_update(self._pagina)
         
-        self.controls = [contenido]
+        elif isinstance(estado, EstadoFinanzasError):
+            self.contenido_dinamico.controls = [
+                ft.Container(
+                    content=ft.Column([
+                        ft.Icon(ft.icons.Icons.ERROR_OUTLINE, size=64, color=ft.Colors.RED),
+                        ft.Text(estado.mensaje, size=16)
+                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=20),
+                    alignment=ft.Alignment(0, 0),
+                    expand=True
+                )
+            ]
+            safe_update(self._pagina)
     
-    def _CARGAR_METRICAS(self):
-        """Carga y calcula métricas financieras."""
-        try:
-            sesion = OBTENER_SESION()
-            fecha_inicio, fecha_fin = self._OBTENER_RANGO_FECHAS()
-            
-            # Calcular ingresos de pedidos
-            ingresos_query = sesion.query(MODELO_PEDIDO).filter(
-                MODELO_PEDIDO.FECHA >= fecha_inicio,
-                MODELO_PEDIDO.FECHA <= fecha_fin,
-                MODELO_PEDIDO.ESTADO == "COMPLETADO"
-            )
-            total_ingresos = sum([p.TOTAL for p in ingresos_query.all()])
-            cantidad_pedidos = ingresos_query.count()
-            
-            # Calcular movimientos de caja
-            egresos_query = sesion.query(MODELO_CAJA).filter(
-                MODELO_CAJA.FECHA >= fecha_inicio,
-                MODELO_CAJA.FECHA <= fecha_fin,
-                MODELO_CAJA.TIPO_MOVIMIENTO.in_(["EGRESO", "RETIRO"])
-            )
-            total_egresos = sum([c.MONTO for c in egresos_query.all()])
-            
-            # Calcular utilidad neta
-            utilidad_neta = total_ingresos - total_egresos
-            
-            # Ticket promedio
-            ticket_promedio = total_ingresos / cantidad_pedidos if cantidad_pedidos > 0 else 0
-            
-            # Actualizar cards
-            self._ACTUALIZAR_CARDS({
-                "ingresos": total_ingresos,
-                "egresos": total_egresos,
-                "utilidad": utilidad_neta,
-                "pedidos": cantidad_pedidos,
-                "ticket_promedio": ticket_promedio
-            })
-            
-        except Exception as e:
-            Notificador.ERROR(self._PAGINA, f"Error al cargar métricas: {str(e)}")
-    
-    def _ACTUALIZAR_CARDS(self, metricas):
-        """Actualiza cards de métricas."""
-        self._cards_metricas.controls.clear()
-        
-        cards = [
-            CardEstadistica(
-                titulo="Ingresos Totales",
-                valor=f"S/. {metricas['ingresos']:.2f}",
-                icono=ICONOS.DINERO,
-                color=COLORES.EXITO
-            ),
-            CardEstadistica(
-                titulo="Egresos Totales",
-                valor=f"S/. {metricas['egresos']:.2f}",
-                icono=ICONOS.EGRESO,
-                color=COLORES.PELIGRO
-            ),
-            CardEstadistica(
-                titulo="Utilidad Neta",
-                valor=f"S/. {metricas['utilidad']:.2f}",
-                icono=ICONOS.GRAFICO,
-                color=COLORES.PRIMARIO if metricas['utilidad'] >= 0 else COLORES.ADVERTENCIA
-            ),
-            CardEstadistica(
-                titulo="Pedidos",
-                valor=str(metricas['pedidos']),
-                icono=ICONOS.PEDIDOS,
-                color=COLORES.INFO
-            ),
-            CardEstadistica(
-                titulo="Ticket Promedio",
-                valor=f"S/. {metricas['ticket_promedio']:.2f}",
-                icono=ICONOS.ESTADISTICA,
-                color=COLORES.SECUNDARIO
-            ),
-        ]
-        
-        self._cards_metricas.controls.extend(cards)
-        self._PAGINA.update()
-    
-    def _OBTENER_RANGO_FECHAS(self):
-        """Obtiene rango de fechas según período seleccionado."""
-        hoy = datetime.now()
-        
-        if self._PERIODO == "HOY":
-            inicio = hoy.replace(hour=0, minute=0, second=0)
-            fin = hoy
-        elif self._PERIODO == "SEMANA":
-            inicio = hoy - timedelta(days=hoy.weekday())
-            fin = hoy
-        elif self._PERIODO == "MES":
-            inicio = hoy.replace(day=1, hour=0, minute=0, second=0)
-            fin = hoy
-        elif self._PERIODO == "ANO":
-            inicio = hoy.replace(month=1, day=1, hour=0, minute=0, second=0)
-            fin = hoy
+    def _buscar_pedido(self, e):
+        """Buscar pedido por código"""
+        codigo = self.tabla.campo_busqueda.value
+        if codigo and codigo.strip():
+            self.bloc.agregar_evento(BuscarPorCodigo(codigo=codigo.strip()))
         else:
-            inicio = hoy.replace(hour=0, minute=0, second=0)
-            fin = hoy
-        
-        return inicio, fin
+            self.bloc.agregar_evento(CargarResumenFinanciero())
     
-    def _CAMBIAR_PERIODO(self, e):
-        """Cambia el período de visualización."""
-        self._PERIODO = list(e.control.selected)[0]
-        self._CARGAR_METRICAS()
+    def _filtrar_estado(self, e):
+        """Filtrar por estado del pedido"""
+        estado = e.control.value
+        if estado == "TODOS" or not estado:
+            self.bloc.agregar_evento(FiltrarPorEstado(estado=None))
+        else:
+            self.bloc.agregar_evento(FiltrarPorEstado(estado=estado))
     
-    def _IR_MENU(self, e=None):
-        """Retorna al menú principal."""
+    def _filtrar_voucher(self, e):
+        """Filtrar por estado del voucher"""
+        voucher_estado = e.control.value
+        self.bloc.agregar_evento(FiltrarVoucherEstado(voucher_estado=voucher_estado))
+    
+    def _ver_detalle_pedido(self, pedido_id):
+        """Ver detalle de un pedido"""
+        # TODO: Implementar popup de detalle
+        print(f"Ver detalle del pedido {pedido_id}")
+    
+    def _ir_dashboard(self):
+        """Volver al dashboard"""
         from features.admin.presentation.pages.PaginaAdmin import PaginaAdmin
-        self._PAGINA.controls.clear()
-        self._PAGINA.add(PaginaAdmin(self._PAGINA, self._USUARIO))
-        self._PAGINA.update()
+        self._pagina.controls.clear()
+        self._pagina.add(PaginaAdmin(self._pagina, self._usuario))
+        safe_update(self._pagina)
     
-    def _SALIR(self, e=None):
-        """Cierra sesión."""
+    def _cerrar_sesion(self, e=None):
+        """Cerrar sesión"""
         from features.autenticacion.presentation.pages.PaginaLogin import PaginaLogin
-        self._PAGINA.controls.clear()
-        self._PAGINA.add(PaginaLogin(self._PAGINA))
-        self._PAGINA.update()
+        self._pagina.controls.clear()
+        self._pagina.add(PaginaLogin(self._pagina))
+        safe_update(self._pagina)
+    
+    def will_unmount(self):
+        """Cleanup antes de desmontar"""
+        self.bloc.desuscribirse(self._actualizar_desde_estado)

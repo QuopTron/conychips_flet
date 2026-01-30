@@ -1,7 +1,3 @@
-"""
-BLoC para Gestión de Productos
-Presentation Layer - Clean Architecture
-"""
 
 import asyncio
 from typing import Callable, List, Optional
@@ -9,61 +5,47 @@ from dataclasses import dataclass
 
 from core.base_datos.ConfiguracionBD import OBTENER_SESION, MODELO_PRODUCTO
 
-
-# Estados
 @dataclass
 class ProductosEstado:
     pass
-
 
 @dataclass
 class ProductosInicial(ProductosEstado):
     pass
 
-
 @dataclass
 class ProductosCargando(ProductosEstado):
     pass
-
 
 @dataclass
 class ProductosCargados(ProductosEstado):
     productos: List
     total: int
 
-
 @dataclass
 class ProductoError(ProductosEstado):
     mensaje: str
-
 
 @dataclass
 class ProductoGuardado(ProductosEstado):
     mensaje: str
 
-
-# Eventos
 @dataclass
 class ProductosEvento:
     pass
-
 
 @dataclass
 class CargarProductos(ProductosEvento):
     filtro: Optional[str] = None
 
-
 @dataclass
 class GuardarProducto(ProductosEvento):
     datos: dict
-
 
 @dataclass
 class EliminarProducto(ProductosEvento):
     producto_id: int
 
-
-# BLoC
 class ProductosBloc:
     def __init__(self):
         self._estado: ProductosEstado = ProductosInicial()
@@ -117,7 +99,6 @@ class ProductosBloc:
     async def _GUARDAR_PRODUCTO(self, evento: GuardarProducto):
         self._CAMBIAR_ESTADO(ProductosCargando())
         try:
-            # Lógica de guardado
             await asyncio.sleep(0.3)
             self._CAMBIAR_ESTADO(ProductoGuardado(mensaje="Producto guardado"))
             await self._CARGAR_PRODUCTOS(None)
@@ -138,6 +119,5 @@ class ProductosBloc:
             await self._CARGAR_PRODUCTOS(None)
         except Exception as e:
             self._CAMBIAR_ESTADO(ProductoError(mensaje=f"Error: {str(e)}"))
-
 
 PRODUCTOS_BLOC = ProductosBloc()

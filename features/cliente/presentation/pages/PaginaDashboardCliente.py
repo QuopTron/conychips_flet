@@ -12,7 +12,6 @@ from core.constantes import COLORES, TAMANOS, ICONOS
 from core.decoradores.DecoradorVistas import REQUIERE_ROL
 from core.websocket.GestorNotificaciones import GestorNotificaciones
 
-
 @REQUIERE_ROL("CLIENTE", "ADMIN", "SUPERADMIN")
 class PaginaDashboardCliente:
     
@@ -36,16 +35,17 @@ class PaginaDashboardCliente:
     
     def _CARGAR_PEDIDOS_ACTIVOS(self):
         sesion = OBTENER_SESION()
-        
-        pedidos = (
-            sesion.query(MODELO_PEDIDO)
-            .filter(
-                MODELO_PEDIDO.CLIENTE_ID == self.USUARIO_ID,
-                MODELO_PEDIDO.ESTADO.in_(["pendiente", "confirmado", "en_preparacion", "listo", "en_camino"])
-            )
-            .order_by(MODELO_PEDIDO.FECHA_PEDIDO.desc())
-            .all()
+        fecha_attr = getattr(MODELO_PEDIDO, 'FECHA_PEDIDO', None) or getattr(MODELO_PEDIDO, 'FECHA_CONFIRMACION', None) or getattr(MODELO_PEDIDO, 'FECHA_CREACION', None)
+
+        query = sesion.query(MODELO_PEDIDO).filter(
+            MODELO_PEDIDO.CLIENTE_ID == self.USUARIO_ID,
+            MODELO_PEDIDO.ESTADO.in_(["pendiente", "confirmado", "en_preparacion", "listo", "en_camino"]),
         )
+
+        if fecha_attr is not None:
+            query = query.order_by(fecha_attr.desc())
+
+        pedidos = query.all()
         
         self.PEDIDOS_ACTIVOS.controls.clear()
         
@@ -71,7 +71,7 @@ class PaginaDashboardCliente:
             "confirmado": COLORES.INFO,
             "en_preparacion": COLORES.PRIMARIO,
             "listo": COLORES.EXITO,
-            "en_camino": COLORES.ACENTO,
+            "en_camino": COLORES.SECUNDARIO,
         }
         
         return ft.Container(
@@ -86,33 +86,41 @@ class PaginaDashboardCliente:
                     ),
                 ]),
                 ft.Row([
-                    ft.Text(f"Total: S/ {PEDIDO.TOTAL:.2f}", size=16, weight=ft.FontWeight.BOLD),
+                    ft.Text(f"Total: S/ {getattr(PEDIDO, 'MONTO_TOTAL', getattr(PEDIDO, 'TOTAL', 0)):.2f}", size=16, weight=ft.FontWeight.BOLD),
                     ft.Container(expand=True),
                     ft.Text(
-                        PEDIDO.FECHA_PEDIDO.strftime("%d/%m/%Y %H:%M"),
+                        (
+                            getattr(PEDIDO, 'FECHA_CONFIRMACION', None)
+                            or getattr(PEDIDO, 'FECHA_CREACION', None)
+                            or getattr(PEDIDO, 'FECHA_PEDIDO', None)
+                        ).strftime("%d/%m/%Y %H:%M") if (
+                            getattr(PEDIDO, 'FECHA_CONFIRMACION', None)
+                            or getattr(PEDIDO, 'FECHA_CREACION', None)
+                            or getattr(PEDIDO, 'FECHA_PEDIDO', None)
+                        ) else "",
                         color=COLORES.TEXTO_SECUNDARIO,
                         size=12
                     ),
                 ]),
                 ft.Row([
-                    ft.ElevatedButton(
+                    ft.Button(
                         "Ver Detalle",
                         icon=ICONOS.VER,
                         on_click=lambda e, p=PEDIDO: self._VER_DETALLE_PEDIDO(p)
                     ),
-                    ft.ElevatedButton(
+                    ft.Button(
                         "Subir Voucher",
                         icon=ICONOS.SUBIR,
                         on_click=lambda e, p=PEDIDO: self._SUBIR_VOUCHER(p),
                         visible=PEDIDO.ESTADO == "pendiente"
                     ),
-                    ft.ElevatedButton(
+                    ft.Button(
                         "Chat",
                         icon=ICONOS.CHAT,
                         on_click=lambda e, p=PEDIDO: self._ABRIR_CHAT(p),
                         visible=PEDIDO.ESTADO in ["en_camino", "listo"]
                     ),
-                    ft.ElevatedButton(
+                    ft.Button(
                         "Calificar",
                         icon=ICONOS.FAVORITO,
                         on_click=lambda e, p=PEDIDO: self._CALIFICAR_PEDIDO(p),
@@ -121,7 +129,7 @@ class PaginaDashboardCliente:
                 ], spacing=10),
             ], spacing=10),
             padding=15,
-            border=ft.border.all(1, COLORES.BORDE),
+            border=ft.Border.all(1, COLORES.BORDE),
             border_radius=TAMANOS.RADIO_BORDE,
             bgcolor=COLORES.FONDO_TARJETA,
         )
@@ -155,7 +163,7 @@ class PaginaDashboardCliente:
                         ),
                     ]),
                     padding=10,
-                    border=ft.border.all(1, COLORES.BORDE),
+                    border=ft.Border.all(1, COLORES.BORDE),
                     border_radius=TAMANOS.RADIO_BORDE,
                 )
             )
@@ -212,7 +220,7 @@ class PaginaDashboardCliente:
             ], tight=True, scroll=ft.ScrollMode.AUTO),
             actions=[
                 ft.TextButton("Cancelar", on_click=lambda e: self._CERRAR_DIALOG()),
-                ft.ElevatedButton("Confirmar Pedido", on_click=lambda e: self._CONFIRMAR_PEDIDO()),
+                ft.Button("Confirmar Pedido", on_click=lambda e: self._CONFIRMAR_PEDIDO()),
             ]
         )
         
@@ -228,13 +236,36 @@ class PaginaDashboardCliente:
         
         pedido = MODELO_PEDIDO(
             CLIENTE_ID=self.USUARIO_ID,
-            TOTAL=TOTAL,
+            MONTO_TOTAL=TOTAL,
             ESTADO="pendiente",
         )
         
         sesion.add(pedido)
         sesion.commit()
         sesion.refresh(pedido)
+        # Notify realtime broker about newly created pedido (emulate WhatsApp incoming order)
+        try:
+            from core.realtime.broker_notify import notify
+            sucursal_id = None
+            try:
+                from core.base_datos.ConfiguracionBD import MODELO_PEDIDO
+                pedido_model = sesion.query(MODELO_PEDIDO).filter_by(ID=pedido.ID).first()
+                if pedido_model:
+                    sucursal_id = getattr(pedido_model, 'SUCURSAL_ID', None)
+            except Exception:
+                sucursal_id = None
+
+            payload = {
+                'type': 'pedido_creado',
+                'pedido_id': pedido.ID,
+                'nuevo_estado': 'PENDIENTE',
+                'cliente_id': self.USUARIO_ID,
+            }
+            if sucursal_id is not None:
+                payload['sucursal_id'] = sucursal_id
+            notify(payload)
+        except Exception:
+            pass
         
         self.CARRITO.clear()
         sesion.close()
@@ -258,8 +289,8 @@ class PaginaDashboardCliente:
         )
         
         MONTO = ft.TextField(
-            label="Monto",
-            value=str(PEDIDO.TOTAL),
+            label="Monto (Bs)",
+            value=str(getattr(PEDIDO, 'MONTO_TOTAL', getattr(PEDIDO, 'TOTAL', 0)) / 100),
             prefix_icon=ICONOS.DINERO,
             keyboard_type=ft.KeyboardType.NUMBER,
         )
@@ -278,16 +309,45 @@ class PaginaDashboardCliente:
         def GUARDAR_VOUCHER(e):
             sesion = OBTENER_SESION()
             
+            try:
+                monto_cents = int(round(float(MONTO.value) * 100))
+            except Exception:
+                monto_cents = int(getattr(PEDIDO, 'MONTO_TOTAL', getattr(PEDIDO, 'TOTAL', 0)))
+
             voucher = MODELO_VOUCHER(
                 PEDIDO_ID=PEDIDO.ID,
                 USUARIO_ID=self.USUARIO_ID,
                 IMAGEN_URL=IMAGEN_URL.value,
-                MONTO=float(MONTO.value),
+                MONTO=monto_cents,
                 METODO_PAGO=METODO.value,
             )
             
             sesion.add(voucher)
             sesion.commit()
+            # notify broker about new voucher (include sucursal if available)
+            try:
+                from core.realtime.broker_notify import notify
+                sucursal_id = None
+                try:
+                    from core.base_datos.ConfiguracionBD import MODELO_PEDIDO
+                    pedido_model = sesion.query(MODELO_PEDIDO).filter_by(ID=PEDIDO.ID).first()
+                    if pedido_model:
+                        sucursal_id = getattr(pedido_model, 'SUCURSAL_ID', None)
+                except Exception:
+                    sucursal_id = None
+
+                payload = {
+                    'type': 'voucher_creado',
+                    'voucher_id': voucher.ID,
+                    'nuevo_estado': 'PENDIENTE',
+                    'usuario_id': self.USUARIO_ID,
+                }
+                if sucursal_id is not None:
+                    payload['sucursal_id'] = sucursal_id
+                notify(payload)
+            except Exception:
+                pass
+
             sesion.close()
             
             self._CERRAR_DIALOG()
@@ -304,7 +364,7 @@ class PaginaDashboardCliente:
             content=ft.Column([IMAGEN_URL, MONTO, METODO], tight=True),
             actions=[
                 ft.TextButton("Cancelar", on_click=lambda e: self._CERRAR_DIALOG()),
-                ft.ElevatedButton("Subir", on_click=GUARDAR_VOUCHER),
+                ft.Button("Subir", on_click=GUARDAR_VOUCHER),
             ]
         )
         
@@ -368,7 +428,7 @@ class PaginaDashboardCliente:
             ], tight=True, scroll=ft.ScrollMode.AUTO),
             actions=[
                 ft.TextButton("Cancelar", on_click=lambda e: self._CERRAR_DIALOG()),
-                ft.ElevatedButton("Enviar Calificación", on_click=GUARDAR_CALIFICACION),
+                ft.Button("Enviar Calificación", on_click=GUARDAR_CALIFICACION),
             ]
         )
         
@@ -396,39 +456,38 @@ class PaginaDashboardCliente:
             ft.Text("Dashboard Cliente", size=TAMANOS.TITULO, weight=ft.FontWeight.BOLD),
             
             ft.Tabs(
-                selected_index=0,
-                tabs=[
-                    ft.Tab(
-                        text="Pedidos Activos",
-                        icon=ICONOS.PEDIDO,
-                        content=ft.Container(
-                            content=self.PEDIDOS_ACTIVOS,
-                            padding=10,
-                        )
+                content=ft.Column([
+                    ft.TabBar(
+                        tabs=[
+                            ft.Tab(label="Pedidos Activos", icon=ICONOS.PEDIDO),
+                            ft.Tab(label="Hacer Pedido", icon=ICONOS.AGREGAR),
+                        ],
                     ),
-                    ft.Tab(
-                        text="Hacer Pedido",
-                        icon=ICONOS.AGREGAR,
-                        content=ft.Column([
-                            ft.Row([
-                                ft.Text("Productos Disponibles", size=18, weight=ft.FontWeight.BOLD),
-                                ft.Container(expand=True),
-                                ft.Badge(
-                                    content=ft.IconButton(
-                                        icon=ICONOS.CARRITO,
-                                        on_click=lambda e: self._VER_CARRITO()
+                    ft.TabBarView(
+                        controls=[
+                            ft.Container(content=self.PEDIDOS_ACTIVOS, padding=10),
+                            ft.Column([
+                                ft.Row([
+                                    ft.Text("Productos Disponibles", size=18, weight=ft.FontWeight.BOLD),
+                                    ft.Container(expand=True),
+                                    ft.Badge(
+                                        content=ft.IconButton(
+                                            icon=ICONOS.CARRITO,
+                                            on_click=lambda e: self._VER_CARRITO()
+                                        ),
+                                        text=str(len(self.CARRITO)) if self.CARRITO else "",
                                     ),
-                                    text=str(len(self.CARRITO)) if self.CARRITO else "",
+                                ]),
+                                ft.Container(
+                                    content=self.PRODUCTOS_LISTA,
+                                    expand=True,
+                                    padding=10,
                                 ),
                             ]),
-                            ft.Container(
-                                content=self.PRODUCTOS_LISTA,
-                                expand=True,
-                                padding=10,
-                            ),
-                        ])
+                        ],
                     ),
-                ],
-                expand=True,
+                ], expand=True),
+                length=2,
+                selected_index=0,
             )
         ], expand=True)

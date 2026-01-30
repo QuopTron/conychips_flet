@@ -1,11 +1,7 @@
-"""
-Vista de auditoría y logs del sistema (solo lectura)
-"""
 import flet as ft
 from features.admin.presentation.widgets.VistaBase import VistaBase
 from core.base_datos.ConfiguracionBD import OBTENER_SESION, MODELO_LOG_AUDITORIA
 from core.Constantes import COLORES, TAMANOS
-
 
 class VistaAuditoria(VistaBase):
     
@@ -28,10 +24,10 @@ class VistaAuditoria(VistaBase):
                 ft.dropdown.Option("ERROR", "Errores"),
             ],
             value="TODOS",
-            on_change=lambda e: self._cargar_datos()
+            on_select=lambda e: self._cargar_datos()
         )
         
-        boton_refrescar = ft.IconButton(icon=ft.Icons.REFRESH, tooltip="Refrescar", on_click=lambda e: self._cargar_datos())
+        boton_refrescar = ft.IconButton(icon=ft.icons.Icons.Icons.REFRESH, tooltip="Refrescar", on_click=lambda e: self._cargar_datos())
         
         self._tabla = ft.DataTable(
             columns=[
@@ -44,7 +40,7 @@ class VistaAuditoria(VistaBase):
                 ft.DataColumn(ft.Text("Fecha", weight=ft.FontWeight.BOLD)),
             ],
             rows=[],
-            border=ft.border.all(1, COLORES.BORDE),
+            border=ft.Border.all(1, COLORES.BORDE),
             border_radius=TAMANOS.RADIO_MD,
             vertical_lines=ft.BorderSide(1, COLORES.BORDE),
             heading_row_color=COLORES.PRIMARIO_CLARO,

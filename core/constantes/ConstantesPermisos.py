@@ -119,7 +119,6 @@ PERMISOS_DISPONIBLES = [
     "gps.ver",
 ]
 
-
 PERMISOS_POR_ROL_DEFAULT = {
     "CLIENTE": [
         "pedidos.crear",

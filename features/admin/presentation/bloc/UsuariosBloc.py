@@ -1,7 +1,3 @@
-"""
-BLoC para Gestión de Usuarios
-Presentation Layer - Clean Architecture
-"""
 
 import asyncio
 from typing import Callable, List, Optional
@@ -13,113 +9,69 @@ from core.base_datos.ConfiguracionBD import (
     MODELO_ROL,
 )
 
-
-# ============================================================================
-# Estados
-# ============================================================================
-
 @dataclass
 class UsuariosEstado:
-    """Estado base"""
     pass
-
 
 @dataclass
 class UsuariosInicial(UsuariosEstado):
-    """Estado inicial"""
     pass
-
 
 @dataclass
 class UsuariosCargando(UsuariosEstado):
-    """Cargando datos"""
     pass
-
 
 @dataclass
 class UsuariosCargados(UsuariosEstado):
-    """Usuarios cargados"""
     usuarios: List
     total: int
 
-
 @dataclass
 class UsuarioError(UsuariosEstado):
-    """Error en operación"""
     mensaje: str
-
 
 @dataclass
 class UsuarioCreado(UsuariosEstado):
-    """Usuario creado exitosamente"""
     mensaje: str
-
 
 @dataclass
 class UsuarioActualizado(UsuariosEstado):
-    """Usuario actualizado"""
     mensaje: str
-
 
 @dataclass
 class UsuarioEliminado(UsuariosEstado):
-    """Usuario eliminado"""
     mensaje: str
-
-
-# ============================================================================
-# Eventos
-# ============================================================================
 
 @dataclass
 class UsuariosEvento:
-    """Evento base"""
     pass
-
 
 @dataclass
 class CargarUsuarios(UsuariosEvento):
-    """Cargar lista de usuarios"""
     filtro: Optional[str] = None
-
 
 @dataclass
 class CrearUsuario(UsuariosEvento):
-    """Crear nuevo usuario"""
     email: str
     nombre_usuario: str
     contrasena: str
     rol_id: int
 
-
 @dataclass
 class ActualizarUsuario(UsuariosEvento):
-    """Actualizar usuario existente"""
     usuario_id: int
     datos: dict
 
-
 @dataclass
 class EliminarUsuario(UsuariosEvento):
-    """Eliminar usuario"""
     usuario_id: int
-
 
 @dataclass
 class CambiarEstadoUsuario(UsuariosEvento):
-    """Activar/Desactivar usuario"""
     usuario_id: int
     activo: bool
 
-
-# ============================================================================
-# BLoC
-# ============================================================================
-
 class UsuariosBloc:
-    """
-    BLoC para gestión de usuarios
-    """
     
     def __init__(self):
         self._estado: UsuariosEstado = UsuariosInicial()
@@ -146,7 +98,6 @@ class UsuariosBloc:
                 print(f"Error en listener: {e}")
     
     def AGREGAR_EVENTO(self, evento: UsuariosEvento):
-        """Procesa eventos"""
         if isinstance(evento, CargarUsuarios):
             asyncio.create_task(self._CARGAR_USUARIOS(evento.filtro))
         elif isinstance(evento, CrearUsuario):
@@ -159,7 +110,6 @@ class UsuariosBloc:
             asyncio.create_task(self._CAMBIAR_ESTADO_USUARIO(evento))
     
     async def _CARGAR_USUARIOS(self, filtro: Optional[str]):
-        """Carga usuarios de la BD"""
         self._CAMBIAR_ESTADO(UsuariosCargando())
         
         try:
@@ -183,23 +133,18 @@ class UsuariosBloc:
             self._CAMBIAR_ESTADO(UsuarioError(mensaje=f"Error cargando usuarios: {str(e)}"))
     
     async def _CREAR_USUARIO(self, evento: CrearUsuario):
-        """Crea nuevo usuario"""
         self._CAMBIAR_ESTADO(UsuariosCargando())
         
         try:
-            # Aquí iría la lógica de creación con caso de uso
-            # Por ahora simulamos
             await asyncio.sleep(0.5)
             
             self._CAMBIAR_ESTADO(UsuarioCreado(mensaje="Usuario creado exitosamente"))
-            # Recargar lista
             await self._CARGAR_USUARIOS(None)
         
         except Exception as e:
             self._CAMBIAR_ESTADO(UsuarioError(mensaje=f"Error creando usuario: {str(e)}"))
     
     async def _ACTUALIZAR_USUARIO(self, evento: ActualizarUsuario):
-        """Actualiza usuario"""
         self._CAMBIAR_ESTADO(UsuariosCargando())
         
         try:
@@ -224,7 +169,6 @@ class UsuariosBloc:
             self._CAMBIAR_ESTADO(UsuarioError(mensaje=f"Error actualizando: {str(e)}"))
     
     async def _ELIMINAR_USUARIO(self, evento: EliminarUsuario):
-        """Elimina usuario"""
         self._CAMBIAR_ESTADO(UsuariosCargando())
         
         try:
@@ -246,7 +190,6 @@ class UsuariosBloc:
             self._CAMBIAR_ESTADO(UsuarioError(mensaje=f"Error eliminando: {str(e)}"))
     
     async def _CAMBIAR_ESTADO_USUARIO(self, evento: CambiarEstadoUsuario):
-        """Cambia estado activo/inactivo"""
         await self._ACTUALIZAR_USUARIO(
             ActualizarUsuario(
                 usuario_id=evento.usuario_id,
@@ -254,6 +197,23 @@ class UsuariosBloc:
             )
         )
 
-
-# Instancia global
 USUARIOS_BLOC = UsuariosBloc()
+
+__all__ = [
+    'UsuariosEstado',
+    'UsuariosInicial',
+    'UsuariosCargando',
+    'UsuariosCargados',
+    'UsuarioError',
+    'UsuarioCreado',
+    'UsuarioActualizado',
+    'UsuarioEliminado',
+    'UsuariosEvento',
+    'CargarUsuarios',
+    'CrearUsuario',
+    'ActualizarUsuario',
+    'EliminarUsuario',
+    'CambiarEstadoUsuario',
+    'UsuariosBloc',
+    'USUARIOS_BLOC',
+]

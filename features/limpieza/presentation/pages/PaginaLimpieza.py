@@ -5,8 +5,7 @@ from core.base_datos.ConfiguracionBD import (
     MODELO_REPORTE_LIMPIEZA,
     MODELO_SUCURSAL,
 )
-from datetime import datetime, timedelta
-
+from datetime import datetime, timedelta, timezone
 
 class PaginaLimpieza(ft.Column):
     def __init__(self, PAGINA: ft.Page, USUARIO_ID: int):
@@ -76,7 +75,7 @@ class PaginaLimpieza(ft.Column):
 
     def _CARGAR_ASISTENCIA(self):
         sesion = OBTENER_SESION()
-        hoy = datetime.utcnow()
+        hoy = datetime.now(timezone.utc)
         inicio_mes = hoy.replace(day=1)
         asistencias = (
             sesion.query(MODELO_ASISTENCIA)
@@ -133,7 +132,7 @@ class PaginaLimpieza(ft.Column):
             self._PAGINA.update()
             return
 
-        ruta_foto = f"uploads/limpieza_{self._USUARIO_ID}_{int(datetime.utcnow().timestamp())}.jpg"
+        ruta_foto = f"uploads/limpieza_{self._USUARIO_ID}_{int(datetime.now(timezone.utc).timestamp())}.jpg"
 
         sesion = OBTENER_SESION()
         reporte = MODELO_REPORTE_LIMPIEZA(
@@ -201,7 +200,7 @@ class PaginaLimpieza(ft.Column):
                 ft.Container(
                     content=fila,
                     padding=10,
-                    border=ft.border.all(1, ft.Colors.GREY_200),
+                    border=ft.Border.all(1, ft.Colors.GREY_200),
                     border_radius=8,
                 )
             )

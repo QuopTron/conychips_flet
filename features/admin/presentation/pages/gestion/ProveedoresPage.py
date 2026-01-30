@@ -1,14 +1,9 @@
-"""
-Vista de gestión de proveedores - REFACTORIZADA con PaginaCRUDBase
-Código reducido 90% - Sin duplicación
-"""
 import flet as ft
 from typing import List, Dict, Any
 
 from core.base_datos.ConfiguracionBD import MODELO_PROVEEDOR
 from features.admin.presentation.widgets.PaginaCRUDBase import PaginaCRUDBase
 from features.admin.presentation.widgets.ComponentesGlobales import FormularioCRUD
-
 
 class ProveedoresPage(PaginaCRUDBase):
     
@@ -17,7 +12,7 @@ class ProveedoresPage(PaginaCRUDBase):
             PAGINA=pagina,
             USUARIO=usuario,
             titulo="Gestión de Proveedores",
-            icono=ft.Icons.BUSINESS
+            icono=ft.icons.Icons.BUSINESS
         )
     
     def _OBTENER_MODELO(self):
@@ -34,22 +29,22 @@ class ProveedoresPage(PaginaCRUDBase):
             FormularioCRUD.CREAR_CAMPO(
                 "Nombre",
                 item.NOMBRE if item else "",
-                icono=ft.Icons.BUSINESS
+                icono=ft.icons.Icons.BUSINESS
             ),
             FormularioCRUD.CREAR_CAMPO(
                 "Contacto",
                 item.CONTACTO if item else "",
-                icono=ft.Icons.PERSON
+                icono=ft.icons.Icons.PERSON
             ),
             FormularioCRUD.CREAR_CAMPO(
                 "Teléfono",
                 item.TELEFONO if item else "",
-                icono=ft.Icons.PHONE
+                icono=ft.icons.Icons.PHONE
             ),
             FormularioCRUD.CREAR_CAMPO(
                 "Email",
                 item.EMAIL if item else "",
-                icono=ft.Icons.EMAIL
+                icono=ft.icons.Icons.EMAIL
             )
         ]
     

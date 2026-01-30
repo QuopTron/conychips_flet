@@ -3,7 +3,6 @@ import os
 from sqlalchemy import text
 from core.base_datos.ConfiguracionBD import RUTA_BD, OBTENER_SESION
 
-
 def main():
     if os.path.exists(RUTA_BD):
         respaldo = RUTA_BD + ".before_delete"
@@ -22,7 +21,6 @@ def main():
         print("Todos los usuarios y sus sesiones/roles asociados han sido eliminados.")
     except Exception as e:
         print(f"Error al eliminar usuarios: {e}")
-
 
 if __name__ == "__main__":
     main()

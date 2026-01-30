@@ -1,7 +1,3 @@
-"""
-BLoC para Gestión de Horarioses
-Presentation Layer - Clean Architecture
-"""
 
 import asyncio
 from typing import Callable, List, Optional
@@ -9,90 +5,52 @@ from dataclasses import dataclass
 
 from core.base_datos.ConfiguracionBD import OBTENER_SESION, MODELO_HORARIOS
 
-
-# ============================================================================
-# Estados
-# ============================================================================
-
 @dataclass
 class HorariosEstado:
-    """Estado base"""
     pass
-
 
 @dataclass
 class HorariosInicial(HorariosEstado):
-    """Estado inicial"""
     pass
-
 
 @dataclass
 class HorariosCargando(HorariosEstado):
-    """Cargando datos"""
     pass
-
 
 @dataclass
 class HorariosesCargados(HorariosEstado):
-    """Horarioses cargados"""
     horarioss: List
     total: int
 
-
 @dataclass
 class HorariosError(HorariosEstado):
-    """Error en operación"""
     mensaje: str
-
 
 @dataclass
 class HorariosGuardado(HorariosEstado):
-    """Horarios guardado exitosamente"""
     mensaje: str
-
 
 @dataclass
 class HorariosEliminado(HorariosEstado):
-    """Horarios eliminado"""
     mensaje: str
-
-
-# ============================================================================
-# Eventos
-# ============================================================================
 
 @dataclass
 class HorariosEvento:
-    """Evento base"""
     pass
-
 
 @dataclass
 class CargarHorarioses(HorariosEvento):
-    """Cargar lista de horarioss"""
     filtro: Optional[str] = None
-
 
 @dataclass
 class GuardarHorarios(HorariosEvento):
-    """Guardar horarios"""
     datos: dict
-
 
 @dataclass
 class EliminarHorarios(HorariosEvento):
-    """Eliminar horarios"""
     horarios_id: int
 
-
-# ============================================================================
-# BLoC
-# ============================================================================
-
 class HorariosBloc:
-    """
-    BLoC para gestión de horarioss
-    """
     
     def __init__(self):
         self._estado: HorariosEstado = HorariosInicial()
@@ -119,7 +77,6 @@ class HorariosBloc:
                 print(f"Error en listener: {e}")
     
     def AGREGAR_EVENTO(self, evento: HorariosEvento):
-        """Procesa eventos"""
         if isinstance(evento, CargarHorarioses):
             asyncio.create_task(self._CARGAR(evento.filtro))
         elif isinstance(evento, GuardarHorarios):
@@ -128,7 +85,6 @@ class HorariosBloc:
             asyncio.create_task(self._ELIMINAR(evento))
     
     async def _CARGAR(self, filtro: Optional[str]):
-        """Carga horarioss de la BD"""
         self._CAMBIAR_ESTADO(HorariosCargando())
         
         try:
@@ -136,7 +92,6 @@ class HorariosBloc:
             query = sesion.query(MODELO_HORARIOS)
             
             if filtro:
-                # TODO: Ajustar filtro según campos del modelo
                 query = query.filter(MODELO_HORARIOS.NOMBRE.contains(filtro))
             
             datos = query.all()
@@ -150,28 +105,22 @@ class HorariosBloc:
             self._CAMBIAR_ESTADO(HorariosError(mensaje=f"Error cargando: {str(e)}"))
     
     async def _GUARDAR(self, evento: GuardarHorarios):
-        """Guarda horarios"""
         self._CAMBIAR_ESTADO(HorariosCargando())
         
         try:
             sesion = OBTENER_SESION()
             
-            # TODO: Implementar lógica de guardado
-            # Si es nuevo: crear
-            # Si existe: actualizar
             
             sesion.commit()
             sesion.close()
             
             self._CAMBIAR_ESTADO(HorariosGuardado(mensaje="Horarios guardado exitosamente"))
-            # Recargar lista
             await self._CARGAR(None)
         
         except Exception as e:
             self._CAMBIAR_ESTADO(HorariosError(mensaje=f"Error guardando: {str(e)}"))
     
     async def _ELIMINAR(self, evento: EliminarHorarios):
-        """Elimina horarios"""
         self._CAMBIAR_ESTADO(HorariosCargando())
         
         try:
@@ -192,6 +141,4 @@ class HorariosBloc:
         except Exception as e:
             self._CAMBIAR_ESTADO(HorariosError(mensaje=f"Error eliminando: {str(e)}"))
 
-
-# Instancia global
 HORARIOS_BLOC = HorariosBloc()

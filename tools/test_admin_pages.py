@@ -3,7 +3,6 @@ import traceback
 import sys
 import os
 
-# Ensure repo root is on sys.path
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
@@ -11,14 +10,12 @@ if REPO_ROOT not in sys.path:
 import asyncio
 import flet as _ft
 
-# Monkeypatch asyncio.create_task to avoid "no running event loop" during import-time calls
 _orig_create_task = getattr(asyncio, 'create_task', None)
 def _create_task_patch(coro):
     loop = asyncio.get_event_loop()
     return loop.create_task(coro)
 asyncio.create_task = _create_task_patch
 
-# Monkeypatch flet.Dropdown to accept unknown kwargs like 'on_change' during tests
 _orig_dropdown = getattr(_ft, 'Dropdown', None)
 if _orig_dropdown is not None:
     class _DropdownWrapper:
@@ -29,7 +26,6 @@ if _orig_dropdown is not None:
             return getattr(self._inner, name)
     _ft.Dropdown = _DropdownWrapper
 
-# Ensure alignment.center exists for test environment
 if not hasattr(_ft, 'alignment'):
     class _A: pass
     _ft.alignment = _A()
@@ -37,7 +33,6 @@ setattr(_ft.alignment, 'center', None)
 
 from features.autenticacion.domain.entities.Usuario import Usuario
 
-# FakePage minimal implementation
 class FakePage:
     def __init__(self):
         self.controls = []
@@ -70,17 +65,14 @@ usuario = Usuario(ID=1, EMAIL='superadmin@conychips.com', NOMBRE_USUARIO='supera
 
 for path in PAGINAS:
     try:
-        # import the module file directly (e.g. features.admin.presentation.pages.PaginaAdmin)
         mod = importlib.import_module(path)
         class_name = path.split('.')[-1]
         cls = getattr(mod, class_name)
         fake = FakePage()
-        # Try different constructor signatures
         try:
             inst = cls(fake, usuario)
             results[path] = ('OK', None)
         except TypeError as e:
-            # try passing usuario.ID
             try:
                 inst = cls(fake, usuario.ID)
                 results[path] = ('OK', 'constructed_with_id')

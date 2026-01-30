@@ -1,7 +1,3 @@
-"""
-BLoC para Gestión Financiera
-Presentation Layer - Clean Architecture
-"""
 
 import asyncio
 from typing import Callable, List, Optional
@@ -10,21 +6,17 @@ from datetime import datetime, date
 
 from core.base_datos.ConfiguracionBD import OBTENER_SESION
 
-
 @dataclass
 class FinanzasEstado:
     pass
-
 
 @dataclass
 class FinanzasInicial(FinanzasEstado):
     pass
 
-
 @dataclass
 class FinanzasCargando(FinanzasEstado):
     pass
-
 
 @dataclass
 class FinanzasCargadas(FinanzasEstado):
@@ -33,34 +25,28 @@ class FinanzasCargadas(FinanzasEstado):
     balance: float
     transacciones: List
 
-
 @dataclass
 class FinanzasError(FinanzasEstado):
     mensaje: str
 
-
 @dataclass
 class FinanzasEvento:
     pass
-
 
 @dataclass
 class CargarFinanzas(FinanzasEvento):
     fecha_inicio: Optional[date] = None
     fecha_fin: Optional[date] = None
 
-
 @dataclass
 class RegistrarIngreso(FinanzasEvento):
     monto: float
     descripcion: str
 
-
 @dataclass
 class RegistrarEgreso(FinanzasEvento):
     monto: float
     descripcion: str
-
 
 class FinanzasBloc:
     def __init__(self):
@@ -98,7 +84,6 @@ class FinanzasBloc:
     async def _CARGAR(self, evento):
         self._CAMBIAR_ESTADO(FinanzasCargando())
         try:
-            # Simulación de carga de datos financieros
             await asyncio.sleep(0.5)
             
             ingresos = 15000.0
@@ -132,6 +117,5 @@ class FinanzasBloc:
             await self._CARGAR(CargarFinanzas())
         except Exception as e:
             self._CAMBIAR_ESTADO(FinanzasError(mensaje=str(e)))
-
 
 FINANZAS_BLOC = FinanzasBloc()

@@ -1,7 +1,3 @@
-"""
-Vista de gestión de sucursales - REFACTORIZADA con BLoC + PaginaCRUDBase
-Código reducido 90% - Sin duplicación
-"""
 import flet as ft
 from typing import List, Dict, Any
 
@@ -15,25 +11,21 @@ from features.admin.presentation.bloc.SucursalesBloc import (
     SucursalError
 )
 
-
 class SucursalesPage(PaginaCRUDBase):
     
     def __init__(self, pagina: ft.Page, usuario, on_volver_inicio=None):
-        # Registrar listener BLoC
         SUCURSALES_BLOC.AGREGAR_LISTENER(self._ON_ESTADO_CAMBIO_BLOC)
         
         super().__init__(
             PAGINA=pagina,
             USUARIO=usuario,
             titulo="Gestión de Sucursales",
-            icono=ft.Icons.STORE
+            icono=ft.icons.Icons.STORE
         )
         
-        # Cargar vía BLoC
         SUCURSALES_BLOC.AGREGAR_EVENTO(CargarSucursales())
     
     def _ON_ESTADO_CAMBIO_BLOC(self, estado):
-        """Maneja cambios de estado del BLoC"""
         if isinstance(estado, SucursalesCargadas):
             self._ACTUALIZAR_LISTA(estado.sucursales)
         elif isinstance(estado, SucursalError):
@@ -54,17 +46,17 @@ class SucursalesPage(PaginaCRUDBase):
             FormularioCRUD.CREAR_CAMPO(
                 "Nombre",
                 item.NOMBRE if item else "",
-                icono=ft.Icons.STORE
+                icono=ft.icons.Icons.STORE
             ),
             FormularioCRUD.CREAR_CAMPO(
                 "Dirección",
                 item.DIRECCION if item else "",
-                icono=ft.Icons.LOCATION_ON
+                icono=ft.icons.Icons.LOCATION_ON
             ),
             FormularioCRUD.CREAR_CAMPO(
                 "Teléfono",
                 item.TELEFONO if item else "",
-                icono=ft.Icons.PHONE
+                icono=ft.icons.Icons.PHONE
             )
         ]
     
@@ -76,7 +68,6 @@ class SucursalesPage(PaginaCRUDBase):
         }
     
     def __del__(self):
-        """Limpiar listener BLoC"""
         try:
             SUCURSALES_BLOC.REMOVER_LISTENER(self._ON_ESTADO_CAMBIO_BLOC)
         except:

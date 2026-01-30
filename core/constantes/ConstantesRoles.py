@@ -8,7 +8,6 @@ class ROLES:
     LIMPIEZA = "LIMPIEZA"
     SUPERADMIN = "SUPERADMIN"
 
-
 def OBTENER_PERMISOS_ROL(NOMBRE_ROL: str) -> list:
     if NOMBRE_ROL == ROLES.SUPERADMIN:
         return ["*"]
@@ -24,7 +23,6 @@ def OBTENER_PERMISOS_ROL(NOMBRE_ROL: str) -> list:
             return []
     except Exception:
         return []
-
 
 PERMISOS_POR_ROL = {
     ROLES.SUPERADMIN: ["*"],

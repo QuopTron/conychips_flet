@@ -1,20 +1,14 @@
-"""
-Página de visualización de reseñas de clientes.
-Vista de solo lectura para moderación.
-Arquitectura: Clean Architecture + Hexagonal
-"""
 import flet as ft
-from core.base_datos.ConfiguracionBD import OBTENER_SESION, MODELO_RESENA
+from core.base_datos.ConfiguracionBD import OBTENER_SESION, MODELO_RESENA_ATENCION
 from core.Constantes import COLORES, TAMANOS, ICONOS, ROLES
 from core.decoradores.DecoradorVistas import REQUIERE_ROL
 from features.admin.presentation.widgets.ComponentesGlobales import (
     HeaderAdmin, ContenedorPagina, Notificador
 )
+from core.ui.safe_actions import safe_update
 
-
-@REQUIERE_ROL(ROLES.SUPERVISOR)
+@REQUIERE_ROL(ROLES.ADMIN)
 class ResenasPage(ft.Column):
-    """Vista de reseñas y valoraciones de clientes."""
     
     def __init__(self, PAGINA: ft.Page, USUARIO):
         super().__init__()
@@ -27,8 +21,6 @@ class ResenasPage(ft.Column):
         self._CARGAR_RESENAS()
     
     def _CONSTRUIR_UI(self):
-        """Construye interfaz."""
-        # Header
         header = HeaderAdmin(
             titulo="Reseñas de Clientes",
             icono=ICONOS.ESTRELLA,
@@ -36,52 +28,58 @@ class ResenasPage(ft.Column):
             on_salir=self._SALIR
         )
         
-        # Filtros
-        filtros = ft.Row(
-            controls=[
-                ft.Dropdown(
-                    label="Calificación",
-                    options=[
-                        ft.dropdown.Option("TODAS", "Todas"),
-                        ft.dropdown.Option("5", "⭐⭐⭐⭐⭐ (5)"),
-                        ft.dropdown.Option("4", "⭐⭐⭐⭐ (4)"),
-                        ft.dropdown.Option("3", "⭐⭐⭐ (3)"),
-                        ft.dropdown.Option("2", "⭐⭐ (2)"),
-                        ft.dropdown.Option("1", "⭐ (1)"),
-                    ],
-                    value=self._FILTRO,
-                    on_change=self._CAMBIAR_FILTRO,
-                    width=200
+        filtros = ft.Container(
+            content=ft.ResponsiveRow([
+                ft.Container(
+                    ft.Dropdown(
+                        label="Calificación",
+                        options=[
+                            ft.dropdown.Option("TODAS", "Todas"),
+                            ft.dropdown.Option("5", "⭐⭐⭐⭐⭐ (5)"),
+                            ft.dropdown.Option("4", "⭐⭐⭐⭐ (4)"),
+                            ft.dropdown.Option("3", "⭐⭐⭐ (3)"),
+                            ft.dropdown.Option("2", "⭐⭐ (2)"),
+                            ft.dropdown.Option("1", "⭐ (1)"),
+                        ],
+                        value=self._FILTRO,
+                        on_change=self._CAMBIAR_FILTRO,
+                    ),
+                    col={"xs": 12, "sm": 6, "md": 3}
                 ),
-                ft.ElevatedButton(
-                    "Actualizar",
-                    icon=ICONOS.ACTUALIZAR,
-                    on_click=lambda e: self._CARGAR_RESENAS()
+                ft.Container(
+                    ft.Button(
+                        "Actualizar",
+                        icon=ft.icons.Icons.REFRESH,
+                        on_click=lambda e: self._CARGAR_RESENAS()
+                    ),
+                    col={"xs": 12, "sm": 6, "md": 2}
                 ),
-            ],
-            spacing=TAMANOS.ESPACIADO_MD
+            ], spacing=6, run_spacing=6),
+            bgcolor=ft.Colors.BLUE_50,
+            border_radius=4,
+            padding=6,
+            border=ft.border.all(1, ft.Colors.BLUE_200)
         )
         
-        # Lista de reseñas
-        self._lista = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO, expand=True)
+        self._lista = ft.Column(spacing=4, scroll=ft.ScrollMode.ADAPTIVE, expand=True)
         
-        # Contenedor principal
-        contenido = ContenedorPagina(
-            controles=[header, filtros, self._lista]
+        contenido = ft.Container(
+            content=ft.Column([header, filtros, self._lista], spacing=4, expand=True),
+            padding=0,
+            expand=True
         )
         
         self.controls = [contenido]
     
     def _CARGAR_RESENAS(self):
-        """Carga reseñas desde BD."""
         try:
             sesion = OBTENER_SESION()
-            query = sesion.query(MODELO_RESENA)
+            query = sesion.query(MODELO_RESENA_ATENCION)
             
             if self._FILTRO != "TODAS":
-                query = query.filter(MODELO_RESENA.CALIFICACION == int(self._FILTRO))
+                query = query.filter(MODELO_RESENA_ATENCION.CALIFICACION == int(self._FILTRO))
             
-            resenas = query.order_by(MODELO_RESENA.FECHA.desc()).limit(50).all()
+            resenas = query.order_by(MODELO_RESENA_ATENCION.FECHA.desc()).limit(50).all()
             
             self._ACTUALIZAR_LISTA(resenas)
             
@@ -89,7 +87,6 @@ class ResenasPage(ft.Column):
             Notificador.ERROR(self._PAGINA, f"Error al cargar reseñas: {str(e)}")
     
     def _ACTUALIZAR_LISTA(self, resenas):
-        """Actualiza lista de reseñas."""
         self._lista.controls.clear()
         
         if not resenas:
@@ -98,7 +95,6 @@ class ResenasPage(ft.Column):
             )
         else:
             for resena in resenas:
-                # Construir estrellas
                 estrellas = "⭐" * resena.CALIFICACION
                 
                 card = ft.Card(
@@ -123,7 +119,6 @@ class ResenasPage(ft.Column):
                                 size=14,
                                 max_lines=None
                             ),
-                            # Producto si existe
                             ft.Row([
                                 ft.Icon(ICONOS.PRODUCTO, size=16, 
                                        color=COLORES.TEXTO_SECUNDARIO),
@@ -140,23 +135,20 @@ class ResenasPage(ft.Column):
                 )
                 self._lista.controls.append(card)
         
-        self._PAGINA.update()
+        safe_update(self._PAGINA)
     
     def _CAMBIAR_FILTRO(self, e):
-        """Cambia filtro de calificación."""
         self._FILTRO = e.control.value
         self._CARGAR_RESENAS()
     
     def _IR_MENU(self, e=None):
-        """Retorna al menú principal."""
         from features.admin.presentation.pages.PaginaAdmin import PaginaAdmin
         self._PAGINA.controls.clear()
         self._PAGINA.add(PaginaAdmin(self._PAGINA, self._USUARIO))
-        self._PAGINA.update()
+        safe_update(self._PAGINA)
     
     def _SALIR(self, e=None):
-        """Cierra sesión."""
         from features.autenticacion.presentation.pages.PaginaLogin import PaginaLogin
         self._PAGINA.controls.clear()
         self._PAGINA.add(PaginaLogin(self._PAGINA))
-        self._PAGINA.update()
+        safe_update(self._PAGINA)

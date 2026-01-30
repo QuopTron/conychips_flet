@@ -1,7 +1,3 @@
-"""
-Vista de gestión de ofertas - REFACTORIZADA con PaginaCRUDBase
-Código reducido 90% - Sin duplicación
-"""
 import flet as ft
 from typing import List, Dict, Any
 from datetime import datetime
@@ -10,7 +6,6 @@ from core.base_datos.ConfiguracionBD import MODELO_OFERTA, MODELO_PRODUCTO, OBTE
 from features.admin.presentation.widgets.PaginaCRUDBase import PaginaCRUDBase
 from features.admin.presentation.widgets.ComponentesGlobales import FormularioCRUD
 
-
 class OfertasPage(PaginaCRUDBase):
     
     def __init__(self, pagina: ft.Page, usuario, on_volver_inicio=None):
@@ -18,7 +13,7 @@ class OfertasPage(PaginaCRUDBase):
             PAGINA=pagina,
             USUARIO=usuario,
             titulo="Gestión de Ofertas",
-            icono=ft.Icons.LOCAL_OFFER
+            icono=ft.icons.Icons.LOCAL_OFFER
         )
         self._productos = []
         self._cargar_productos()
@@ -45,7 +40,7 @@ class OfertasPage(PaginaCRUDBase):
                 "Producto",
                 opciones_productos,
                 item.PRODUCTO_ID if item else None,
-                icono=ft.Icons.SHOPPING_CART
+                icono=ft.icons.Icons.SHOPPING_CART
             ),
             FormularioCRUD.CREAR_CAMPO(
                 "Descuento %",

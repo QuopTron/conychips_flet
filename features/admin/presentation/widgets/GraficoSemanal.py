@@ -1,7 +1,3 @@
-"""
-Widget: Gráfico Semanal
-Presentation Layer - Componente reutilizable
-"""
 
 import flet as ft
 from typing import List
@@ -9,12 +5,7 @@ from typing import List
 from core.Constantes import COLORES, TAMANOS
 from ...domain.entities.EstadisticasDashboard import EstadisticaDiaria
 
-
 class GraficoSemanal(ft.Column):
-    """
-    Widget para mostrar pedidos de la última semana
-    Componente reutilizable
-    """
 
     def __init__(self, estadisticas: List[EstadisticaDiaria] = None):
         super().__init__()
@@ -23,7 +14,6 @@ class GraficoSemanal(ft.Column):
             self.ACTUALIZAR_DATOS(estadisticas)
 
     def ACTUALIZAR_DATOS(self, estadisticas: List[EstadisticaDiaria]):
-        """Actualiza los datos mostrados"""
         self.controls.clear()
         
         for stat in estadisticas:
@@ -42,7 +32,7 @@ class GraficoSemanal(ft.Column):
                                     size=TAMANOS.TEXTO_SM,
                                     color=COLORES.TEXTO_BLANCO,
                                 ),
-                                padding=ft.padding.symmetric(
+                                padding=ft.Padding.symmetric(
                                     horizontal=TAMANOS.PADDING_SM,
                                     vertical=TAMANOS.PADDING_XS
                                 ),
@@ -53,9 +43,12 @@ class GraficoSemanal(ft.Column):
                         ],
                         spacing=TAMANOS.ESPACIADO_SM,
                     ),
-                    padding=ft.padding.symmetric(vertical=TAMANOS.PADDING_XS),
+                    padding=ft.Padding.symmetric(vertical=TAMANOS.PADDING_XS),
                 )
             )
         
-        if hasattr(self, 'update'):
-            self.update()
+        try:
+            if hasattr(self, 'page') and self.page:
+                self.update()
+        except Exception as e:
+            pass

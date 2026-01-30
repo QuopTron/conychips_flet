@@ -15,7 +15,6 @@ from core.Constantes import (
 from core.decoradores.DecoradorVistas import REQUIERE_ROL
 from core.Constantes import ROLES
 
-
 @REQUIERE_ROL(ROLES.SUPERADMIN)
 class PaginaInsumos(ft.Column):
     def __init__(self, PAGINA: ft.Page, USUARIO):
@@ -31,9 +30,9 @@ class PaginaInsumos(ft.Column):
             controls=[
                 ft.Text("Insumos", size=TAMANOS.TEXTO_3XL, weight=ft.FontWeight.BOLD),
                 ft.Container(expand=True),
-                ft.ElevatedButton("Menú", icon=ICONOS.DASHBOARD, on_click=self._IR_MENU),
-                ft.ElevatedButton("Salir", icon=ICONOS.CERRAR_SESION, on_click=self._SALIR, bgcolor=COLORES.PELIGRO, color=COLORES.TEXTO_BLANCO),
-                ft.ElevatedButton("Nuevo", icon=ICONOS.AGREGAR, on_click=self._NUEVO),
+                ft.Button("Menú", icon=ICONOS.DASHBOARD, on_click=self._IR_MENU),
+                ft.Button("Salir", icon=ICONOS.CERRAR_SESION, on_click=self._SALIR, bgcolor=COLORES.PELIGRO, color=COLORES.TEXTO_BLANCO),
+                ft.Button("Nuevo", icon=ICONOS.AGREGAR, on_click=self._NUEVO),
             ],
             spacing=TAMANOS.ESPACIADO_MD,
         )
@@ -82,7 +81,7 @@ class PaginaInsumos(ft.Column):
                     padding=TAMANOS.PADDING_MD,
                     bgcolor=COLORES.FONDO_BLANCO,
                     border_radius=TAMANOS.RADIO_SM,
-                    border=ft.border.all(1, COLORES.BORDE),
+                    border=ft.Border.all(1, COLORES.BORDE),
                 )
             )
 
@@ -147,7 +146,7 @@ class PaginaInsumos(ft.Column):
             ),
             actions=[
                 ft.TextButton("Cancelar", on_click=lambda e: self._CERRAR_DIALOGO()),
-                ft.ElevatedButton("Guardar", on_click=GUARDAR),
+                ft.Button("Guardar", on_click=GUARDAR),
             ],
         )
 

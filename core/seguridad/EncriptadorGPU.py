@@ -7,12 +7,11 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 import base64
 
-
 class EncriptadorGPU:
 
-    LONGITUD_SAL = 32  # 256 bits
-    LONGITUD_CLAVE = 32  # 256 bits para AES-256
-    ITERACIONES = 100000  # Iteraciones PBKDF2HMAC
+    LONGITUD_SAL = 32
+    LONGITUD_CLAVE = 32
+    ITERACIONES = 100000
 
     def __init__(self, HUELLA_DISPOSITIVO: str):
 

@@ -4,12 +4,29 @@ import sys
 import traceback
 from features.autenticacion.presentation.pages.PaginaLogin import PaginaLogin
 from core.base_datos.ConfiguracionBD import INICIALIZAR_BASE_DATOS
+from config.ConfiguracionApp import CONFIGURACION_APP
+
+# In development, optionally start a local WebSocket server so the client can connect
+if CONFIGURACION_APP.ES_DESARROLLO():
+    try:
+        # Start local WS broker in development (non-blocking)
+        import threading
+        from tools.ws_client_example import start_ws_client_in_thread
+        import subprocess
+
+        # Start broker process
+        def _start_broker():
+            subprocess.Popen(['python3', os.path.join(os.path.dirname(__file__), 'tools', 'ws_server.py')])
+
+        threading.Thread(target=_start_broker, daemon=True).start()
+        # Start client listener thread
+        start_ws_client_in_thread()
+    except Exception:
+        pass
 
 os.environ["NO_AT_BRIDGE"] = "1"
 
-
 def main(page: ft.Page):
-    """Función principal de la aplicación Flet"""
     
     page.title = "Cony Chips"
     page.theme_mode = ft.ThemeMode.LIGHT
@@ -44,8 +61,7 @@ def main(page: ft.Page):
             ft.Container(
                 content=ft.Column(
                     [
-                        ft.Icon(
-                            ft.Icons.ERROR_OUTLINED, size=80, color=ft.Colors.RED_400
+                        ft.Icon(ft.icons.Icons.ERROR_OUTLINED, size=80, color=ft.Colors.RED_400
                         ),
                         ft.Text(
                             "Error de Inicialización",
@@ -69,7 +85,7 @@ def main(page: ft.Page):
                             on_click=lambda e: print(
                                 f"\n{'='*60}\n{traceback.format_exc()}\n{'='*60}\n"
                             ),
-                            icon=ft.Icons.BUG_REPORT,
+                            icon=ft.icons.Icons.BUG_REPORT,
                         ),
                     ],
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
@@ -82,7 +98,6 @@ def main(page: ft.Page):
         ]
         page.update()
 
-
 if __name__ == "__main__":
     print(f"\n{'='*60}")
     print(f"Flet version: {ft.__version__}")
@@ -91,7 +106,6 @@ if __name__ == "__main__":
     print(f"{'='*60}\n")
 
     try:
-        # Usar ft.run() - método recomendado en Flet 0.80.3+
         ft.run(main)
     except Exception as e:
         print(f"\n✗ Error al ejecutar la aplicación:")

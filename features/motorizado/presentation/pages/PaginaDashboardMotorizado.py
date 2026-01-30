@@ -11,7 +11,6 @@ from core.constantes import COLORES, TAMANOS, ICONOS
 from core.decoradores.DecoradorVistas import REQUIERE_ROL
 from core.websocket.GestorNotificaciones import GestorNotificaciones
 
-
 @REQUIERE_ROL("MOTORIZADO", "ADMIN", "SUPERADMIN")
 class PaginaDashboardMotorizado:
     
@@ -70,33 +69,33 @@ class PaginaDashboardMotorizado:
                         bgcolor=COLORES.ACENTO if PEDIDO.ESTADO == "en_camino" else COLORES.ADVERTENCIA,
                     ),
                 ]),
-                ft.Text(f"Total: S/ {PEDIDO.TOTAL:.2f}", size=16),
+                ft.Text(f"Total: S/ {getattr(PEDIDO, 'MONTO_TOTAL', getattr(PEDIDO, 'TOTAL', 0)):.2f}", size=16),
                 ft.Text(
                     f"Dirección: {PEDIDO.DIRECCION_ENTREGA or 'No especificada'}",
                     color=COLORES.TEXTO_SECUNDARIO,
                     size=12
                 ),
                 ft.Row([
-                    ft.ElevatedButton(
+                    ft.Button(
                         "Confirmar Salida",
                         icon=ICONOS.ENVIAR,
                         bgcolor=COLORES.ADVERTENCIA,
                         on_click=lambda e, p=PEDIDO: self._CONFIRMAR_SALIDA(p),
                         visible=PEDIDO.ESTADO == "listo"
                     ),
-                    ft.ElevatedButton(
+                    ft.Button(
                         "Activar GPS",
                         icon=ICONOS.UBICACION,
                         bgcolor=COLORES.EXITO if not self.GPS_ACTIVO else COLORES.ERROR,
                         on_click=lambda e, p=PEDIDO: self._TOGGLE_GPS(p),
                         visible=PEDIDO.ESTADO == "en_camino"
                     ),
-                    ft.ElevatedButton(
+                    ft.Button(
                         "Chat",
                         icon=ICONOS.CHAT,
                         on_click=lambda e, p=PEDIDO: self._ABRIR_CHAT(p),
                     ),
-                    ft.ElevatedButton(
+                    ft.Button(
                         "Confirmar Entrega",
                         icon=ICONOS.CONFIRMAR,
                         bgcolor=COLORES.EXITO,
@@ -106,7 +105,7 @@ class PaginaDashboardMotorizado:
                 ], spacing=10, wrap=True),
             ], spacing=10),
             padding=15,
-            border=ft.border.all(1, COLORES.BORDE),
+            border=ft.Border.all(1, COLORES.BORDE),
             border_radius=TAMANOS.RADIO_BORDE,
             bgcolor=COLORES.FONDO_TARJETA,
         )
@@ -238,7 +237,7 @@ class PaginaDashboardMotorizado:
                         padding=10,
                         bgcolor=COLORES.PRIMARIO if ES_MIO else COLORES.FONDO_TARJETA,
                         border_radius=TAMANOS.RADIO_BORDE,
-                        alignment=ft.alignment.center_right if ES_MIO else ft.alignment.center_left,
+                        alignment=ft.Alignment(1, 0) if ES_MIO else ft.Alignment(-1, 0),
                     )
                 )
             
@@ -299,8 +298,7 @@ class PaginaDashboardMotorizado:
             ft.Text("Dashboard Motorizado", size=TAMANOS.TITULO, weight=ft.FontWeight.BOLD),
             
             ft.Row([
-                ft.Icon(
-                    ICONOS.UBICACION,
+                ft.Icon(ICONOS.UBICACION,
                     color=COLORES.EXITO if self.GPS_ACTIVO else COLORES.TEXTO_SECUNDARIO
                 ),
                 ft.Text(

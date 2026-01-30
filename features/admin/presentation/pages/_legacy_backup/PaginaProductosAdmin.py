@@ -1,4 +1,3 @@
-"""Página de Gestión de Productos - REFACTORIZADA con BLoC + Componentes Globales"""
 import flet as ft
 from core.base_datos.ConfiguracionBD import MODELO_PRODUCTO
 from core.Constantes import COLORES, TAMANOS, ICONOS, ROLES
@@ -19,7 +18,6 @@ from features.admin.presentation.widgets.ComponentesGlobales import (
     BotonesNavegacion
 )
 
-
 @REQUIERE_ROL(ROLES.SUPERADMIN)
 class PaginaProductosAdmin(ft.Column):
     def __init__(self, PAGINA: ft.Page, USUARIO):
@@ -28,16 +26,13 @@ class PaginaProductosAdmin(ft.Column):
         self._USUARIO = USUARIO
         self._LISTA = ft.Column(spacing=10)
         
-        # Registrar listener BLoC
         PRODUCTOS_BLOC.AGREGAR_LISTENER(self._ON_ESTADO_CAMBIO)
         
         self._CONSTRUIR()
         
-        # Cargar datos vía BLoC
         PRODUCTOS_BLOC.AGREGAR_EVENTO(CargarProductos())
     
     def _ON_ESTADO_CAMBIO(self, estado):
-        """Maneja cambios de estado del BLoC"""
         if isinstance(estado, ProductosCargados):
             self._ACTUALIZAR_LISTA(estado.productos)
         elif isinstance(estado, ProductoError):
@@ -47,10 +42,9 @@ class PaginaProductosAdmin(ft.Column):
             Notificador.EXITO(self, estado.mensaje)
 
     def _CONSTRUIR(self):
-        # Header con componentes globales
         header = ft.Row(
             controls=[
-                ft.Icon(ft.Icons.INVENTORY, size=TAMANOS.ICONO_LG, color=COLORES.PRIMARIO),
+                ft.Icon(ft.icons.Icons.INVENTORY, size=TAMANOS.ICONO_LG, color=COLORES.PRIMARIO),
                 ft.Text("Productos", size=TAMANOS.TEXTO_3XL, weight=ft.FontWeight.BOLD),
                 ft.Container(expand=True),
                 BotonesNavegacion.BOTON_MENU(self._IR_MENU),
@@ -75,7 +69,6 @@ class PaginaProductosAdmin(ft.Column):
         self.expand = True
 
     def _ACTUALIZAR_LISTA(self, productos):
-        """Actualiza UI con datos del BLoC"""
         self._LISTA.controls.clear()
 
         for p in productos:
@@ -88,13 +81,13 @@ class PaginaProductosAdmin(ft.Column):
                             ft.Text(f"{p.PRECIO} Bs", color=COLORES.EXITO, weight=ft.FontWeight.BOLD),
                             ft.Container(expand=True),
                             ft.IconButton(
-                                icon=ft.Icons.EDIT,
+                                icon=ft.icons.Icons.Icons.EDIT,
                                 tooltip="Editar",
                                 icon_color=COLORES.INFO,
                                 on_click=lambda e, x=p: self._EDITAR(x)
                             ),
                             ft.IconButton(
-                                icon=ft.Icons.DELETE,
+                                icon=ft.icons.Icons.Icons.DELETE,
                                 tooltip="Eliminar",
                                 icon_color=COLORES.PELIGRO,
                                 on_click=lambda e, x=p: self._ELIMINAR(x)
@@ -104,7 +97,7 @@ class PaginaProductosAdmin(ft.Column):
                     padding=TAMANOS.PADDING_MD,
                     bgcolor=COLORES.FONDO_BLANCO,
                     border_radius=TAMANOS.RADIO_SM,
-                    border=ft.border.all(1, COLORES.BORDE),
+                    border=ft.Border.all(1, COLORES.BORDE),
                 )
             )
 
@@ -118,16 +111,13 @@ class PaginaProductosAdmin(ft.Column):
         self._ABRIR_FORM(PROD)
 
     def _ELIMINAR(self, PROD):
-        """Elimina producto vía BLoC"""
         PRODUCTOS_BLOC.AGREGAR_EVENTO(EliminarProducto(producto_id=PROD.ID))
 
     def _ABRIR_FORM(self, PROD=None):
-        """Formulario con componentes globales"""
-        # Usar FormularioCRUD para campos estandarizados
         campo_nombre = FormularioCRUD.CREAR_CAMPO(
             "Nombre",
             PROD.NOMBRE if PROD else "",
-            icono=ft.Icons.INVENTORY
+            icono=ft.icons.Icons.INVENTORY
         )
         campo_desc = FormularioCRUD.CREAR_CAMPO(
             "Descripción",
@@ -139,12 +129,12 @@ class PaginaProductosAdmin(ft.Column):
             "Precio",
             str(PROD.PRECIO) if PROD else "0",
             tipo="number",
-            icono=ft.Icons.ATTACH_MONEY
+            icono=ft.icons.Icons.ATTACH_MONEY
         )
         campo_img = FormularioCRUD.CREAR_CAMPO(
             "Imagen URL",
             PROD.IMAGEN if PROD else "",
-            icono=ft.Icons.IMAGE
+            icono=ft.icons.Icons.IMAGE
         )
 
         def GUARDAR(e):
@@ -164,7 +154,6 @@ class PaginaProductosAdmin(ft.Column):
             
             PRODUCTOS_BLOC.AGREGAR_EVENTO(GuardarProducto(datos=datos))
 
-        # Usar FormularioCRUD para construir diálogo
         dlg = FormularioCRUD.CONSTRUIR_DIALOGO(
             titulo="✏️ Editar Producto" if PROD else "➕ Nuevo Producto",
             campos=[campo_nombre, campo_desc, campo_precio, campo_img],
@@ -197,7 +186,6 @@ class PaginaProductosAdmin(ft.Column):
         self._PAGINA.update()
     
     def __del__(self):
-        """Limpieza"""
         try:
             PRODUCTOS_BLOC.REMOVER_LISTENER(self._ON_ESTADO_CAMBIO)
         except:

@@ -4,7 +4,6 @@ from features.autenticacion.domain.RepositorioAutenticacion import (
 )
 from core.Constantes import PERMISOS_POR_ROL
 
-
 class VerificarPermisos:
 
     def __init__(self, REPOSITORIO: RepositorioAutenticacion):

@@ -1,6 +1,3 @@
-"""
-Entidades del dominio Admin
-"""
 
 from .EstadisticasDashboard import (
     EstadisticasGenerales,

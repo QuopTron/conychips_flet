@@ -8,7 +8,6 @@ from core.base_datos.ConfiguracionBD import (
 )
 from core.websocket.ManejadorConexion import ManejadorConexion
 
-
 class RepositorioPedidosImpl(RepositorioPedidos):
     def __init__(self):
         self._MANJADOR = ManejadorConexion()
@@ -35,7 +34,7 @@ class RepositorioPedidosImpl(RepositorioPedidos):
         pedido = MODELO_PEDIDO(
             CLIENTE_ID=CLIENTE_ID,
             SUCURSAL_ID=SUCURSAL_ID,
-            TIPO="delivery",  # por defecto
+            TIPO="delivery",
             ESTADO="pendiente",
             MONTO_TOTAL=producto.PRECIO * CANTIDAD,
         )
@@ -64,6 +63,20 @@ class RepositorioPedidosImpl(RepositorioPedidos):
                     "estado": pedido.ESTADO,
                 }
             )
+        except Exception:
+            pass
+
+        # Notify external realtime broker as well (development-friendly)
+        try:
+            from core.realtime.broker_notify import notify
+            payload = {
+                'type': 'pedido_creado',
+                'pedido_id': pedido.ID,
+                'cliente_id': CLIENTE_ID,
+                'sucursal_id': SUCURSAL_ID,
+                'nuevo_estado': pedido.ESTADO,
+            }
+            notify(payload)
         except Exception:
             pass
 
@@ -106,6 +119,12 @@ class RepositorioPedidosImpl(RepositorioPedidos):
             await self._MANJADOR.BROADCAST(
                 {"tipo": "pedido_pagado", "pedido_id": PEDIDO_ID, "monto": MONTO}
             )
+        except Exception:
+            pass
+
+        try:
+            from core.realtime.broker_notify import notify
+            notify({'type': 'pedido_actualizado', 'pedido_id': PEDIDO_ID, 'nuevo_estado': pedido.ESTADO, 'monto': MONTO, 'sucursal_id': getattr(pedido, 'SUCURSAL_ID', None)})
         except Exception:
             pass
 

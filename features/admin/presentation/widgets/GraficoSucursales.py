@@ -1,7 +1,3 @@
-"""
-Widget: Gráfico de Sucursales
-Presentation Layer - Componente reutilizable
-"""
 
 import flet as ft
 from typing import List
@@ -9,12 +5,7 @@ from typing import List
 from core.Constantes import COLORES, TAMANOS, ICONOS
 from ...domain.entities.EstadisticasDashboard import EstadisticaSucursal
 
-
 class GraficoSucursales(ft.Column):
-    """
-    Widget para mostrar pedidos por sucursal
-    Componente reutilizable
-    """
 
     def __init__(self, estadisticas: List[EstadisticaSucursal] = None):
         super().__init__()
@@ -23,7 +14,6 @@ class GraficoSucursales(ft.Column):
             self.ACTUALIZAR_DATOS(estadisticas)
 
     def ACTUALIZAR_DATOS(self, estadisticas: List[EstadisticaSucursal]):
-        """Actualiza los datos mostrados"""
         self.controls.clear()
         
         for stat in estadisticas:
@@ -31,8 +21,7 @@ class GraficoSucursales(ft.Column):
                 ft.Container(
                     content=ft.Row(
                         controls=[
-                            ft.Icon(
-                                ft.Icons.STORE,
+                            ft.Icon(ft.icons.Icons.STORE,
                                 size=TAMANOS.ICONO_SM,
                                 color=COLORES.PRIMARIO
                             ),
@@ -48,9 +37,12 @@ class GraficoSucursales(ft.Column):
                             ),
                         ],
                     ),
-                    padding=ft.padding.symmetric(vertical=TAMANOS.PADDING_XS),
+                    padding=ft.Padding.symmetric(vertical=TAMANOS.PADDING_XS),
                 )
             )
         
-        if hasattr(self, 'update'):
-            self.update()
+        try:
+            if hasattr(self, 'page') and self.page:
+                self.update()
+        except Exception as e:
+            pass

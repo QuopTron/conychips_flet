@@ -19,7 +19,6 @@ from features.autenticacion.domain.entities.Usuario import Usuario
 from core.decoradores.DecoradorVistas import REQUIERE_ROL
 import bcrypt
 
-
 @REQUIERE_ROL(ROLES.SUPERADMIN)
 class PaginaUsuarios(ft.Column):
 
@@ -32,14 +31,13 @@ class PaginaUsuarios(ft.Column):
         self._FILTRO_ACTIVO = None
         self._CONSTRUIR()
 
-
     def _CONSTRUIR(self):
         self._FILTRO_ROL = ft.Dropdown(
             label="Filtrar por Rol",
             options=[ft.dropdown.Option("TODOS", "Todos")],
             value="TODOS",
             width=200,
-            on_change=lambda e: self._CARGAR_DATOS(),
+            on_select=lambda e: self._CARGAR_DATOS(),
         )
         
         self._FILTRO_ACTIVO = ft.Dropdown(
@@ -51,15 +49,14 @@ class PaginaUsuarios(ft.Column):
             ],
             value="TODOS",
             width=150,
-            on_change=lambda e: self._CARGAR_DATOS(),
+            on_select=lambda e: self._CARGAR_DATOS(),
         )
         
         self._CARGAR_ROLES_FILTRO()
 
         HEADER = ft.Row(
             controls=[
-                ft.Icon(
-                    ICONOS.USUARIOS,
+                ft.Icon(ICONOS.USUARIOS,
                     size=TAMANOS.ICONO_LG,
                     color=COLORES.PRIMARIO
                 ),
@@ -72,21 +69,21 @@ class PaginaUsuarios(ft.Column):
                 ft.Container(expand=True),
                 self._FILTRO_ROL,
                 self._FILTRO_ACTIVO,
-                ft.ElevatedButton(
+                ft.Button(
                     "Menú",
                     icon=ICONOS.DASHBOARD,
                     on_click=self._IR_MENU,
                     bgcolor=COLORES.PRIMARIO,
                     color=COLORES.TEXTO_BLANCO
                 ),
-                ft.ElevatedButton(
+                ft.Button(
                     "Salir",
                     icon=ICONOS.CERRAR_SESION,
                     on_click=self._SALIR,
                     bgcolor=COLORES.PELIGRO,
                     color=COLORES.TEXTO_BLANCO
                 ),
-                ft.ElevatedButton(
+                ft.Button(
                     "Nuevo Usuario",
                     icon=ICONOS.AGREGAR,
                     on_click=self._NUEVO,
@@ -117,7 +114,6 @@ class PaginaUsuarios(ft.Column):
         self.expand = True
         self._CARGAR_DATOS()
 
-
     def _CARGAR_ROLES_FILTRO(self):
         sesion = OBTENER_SESION()
         roles = sesion.query(MODELO_ROL).all()
@@ -127,7 +123,6 @@ class PaginaUsuarios(ft.Column):
             self._FILTRO_ROL.options.append(
                 ft.dropdown.Option(rol.NOMBRE, rol.NOMBRE)
             )
-
 
     def _CARGAR_DATOS(self):
         self._LISTA.controls.clear()
@@ -142,7 +137,6 @@ class PaginaUsuarios(ft.Column):
         
         usuarios = query.all()
 
-        # Ensure roles are loaded before closing session to avoid DetachedInstanceError
         for u in usuarios:
             try:
                 _ = u.ROLES
@@ -163,7 +157,7 @@ class PaginaUsuarios(ft.Column):
                         color=COLORES.TEXTO_SECUNDARIO,
                         text_align=ft.TextAlign.CENTER,
                     ),
-                    alignment=ft.alignment.center,
+                    alignment=ft.Alignment(0, 0),
                     padding=TAMANOS.PADDING_2XL,
                 )
             )
@@ -173,7 +167,6 @@ class PaginaUsuarios(ft.Column):
 
         if getattr(self, "_PAGINA", None):
             self._PAGINA.update()
-
 
     def _CREAR_CARD(self, USUARIO_OBJ):
         ROLES_NOMBRES = [r.NOMBRE for r in USUARIO_OBJ.ROLES]
@@ -185,8 +178,7 @@ class PaginaUsuarios(ft.Column):
         return ft.Container(
             content=ft.Row(
                 controls=[
-                    ft.Icon(
-                        ICONOS.USUARIO,
+                    ft.Icon(ICONOS.USUARIO,
                         size=TAMANOS.ICONO_XL,
                         color=COLORES.PRIMARIO
                     ),
@@ -211,7 +203,7 @@ class PaginaUsuarios(ft.Column):
                                             size=TAMANOS.TEXTO_SM,
                                             color=COLORES.TEXTO_BLANCO,
                                         ),
-                                        padding=ft.padding.symmetric(
+                                        padding=ft.Padding.symmetric(
                                             horizontal=TAMANOS.PADDING_SM,
                                             vertical=TAMANOS.PADDING_XS
                                         ),
@@ -224,7 +216,7 @@ class PaginaUsuarios(ft.Column):
                                             size=TAMANOS.TEXTO_SM,
                                             color=COLORES.TEXTO_BLANCO,
                                         ),
-                                        padding=ft.padding.symmetric(
+                                        padding=ft.Padding.symmetric(
                                             horizontal=TAMANOS.PADDING_SM,
                                             vertical=TAMANOS.PADDING_XS
                                         ),
@@ -247,7 +239,7 @@ class PaginaUsuarios(ft.Column):
                                 on_click=lambda e, u=USUARIO_OBJ: self._EDITAR(u),
                             ),
                             ft.IconButton(
-                                icon=ft.Icons.BLOCK if USUARIO_OBJ.ACTIVO else ft.Icons.CHECK_CIRCLE,
+                                icon=ft.icons.Icons.Icons.BLOCK if USUARIO_OBJ.ACTIVO else ft.icons.Icons.CHECK_CIRCLE,
                                 icon_color=COLORES.ADVERTENCIA if USUARIO_OBJ.ACTIVO else COLORES.EXITO,
                                 tooltip="Desactivar" if USUARIO_OBJ.ACTIVO else "Activar",
                                 on_click=lambda e, u=USUARIO_OBJ: self._TOGGLE_ACTIVO(u),
@@ -267,17 +259,14 @@ class PaginaUsuarios(ft.Column):
             padding=TAMANOS.PADDING_LG,
             bgcolor=COLORES.FONDO_BLANCO,
             border_radius=TAMANOS.RADIO_MD,
-            border=ft.border.all(1, COLORES.BORDE),
+            border=ft.Border.all(1, COLORES.BORDE),
         )
-
 
     def _NUEVO(self, e):
         self._ABRIR_FORMULARIO(None)
 
-
     def _EDITAR(self, USUARIO_OBJ):
         self._ABRIR_FORMULARIO(USUARIO_OBJ)
-
 
     def _ABRIR_FORMULARIO(self, USUARIO_OBJ):
         ES_EDICION = USUARIO_OBJ is not None
@@ -388,7 +377,7 @@ class PaginaUsuarios(ft.Column):
             ),
             actions=[
                 ft.TextButton("Cancelar", on_click=lambda e: self._CERRAR_DIALOGO()),
-                ft.ElevatedButton(
+                ft.Button(
                     "Guardar",
                     icon=ICONOS.GUARDAR,
                     on_click=GUARDAR,
@@ -402,7 +391,6 @@ class PaginaUsuarios(ft.Column):
         DLG.open = True
         self._PAGINA.update()
 
-
     def _TOGGLE_ACTIVO(self, USUARIO_OBJ):
         sesion = OBTENER_SESION()
         usuario = sesion.query(MODELO_USUARIO).filter_by(ID=USUARIO_OBJ.ID).first()
@@ -414,7 +402,6 @@ class PaginaUsuarios(ft.Column):
         sesion.close()
         self._CARGAR_DATOS()
         self._MOSTRAR_EXITO("Estado actualizado correctamente")
-
 
     def _ELIMINAR(self, USUARIO_OBJ):
         if USUARIO_OBJ.ID == self._USUARIO.ID:
@@ -442,7 +429,7 @@ class PaginaUsuarios(ft.Column):
             ),
             actions=[
                 ft.TextButton("Cancelar", on_click=lambda e: self._CERRAR_DIALOGO()),
-                ft.ElevatedButton(
+                ft.Button(
                     "Eliminar",
                     icon=ICONOS.ELIMINAR,
                     on_click=CONFIRMAR,
@@ -456,12 +443,10 @@ class PaginaUsuarios(ft.Column):
         DLG.open = True
         self._PAGINA.update()
 
-
     def _CERRAR_DIALOGO(self):
         if hasattr(self._PAGINA, "dialog") and self._PAGINA.dialog:
             self._PAGINA.dialog.open = False
             self._PAGINA.update()
-
 
     def _IR_MENU(self, e):
         from features.admin.presentation.pages.PaginaAdmin import PaginaAdmin
@@ -470,14 +455,12 @@ class PaginaUsuarios(ft.Column):
         self._PAGINA.controls.append(PaginaAdmin(self._PAGINA, self._USUARIO))
         self._PAGINA.update()
 
-
     def _SALIR(self, e):
         from features.autenticacion.presentation.pages.PaginaLogin import PaginaLogin
         
         self._PAGINA.controls.clear()
         self._PAGINA.controls.append(PaginaLogin(self._PAGINA))
         self._PAGINA.update()
-
 
     def _MOSTRAR_ERROR(self, MENSAJE: str):
         snackbar = ft.SnackBar(
@@ -487,7 +470,6 @@ class PaginaUsuarios(ft.Column):
         self._PAGINA.overlay.append(snackbar)
         snackbar.open = True
         self._PAGINA.update()
-
 
     def _MOSTRAR_EXITO(self, MENSAJE: str):
         snackbar = ft.SnackBar(

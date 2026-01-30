@@ -5,7 +5,6 @@ from typing import Callable
 from core.Constantes import ROLES, ERRORES_AUTENTICACION
 from features.autenticacion.domain.entities.Usuario import Usuario
 
-
 def REQUIERE_ROL(*ROLES_PERMITIDOS):
     
     def DECORADOR(CLASE_VISTA):
@@ -14,13 +13,52 @@ def REQUIERE_ROL(*ROLES_PERMITIDOS):
         
         @wraps(INIT_ORIGINAL)
         def NUEVO_INIT(self, PAGINA: ft.Page, USUARIO: Usuario, *args, **kwargs):
-            
-            TIENE_PERMISO = any(USUARIO.TIENE_ROL(rol) for rol in ROLES_PERMITIDOS)
-            
+            try:
+                usuario_proxy = USUARIO
+                if not hasattr(USUARIO, "TIENE_ROL") and isinstance(USUARIO, int):
+                    from types import SimpleNamespace
+                    from core.base_datos.ConfiguracionBD import OBTENER_SESION, MODELO_USUARIO
+
+                    roles = []
+                    try:
+                        with OBTENER_SESION() as sesion:
+                            modelo = sesion.query(MODELO_USUARIO).filter_by(ID=USUARIO).first()
+                            if modelo:
+                                roles = [r.NOMBRE for r in modelo.ROLES]
+                    except Exception:
+                        roles = []
+
+                    def _tiene_rol(rol):
+                        return rol in roles
+
+                    usuario_proxy = SimpleNamespace(ID=USUARIO, ROLES=roles, TIENE_ROL=_tiene_rol)
+
+                if getattr(usuario_proxy, "ID", None):
+                    from core.base_datos.ConfiguracionBD import OBTENER_SESION, MODELO_USUARIO
+
+                    with OBTENER_SESION() as sesion:
+                        modelo = sesion.query(MODELO_USUARIO).filter_by(ID=usuario_proxy.ID).first()
+                        if modelo:
+                            usuario_proxy.ROLES = [r.NOMBRE for r in modelo.ROLES]
+            except Exception:
+                usuario_proxy = usuario_proxy if 'usuario_proxy' in locals() else USUARIO
+                pass
+
+            if getattr(usuario_proxy, "TIENE_ROL", lambda r: False)(ROLES.SUPERADMIN):
+                INIT_ORIGINAL(self, PAGINA, USUARIO, *args, **kwargs)
+                return
+
+            TIENE_PERMISO = any(getattr(usuario_proxy, "TIENE_ROL", lambda r: False)(rol) for rol in ROLES_PERMITIDOS)
+
             if not TIENE_PERMISO:
+                try:
+                    super(CLASE_VISTA, self).__init__()
+                except Exception:
+                    pass
+
                 self._MOSTRAR_ERROR_ACCESO(PAGINA, USUARIO)
                 return
-            
+
             INIT_ORIGINAL(self, PAGINA, USUARIO, *args, **kwargs)
         
         CLASE_VISTA.__init__ = NUEVO_INIT
@@ -49,7 +87,7 @@ def REQUIERE_ROL(*ROLES_PERMITIDOS):
                                 size=16,
                                 text_align=ft.TextAlign.CENTER,
                             ),
-                            ft.ElevatedButton(
+                            ft.Button(
                                 "Volver al Inicio",
                                 on_click=lambda e: self._VOLVER_LOGIN(PAGINA),
                                 bgcolor=ft.Colors.BLUE_600,
@@ -59,7 +97,7 @@ def REQUIERE_ROL(*ROLES_PERMITIDOS):
                         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                         spacing=20,
                     ),
-                    alignment=ft.alignment.center,
+                    alignment=ft.Alignment(0, 0),
                     expand=True,
                 )
             )
@@ -78,7 +116,6 @@ def REQUIERE_ROL(*ROLES_PERMITIDOS):
     
     return DECORADOR
 
-
 def REQUIERE_PERMISO(*PERMISOS_REQUERIDOS):
     
     def DECORADOR(CLASE_VISTA):
@@ -88,11 +125,30 @@ def REQUIERE_PERMISO(*PERMISOS_REQUERIDOS):
         @wraps(INIT_ORIGINAL)
         def NUEVO_INIT(self, PAGINA: ft.Page, USUARIO: Usuario, *args, **kwargs):
             
-            if USUARIO.TIENE_ROL(ROLES.SUPERADMIN):
+            usuario_proxy = USUARIO
+            if not hasattr(USUARIO, "TIENE_ROL") and isinstance(USUARIO, int):
+                from types import SimpleNamespace
+                from core.base_datos.ConfiguracionBD import OBTENER_SESION, MODELO_USUARIO
+
+                roles = []
+                try:
+                    with OBTENER_SESION() as sesion:
+                        modelo = sesion.query(MODELO_USUARIO).filter_by(ID=USUARIO).first()
+                        if modelo:
+                            roles = [r.NOMBRE for r in modelo.ROLES]
+                except Exception:
+                    roles = []
+
+                def _tiene_rol(rol):
+                    return rol in roles
+
+                usuario_proxy = SimpleNamespace(ID=USUARIO, ROLES=roles, TIENE_ROL=_tiene_rol)
+
+            if getattr(usuario_proxy, "TIENE_ROL", lambda r: False)(ROLES.SUPERADMIN):
                 INIT_ORIGINAL(self, PAGINA, USUARIO, *args, **kwargs)
                 return
-            
-            TIENE_PERMISO = any(USUARIO.TIENE_PERMISO(permiso) for permiso in PERMISOS_REQUERIDOS)
+
+            TIENE_PERMISO = any(getattr(USUARIO, "TIENE_PERMISO", lambda p: False)(permiso) for permiso in PERMISOS_REQUERIDOS)
             
             if not TIENE_PERMISO:
                 self._MOSTRAR_ERROR_ACCESO(PAGINA, USUARIO)
@@ -132,7 +188,7 @@ def REQUIERE_PERMISO(*PERMISOS_REQUERIDOS):
                                 color=ft.Colors.GREY_600,
                                 text_align=ft.TextAlign.CENTER,
                             ),
-                            ft.ElevatedButton(
+                            ft.Button(
                                 "Volver al Inicio",
                                 on_click=lambda e: self._VOLVER_LOGIN(PAGINA),
                                 bgcolor=ft.Colors.BLUE_600,
@@ -142,7 +198,7 @@ def REQUIERE_PERMISO(*PERMISOS_REQUERIDOS):
                         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                         spacing=20,
                     ),
-                    alignment=ft.alignment.center,
+                    alignment=ft.Alignment(0, 0),
                     expand=True,
                 )
             )

@@ -1,7 +1,6 @@
 from typing import Dict, Optional
 from core.websocket.ClienteWebSocket import ClienteWebSocket
 
-
 class ManejadorConexion:
 
     _INSTANCIA: Optional["ManejadorConexion"] = None

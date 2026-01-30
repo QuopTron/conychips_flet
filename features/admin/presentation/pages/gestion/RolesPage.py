@@ -1,19 +1,19 @@
-"""
-Página de gestión de roles y permisos.
-Arquitectura: Clean Architecture + Hexagonal
-"""
 import flet as ft
 from core.base_datos.ConfiguracionBD import MODELO_ROL
 from core.Constantes import ROLES
 from core.decoradores.DecoradorVistas import REQUIERE_ROL
 from features.admin.presentation.widgets.PaginaCRUDBase import PaginaCRUDBase
 from features.admin.presentation.widgets.ComponentesGlobales import FormularioCRUD
-from features.admin.presentation.bloc.RolesBloc import RolesBloc, RolesEvent, RolesState
-
+from features.admin.presentation.bloc.RolesBloc import (
+    RolesBloc,
+    RolesEvento,
+    RolesEstado,
+    RolesCargados,
+    RolError
+)
 
 @REQUIERE_ROL(ROLES.SUPERADMIN)
 class RolesPage(PaginaCRUDBase):
-    """Gestión de roles y permisos del sistema."""
     
     def __init__(self, PAGINA: ft.Page, USUARIO):
         self._BLOC = RolesBloc()
@@ -21,20 +21,19 @@ class RolesPage(PaginaCRUDBase):
         self._SUSCRIBIR_BLOC()
     
     def _SUSCRIBIR_BLOC(self):
-        """Suscribe al BLoC para actualizaciones reactivas."""
-        def _listener(state: RolesState):
-            if state.roles is not None:
+        def _listener(state):
+            if hasattr(state, 'roles') and state.roles is not None:
                 self._ITEMS = state.roles
                 self._ACTUALIZAR_LISTA()
             
-            if state.error:
+            if hasattr(state, 'error') and state.error:
                 self._MOSTRAR_ERROR(state.error)
             
             if state.mensaje_exito:
                 self._MOSTRAR_EXITO(state.mensaje_exito)
                 self._CARGAR_DATOS_INICIAL()
         
-        self._BLOC.stream.listen(_listener)
+        self._BLOC.AGREGAR_LISTENER(_listener)
     
     def _OBTENER_MODELO(self):
         return MODELO_ROL
@@ -46,7 +45,6 @@ class RolesPage(PaginaCRUDBase):
         return ["Nombre", "Descripción", "Permisos"]
     
     def _CREAR_FORMULARIO(self, item=None):
-        """Crea formulario con selección múltiple de permisos."""
         permisos_disponibles = [
             "CREAR_USUARIOS", "EDITAR_USUARIOS", "ELIMINAR_USUARIOS",
             "VER_REPORTES", "GESTIONAR_PRODUCTOS", "GESTIONAR_PEDIDOS",
@@ -81,11 +79,9 @@ class RolesPage(PaginaCRUDBase):
         ]
     
     def _EXTRAER_DATOS_FORMULARIO(self, campos):
-        """Extrae datos incluyendo permisos seleccionados."""
-        # Extraer permisos seleccionados del grupo de checkboxes
         permisos_seleccionados = []
         if len(campos) > 2 and isinstance(campos[2], ft.Column):
-            for control in campos[2].controls[1:]:  # Skip el Text de título
+            for control in campos[2].controls[1:]:
                 if isinstance(control, ft.Checkbox) and control.value:
                     permisos_seleccionados.append(control.data)
         
@@ -96,7 +92,6 @@ class RolesPage(PaginaCRUDBase):
         }
     
     def _FORMATEAR_VALOR_CELDA(self, item, campo):
-        """Formatea permisos para mostrar en tabla."""
         if campo == "PERMISOS":
             permisos = item.PERMISOS.split(",") if item.PERMISOS else []
             return f"{len(permisos)} permisos asignados"

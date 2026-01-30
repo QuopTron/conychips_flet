@@ -1,7 +1,6 @@
 from typing import Optional
 from core.seguridad.GeneradorHuella import GeneradorHuella
 
-
 class ValidadorDispositivo:
 
     @staticmethod

@@ -10,7 +10,6 @@ from core.Constantes import (
     MENSAJES_CONFIRMACION,
 )
 
-
 class PaginaPerfil(ft.Column):
     def __init__(self, PAGINA: ft.Page, USUARIO):
         super().__init__()
@@ -76,7 +75,7 @@ class PaginaPerfil(ft.Column):
             padding=TAMANOS.PADDING_XL,
             bgcolor=COLORES.FONDO_BLANCO,
             border_radius=TAMANOS.RADIO_MD,
-            border=ft.border.all(1, COLORES.BORDE),
+            border=ft.Border.all(1, COLORES.BORDE),
         )
 
         self.controls = [

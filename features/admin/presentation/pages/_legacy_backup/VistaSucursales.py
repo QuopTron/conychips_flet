@@ -1,6 +1,3 @@
-"""
-Vista de gestión de sucursales - REFACTORIZADA con BLoC + Componentes Globales
-"""
 import flet as ft
 from features.admin.presentation.widgets.VistaBase import VistaBase
 from core.base_datos.ConfiguracionBD import MODELO_SUCURSAL
@@ -21,9 +18,7 @@ from features.admin.presentation.widgets.ComponentesGlobales import (
     BotonesNavegacion
 )
 
-
 class VistaSucursales(VistaBase):
-    """Vista para gestionar sucursales con BLoC Pattern"""
     
     def __init__(self, pagina: ft.Page, usuario, on_volver_inicio):
         super().__init__(
@@ -35,16 +30,13 @@ class VistaSucursales(VistaBase):
         )
         self._tabla = None
         
-        # Registrar listener BLoC
         SUCURSALES_BLOC.AGREGAR_LISTENER(self._ON_ESTADO_CAMBIO)
         
         self._cargar_vista()
         
-        # Cargar datos
         SUCURSALES_BLOC.AGREGAR_EVENTO(CargarSucursales())
     
     def _ON_ESTADO_CAMBIO(self, estado):
-        """Maneja cambios de estado"""
         if isinstance(estado, SucursalesCargadas):
             self._actualizar_tabla(estado.sucursales)
         elif isinstance(estado, SucursalError):
@@ -55,8 +47,6 @@ class VistaSucursales(VistaBase):
     
     
     def _cargar_vista(self):
-        """Carga la interfaz con componentes globales"""
-        # Header con botón nuevo
         header = ft.Row([
             BotonesNavegacion.BOTON_NUEVO(self._abrir_popup_crear, "Sucursal")
         ])
@@ -70,7 +60,7 @@ class VistaSucursales(VistaBase):
                 ft.DataColumn(ft.Text("Acciones", weight=ft.FontWeight.BOLD)),
             ],
             rows=[],
-            border=ft.border.all(1, COLORES.BORDE),
+            border=ft.Border.all(1, COLORES.BORDE),
             border_radius=TAMANOS.RADIO_MD,
             vertical_lines=ft.BorderSide(1, COLORES.BORDE),
             heading_row_color=COLORES.PRIMARIO_CLARO,
@@ -87,7 +77,6 @@ class VistaSucursales(VistaBase):
         ])
     
     def _actualizar_tabla(self, sucursales):
-        """Actualiza tabla con datos"""
         self._tabla.rows.clear()
         for item in sucursales:
             self._tabla.rows.append(
@@ -99,13 +88,13 @@ class VistaSucursales(VistaBase):
                         ft.DataCell(ft.Text(item.TELEFONO or "-")),
                         ft.DataCell(ft.Row([
                             ft.IconButton(
-                                icon=ft.Icons.EDIT,
+                                icon=ft.icons.Icons.Icons.EDIT,
                                 tooltip="Editar",
                                 icon_color=COLORES.INFO,
                                 on_click=lambda e, i=item: self._abrir_popup_editar(i)
                             ),
                             ft.IconButton(
-                                icon=ft.Icons.DELETE,
+                                icon=ft.icons.Icons.Icons.DELETE,
                                 tooltip="Eliminar",
                                 icon_color=COLORES.PELIGRO,
                                 on_click=lambda e, i=item: self._confirmar_eliminar(i)
@@ -118,10 +107,9 @@ class VistaSucursales(VistaBase):
     
     
     def _abrir_popup_crear(self, e):
-        """Formulario crear con componentes globales"""
-        campo_nombre = FormularioCRUD.CREAR_CAMPO("Nombre", icono=ft.Icons.STORE)
-        campo_direccion = FormularioCRUD.CREAR_CAMPO("Dirección", icono=ft.Icons.LOCATION_ON)
-        campo_telefono = FormularioCRUD.CREAR_CAMPO("Teléfono", icono=ft.Icons.PHONE)
+        campo_nombre = FormularioCRUD.CREAR_CAMPO("Nombre", icono=ft.icons.Icons.STORE)
+        campo_direccion = FormularioCRUD.CREAR_CAMPO("Dirección", icono=ft.icons.Icons.LOCATION_ON)
+        campo_telefono = FormularioCRUD.CREAR_CAMPO("Teléfono", icono=ft.icons.Icons.PHONE)
         
         def guardar(e):
             if not campo_nombre.value:
@@ -146,10 +134,9 @@ class VistaSucursales(VistaBase):
         self.mostrar_dialogo(dialogo)
     
     def _abrir_popup_editar(self, item):
-        """Formulario editar con componentes globales"""
-        campo_nombre = FormularioCRUD.CREAR_CAMPO("Nombre", item.NOMBRE, icono=ft.Icons.STORE)
-        campo_direccion = FormularioCRUD.CREAR_CAMPO("Dirección", item.DIRECCION or "", icono=ft.Icons.LOCATION_ON)
-        campo_telefono = FormularioCRUD.CREAR_CAMPO("Teléfono", item.TELEFONO or "", icono=ft.Icons.PHONE)
+        campo_nombre = FormularioCRUD.CREAR_CAMPO("Nombre", item.NOMBRE, icono=ft.icons.Icons.STORE)
+        campo_direccion = FormularioCRUD.CREAR_CAMPO("Dirección", item.DIRECCION or "", icono=ft.icons.Icons.LOCATION_ON)
+        campo_telefono = FormularioCRUD.CREAR_CAMPO("Teléfono", item.TELEFONO or "", icono=ft.icons.Icons.PHONE)
         
         def guardar(e):
             SUCURSALES_BLOC.AGREGAR_EVENTO(
@@ -171,7 +158,6 @@ class VistaSucursales(VistaBase):
         self.mostrar_dialogo(dialogo)
     
     def _confirmar_eliminar(self, item):
-        """Eliminar vía BLoC"""
         def eliminar(e):
             SUCURSALES_BLOC.AGREGAR_EVENTO(EliminarSucursal(sucursal_id=item.ID))
         
@@ -180,9 +166,9 @@ class VistaSucursales(VistaBase):
             content=ft.Text(f"¿Eliminar sucursal '{item.NOMBRE}'?\n\nEsta acción no se puede deshacer."),
             actions=[
                 ft.TextButton("Cancelar", on_click=lambda e: self.cerrar_dialogo()),
-                ft.ElevatedButton(
+                ft.Button(
                     "Eliminar",
-                    icon=ft.Icons.DELETE_FOREVER,
+                    icon=ft.icons.Icons.Icons.DELETE_FOREVER,
                     on_click=eliminar,
                     bgcolor=COLORES.PELIGRO,
                     color=COLORES.TEXTO_BLANCO
@@ -192,7 +178,6 @@ class VistaSucursales(VistaBase):
         self.mostrar_dialogo(dialogo)
     
     def __del__(self):
-        """Limpieza"""
         try:
             SUCURSALES_BLOC.REMOVER_LISTENER(self._ON_ESTADO_CAMBIO)
         except:

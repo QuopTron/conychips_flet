@@ -1,55 +1,42 @@
-"""
-BLoC para Gestión de Roles y Permisos
-Presentation Layer - Clean Architecture
-"""
 
 import asyncio
 from typing import Callable, List
 from dataclasses import dataclass
 
-from core.base_datos.ConfiguracionBD import OBTENER_SESION, MODELO_ROL, MODELO_PERMISO
-
+from core.base_datos.ConfiguracionBD import OBTENER_SESION, MODELO_ROL
 
 @dataclass
 class RolesEstado:
     pass
 
-
 @dataclass
 class RolesInicial(RolesEstado):
     pass
 
-
 @dataclass
 class RolesCargando(RolesEstado):
     pass
-
 
 @dataclass
 class RolesCargados(RolesEstado):
     roles: List
     permisos: List
 
-
 @dataclass
 class RolError(RolesEstado):
     mensaje: str
-
 
 @dataclass
 class RolGuardado(RolesEstado):
     mensaje: str
 
-
 @dataclass
 class RolesEvento:
     pass
 
-
 @dataclass
 class CargarRoles(RolesEvento):
     pass
-
 
 @dataclass
 class CrearRol(RolesEvento):
@@ -57,12 +44,10 @@ class CrearRol(RolesEvento):
     descripcion: str
     permisos_ids: List[int]
 
-
 @dataclass
 class ActualizarPermisos(RolesEvento):
     rol_id: int
     permisos_ids: List[int]
-
 
 class RolesBloc:
     def __init__(self):
@@ -102,9 +87,8 @@ class RolesBloc:
         try:
             sesion = OBTENER_SESION()
             roles = sesion.query(MODELO_ROL).all()
-            permisos = sesion.query(MODELO_PERMISO).all()
             sesion.close()
-            self._CAMBIAR_ESTADO(RolesCargados(roles=roles, permisos=permisos))
+            self._CAMBIAR_ESTADO(RolesCargados(roles=roles, permisos=[]))
         except Exception as e:
             self._CAMBIAR_ESTADO(RolError(mensaje=str(e)))
     
@@ -126,5 +110,19 @@ class RolesBloc:
         except Exception as e:
             self._CAMBIAR_ESTADO(RolError(mensaje=str(e)))
 
-
 ROLES_BLOC = RolesBloc()
+
+__all__ = [
+    'RolesEstado',
+    'RolesInicial',
+    'RolesCargando',
+    'RolesCargados',
+    'RolError',
+    'RolGuardado',
+    'RolesEvento',
+    'CargarRoles',
+    'CrearRol',
+    'ActualizarPermisos',
+    'RolesBloc',
+    'ROLES_BLOC',
+]

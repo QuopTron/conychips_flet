@@ -21,7 +21,6 @@ import re
 import asyncio
 from typing import Optional
 
-
 class PaginaRegistro(ft.Column):
 
     def __init__(self, PAGINA: ft.Page, BLOC: AutenticacionBloc):
@@ -47,8 +46,7 @@ class PaginaRegistro(ft.Column):
         HEADER = ft.Container(
             content=ft.Column(
                 controls=[
-                    ft.Icon(
-                        ft.Icons.PERSON_ADD_ROUNDED, size=70, color=COLORES.SECUNDARIO
+                    ft.Icon(ft.icons.Icons.PERSON_ADD_ROUNDED, size=70, color=COLORES.SECUNDARIO
                     ),
                     ft.Text(
                         value="Crear Cuenta",
@@ -108,8 +106,7 @@ class PaginaRegistro(ft.Column):
                     ),
                     ft.Row(
                         [
-                            ft.Icon(
-                                ICONOS.EXITO,
+                            ft.Icon(ICONOS.EXITO,
                                 size=TAMANOS.ICONO_XS,
                                 color=COLORES.EXITO,
                             ),
@@ -119,8 +116,7 @@ class PaginaRegistro(ft.Column):
                     ),
                     ft.Row(
                         [
-                            ft.Icon(
-                                ICONOS.EXITO,
+                            ft.Icon(ICONOS.EXITO,
                                 size=TAMANOS.ICONO_XS,
                                 color=COLORES.EXITO,
                             ),
@@ -130,8 +126,7 @@ class PaginaRegistro(ft.Column):
                     ),
                     ft.Row(
                         [
-                            ft.Icon(
-                                ICONOS.EXITO,
+                            ft.Icon(ICONOS.EXITO,
                                 size=TAMANOS.ICONO_XS,
                                 color=COLORES.EXITO,
                             ),
@@ -141,8 +136,7 @@ class PaginaRegistro(ft.Column):
                     ),
                     ft.Row(
                         [
-                            ft.Icon(
-                                ICONOS.EXITO,
+                            ft.Icon(ICONOS.EXITO,
                                 size=TAMANOS.ICONO_XS,
                                 color=COLORES.EXITO,
                             ),
@@ -173,7 +167,7 @@ class PaginaRegistro(ft.Column):
 
         self._BOTON_REGISTRAR = BotonPrimario(
             TEXTO="Crear Cuenta",
-            ICONO=ft.Icons.CHECK_ROUNDED,
+            ICONO=ft.icons.Icons.CHECK_ROUNDED,
             AL_HACER_CLIC=self._MANEJAR_REGISTRO,
             ANCHO=400,
             ALTURA=55,

@@ -1,20 +1,12 @@
-"""
-Componentes Globales Compartidos - Admin
-Widgets reutilizables para todas las páginas de administración
-REFACTORIZADO: Componentes DRY para eliminar código duplicado
-"""
 
 import flet as ft
 from typing import Callable, List, Optional, Any
 from core.Constantes import COLORES, TAMANOS, ICONOS
 from core.base_datos.ConfiguracionBD import OBTENER_SESION
-
+from core.ui.safe_actions import safe_update, wrap_click_with_safe_update
+from sqlalchemy.orm.exc import DetachedInstanceError
 
 class HeaderAdmin(ft.Row):
-    """
-    Header estándar para páginas de admin
-    Reutilizable con título y botones personalizables
-    """
     
     def __init__(
         self,
@@ -22,6 +14,7 @@ class HeaderAdmin(ft.Row):
         icono: str = ICONOS.ADMIN,
         mostrar_volver: bool = True,
         on_volver: Optional[Callable] = None,
+        on_menu: Optional[Callable] = None,
         mostrar_salir: bool = True,
         on_salir: Optional[Callable] = None,
         botones_adicionales: List[ft.Control] = None,
@@ -41,26 +34,26 @@ class HeaderAdmin(ft.Row):
             ft.Container(expand=True),
         ]
         
-        # Botones adicionales personalizados
         if botones_adicionales:
             controles.extend(botones_adicionales)
         
-        # Botón volver
+        if on_menu and not on_volver:
+            on_volver = on_menu
+
         if mostrar_volver and on_volver:
             controles.append(
-                ft.ElevatedButton(
+                ft.Button(
                     "Volver",
-                    icon=ft.Icons.ARROW_BACK,
+                    icon=ft.icons.Icons.ARROW_BACK,
                     on_click=on_volver,
                     bgcolor=COLORES.SECUNDARIO,
                     color=COLORES.TEXTO_BLANCO
                 )
             )
         
-        # Botón salir
         if mostrar_salir and on_salir:
             controles.append(
-                ft.ElevatedButton(
+                ft.Button(
                     "Salir",
                     icon=ICONOS.CERRAR_SESION,
                     on_click=on_salir,
@@ -71,11 +64,7 @@ class HeaderAdmin(ft.Row):
         
         self.controls = controles
 
-
 class BarraBusqueda(ft.Row):
-    """
-    Barra de búsqueda estándar con filtros
-    """
     
     def __init__(
         self,
@@ -91,7 +80,7 @@ class BarraBusqueda(ft.Row):
         
         self.campo_busqueda = ft.TextField(
             hint_text=placeholder,
-            prefix_icon=ft.Icons.SEARCH,
+            prefix_icon=ft.icons.Icons.SEARCH,
             border_radius=TAMANOS.RADIO_MD,
             on_change=on_search if on_search else None,
             expand=True,
@@ -105,14 +94,9 @@ class BarraBusqueda(ft.Row):
         self.controls = controles
     
     def OBTENER_TEXTO(self) -> str:
-        """Obtiene el texto de búsqueda"""
         return self.campo_busqueda.value or ""
 
-
 class TablaGenerica(ft.Container):
-    """
-    Tabla genérica con paginación y acciones
-    """
     
     def __init__(
         self,
@@ -125,7 +109,7 @@ class TablaGenerica(ft.Container):
         self.tabla = ft.DataTable(
             columns=columnas,
             rows=filas_iniciales or [],
-            border=ft.border.all(1, COLORES.BORDE),
+            border=ft.Border.all(1, COLORES.BORDE),
             border_radius=TAMANOS.RADIO_MD,
             vertical_lines=ft.BorderSide(1, COLORES.BORDE),
             horizontal_lines=ft.BorderSide(1, COLORES.BORDE),
@@ -151,19 +135,17 @@ class TablaGenerica(ft.Container):
         self.padding = TAMANOS.PADDING_MD
         self.bgcolor = COLORES.FONDO_BLANCO
         self.border_radius = TAMANOS.RADIO_MD
-        self.border = ft.border.all(1, COLORES.BORDE)
+        self.border = ft.Border.all(1, COLORES.BORDE)
     
     def ACTUALIZAR_FILAS(self, nuevas_filas: List[ft.DataRow]):
-        """Actualiza las filas de la tabla"""
         self.tabla.rows = nuevas_filas
-        if hasattr(self, 'update'):
-            self.update()
+        # Intentar actualizar de forma segura la página que contiene este control
+        try:
+            safe_update(self.page)
+        except Exception:
+            pass
 
-
-class BotonAccion(ft.ElevatedButton):
-    """
-    Botón de acción estándar
-    """
+class BotonAccion(ft.Button):
     
     def __init__(
         self,
@@ -171,9 +153,8 @@ class BotonAccion(ft.ElevatedButton):
         icono: str,
         on_click: Callable,
         color: str = COLORES.PRIMARIO,
-        tipo: str = "normal"  # normal, success, danger, warning
+        tipo: str = "normal"
     ):
-        # Determinar color según tipo
         colores_tipo = {
             "normal": COLORES.PRIMARIO,
             "success": COLORES.EXITO,
@@ -192,11 +173,7 @@ class BotonAccion(ft.ElevatedButton):
             color=COLORES.TEXTO_BLANCO,
         )
 
-
 class DialogoConfirmacion:
-    """
-    Diálogo de confirmación reutilizable
-    """
     
     @staticmethod
     def MOSTRAR(
@@ -204,12 +181,12 @@ class DialogoConfirmacion:
         titulo: str,
         mensaje: str,
         on_confirmar: Callable,
-        tipo: str = "warning"  # info, warning, danger
+        tipo: str = "warning"
     ):
         iconos_tipo = {
-            "info": ft.Icons.INFO_OUTLINED,
-            "warning": ft.Icons.WARNING_AMBER_OUTLINED,
-            "danger": ft.Icons.ERROR_OUTLINE,
+            "info": ft.icons.Icons.INFO_OUTLINED,
+            "warning": ft.icons.Icons.WARNING_AMBER_OUTLINED,
+            "danger": ft.icons.Icons.ERROR_OUTLINE,
         }
         
         colores_tipo = {
@@ -220,17 +197,20 @@ class DialogoConfirmacion:
         
         def cerrar_dialogo(e):
             page.dialog.open = False
-            page.update()
+            safe_update(page)
         
         def confirmar(e):
             page.dialog.open = False
-            page.update()
-            on_confirmar(e)
+            try:
+                on_confirmar(e)
+            except Exception:
+                pass
+            safe_update(page)
         
         dlg = ft.AlertDialog(
             title=ft.Row(
                 [
-                    ft.Icon(iconos_tipo.get(tipo, ft.Icons.INFO_OUTLINED), color=colores_tipo.get(tipo, COLORES.INFO)),
+                    ft.Icon(iconos_tipo.get(tipo, ft.icons.Icons.INFO_OUTLINED), color=colores_tipo.get(tipo, COLORES.INFO)),
                     ft.Text(titulo, color=COLORES.TEXTO),
                 ],
                 spacing=TAMANOS.ESPACIADO_SM,
@@ -238,7 +218,7 @@ class DialogoConfirmacion:
             content=ft.Text(mensaje, color=COLORES.TEXTO),
             actions=[
                 ft.TextButton("Cancelar", on_click=cerrar_dialogo),
-                ft.ElevatedButton(
+                ft.Button(
                     "Confirmar",
                     on_click=confirmar,
                     bgcolor=colores_tipo.get(tipo, COLORES.INFO),
@@ -249,13 +229,9 @@ class DialogoConfirmacion:
         
         page.dialog = dlg
         dlg.open = True
-        page.update()
-
+        safe_update(page)
 
 class FormularioGenerico(ft.Container):
-    """
-    Formulario genérico con campos dinámicos
-    """
     
     def __init__(
         self,
@@ -267,9 +243,9 @@ class FormularioGenerico(ft.Container):
         super().__init__()
         
         botones = [
-            ft.ElevatedButton(
+            ft.Button(
                 "Guardar",
-                icon=ft.Icons.SAVE,
+                icon=ft.icons.Icons.SAVE,
                 on_click=on_guardar,
                 bgcolor=COLORES.EXITO,
                 color=COLORES.TEXTO_BLANCO
@@ -302,68 +278,85 @@ class FormularioGenerico(ft.Container):
         self.padding = TAMANOS.PADDING_LG
         self.bgcolor = COLORES.FONDO_BLANCO
         self.border_radius = TAMANOS.RADIO_MD
-        self.border = ft.border.all(1, COLORES.BORDE)
-
+        self.border = ft.Border.all(1, COLORES.BORDE)
 
 class Notificador:
-    """
-    Sistema de notificaciones unificado
-    """
     
     @staticmethod
     def EXITO(page: ft.Page, mensaje: str):
         snackbar = ft.SnackBar(
             content=ft.Row(
                 [
-                    ft.Icon(ft.Icons.CHECK_CIRCLE, color=COLORES.TEXTO_BLANCO),
+                    ft.Icon(ft.icons.Icons.CHECK_CIRCLE, color=COLORES.TEXTO_BLANCO),
                     ft.Text(mensaje, color=COLORES.TEXTO_BLANCO),
                 ],
                 spacing=TAMANOS.ESPACIADO_SM,
             ),
             bgcolor=COLORES.EXITO,
         )
-        page.overlay.append(snackbar)
+        _overlay = getattr(page, "overlay", None)
+        if _overlay is not None:
+            _overlay.append(snackbar)
+        else:
+            try:
+                page.controls.append(snackbar)
+            except Exception:
+                pass
         snackbar.open = True
-        page.update()
+        safe_update(page)
     
     @staticmethod
     def ERROR(page: ft.Page, mensaje: str):
         snackbar = ft.SnackBar(
             content=ft.Row(
                 [
-                    ft.Icon(ft.Icons.ERROR, color=COLORES.TEXTO_BLANCO),
+                    ft.Icon(ft.icons.Icons.ERROR, color=COLORES.TEXTO_BLANCO),
                     ft.Text(mensaje, color=COLORES.TEXTO_BLANCO),
                 ],
                 spacing=TAMANOS.ESPACIADO_SM,
             ),
             bgcolor=COLORES.PELIGRO,
         )
-        page.overlay.append(snackbar)
+        _overlay = getattr(page, "overlay", None)
+        if _overlay is not None:
+            _overlay.append(snackbar)
+        else:
+            try:
+                page.controls.append(snackbar)
+            except Exception:
+                pass
         snackbar.open = True
-        page.update()
+        safe_update(page)
     
     @staticmethod
     def INFO(page: ft.Page, mensaje: str):
         snackbar = ft.SnackBar(
             content=ft.Row(
                 [
-                    ft.Icon(ft.Icons.INFO, color=COLORES.TEXTO_BLANCO),
+                    ft.Icon(ft.icons.Icons.INFO, color=COLORES.TEXTO_BLANCO),
                     ft.Text(mensaje, color=COLORES.TEXTO_BLANCO),
                 ],
                 spacing=TAMANOS.ESPACIADO_SM,
             ),
             bgcolor=COLORES.INFO,
         )
-        page.overlay.append(snackbar)
+        _overlay = getattr(page, "overlay", None)
+        if _overlay is not None:
+            _overlay.append(snackbar)
+        else:
+            try:
+                page.controls.append(snackbar)
+            except Exception:
+                pass
         snackbar.open = True
-        page.update()
+        safe_update(page)
     
     @staticmethod
     def ADVERTENCIA(page: ft.Page, mensaje: str):
         snackbar = ft.SnackBar(
             content=ft.Row(
                 [
-                    ft.Icon(ft.Icons.WARNING, color=COLORES.TEXTO_BLANCO),
+                    ft.Icon(ft.icons.Icons.WARNING, color=COLORES.TEXTO_BLANCO),
                     ft.Text(mensaje, color=COLORES.TEXTO_BLANCO),
                 ],
                 spacing=TAMANOS.ESPACIADO_SM,
@@ -372,13 +365,9 @@ class Notificador:
         )
         page.overlay.append(snackbar)
         snackbar.open = True
-        page.update()
-
+        safe_update(page)
 
 class CargadorPagina(ft.Container):
-    """
-    Indicador de carga para páginas
-    """
     
     def __init__(self, mensaje: str = "Cargando..."):
         super().__init__()
@@ -392,15 +381,11 @@ class CargadorPagina(ft.Container):
             spacing=TAMANOS.ESPACIADO_MD,
         )
         
-        self.alignment = ft.alignment.center
+        self.alignment = ft.Alignment(0, 0)
         self.expand = True
         self.padding = TAMANOS.PADDING_XL
 
-
 class ContenedorPagina(ft.Container):
-    """
-    Contenedor estándar para páginas de admin
-    """
     
     def __init__(self, contenido: ft.Control):
         super().__init__()
@@ -410,20 +395,10 @@ class ContenedorPagina(ft.Container):
         self.expand = True
         self.bgcolor = COLORES.FONDO
 
-
-# ============================================================================
-# COMPONENTES CRUD - Elimina código duplicado en todas las páginas
-# ============================================================================
-
 class GestorCRUD:
-    """
-    Gestor genérico de operaciones CRUD
-    Elimina código repetido en todas las páginas admin
-    """
     
     @staticmethod
     def CARGAR_DATOS(modelo, filtro: Optional[dict] = None):
-        """Carga datos de cualquier modelo con filtros opcionales"""
         try:
             sesion = OBTENER_SESION()
             query = sesion.query(modelo)
@@ -440,7 +415,6 @@ class GestorCRUD:
     
     @staticmethod
     def CREAR(modelo, datos: dict):
-        """Crea nuevo registro en cualquier modelo"""
         try:
             sesion = OBTENER_SESION()
             nuevo = modelo(**datos)
@@ -453,7 +427,6 @@ class GestorCRUD:
     
     @staticmethod
     def ACTUALIZAR(modelo, id_registro: int, datos: dict):
-        """Actualiza registro existente"""
         try:
             sesion = OBTENER_SESION()
             registro = sesion.query(modelo).filter_by(ID=id_registro).first()
@@ -474,7 +447,6 @@ class GestorCRUD:
     
     @staticmethod
     def ELIMINAR(modelo, id_registro: int):
-        """Elimina registro"""
         try:
             sesion = OBTENER_SESION()
             registro = sesion.query(modelo).filter_by(ID=id_registro).first()
@@ -488,12 +460,7 @@ class GestorCRUD:
         except Exception as e:
             return False, f"Error al eliminar: {str(e)}"
 
-
 class FormularioCRUD:
-    """
-    Constructor de formularios CRUD genéricos
-    Elimina código repetido en popups de crear/editar
-    """
     
     @staticmethod
     def CREAR_CAMPO(
@@ -504,7 +471,6 @@ class FormularioCRUD:
         multiline: bool = False,
         max_lines: int = 1
     ) -> ft.TextField:
-        """Crea campo de formulario estandarizado"""
         return ft.TextField(
             label=label,
             value=valor,
@@ -519,11 +485,10 @@ class FormularioCRUD:
     @staticmethod
     def CREAR_DROPDOWN(
         label: str,
-        opciones: List[tuple],  # [(texto, valor), ...]
+        opciones: List[tuple],
         valor_actual: Any = None,
         icono: str = None
     ) -> ft.Dropdown:
-        """Crea dropdown estandarizado"""
         return ft.Dropdown(
             label=label,
             value=valor_actual,
@@ -536,7 +501,6 @@ class FormularioCRUD:
         label: str,
         valor: bool = True
     ) -> ft.Switch:
-        """Crea switch estandarizado"""
         return ft.Switch(
             label=label,
             value=valor
@@ -550,7 +514,6 @@ class FormularioCRUD:
         on_cancelar: Callable,
         es_edicion: bool = False
     ) -> ft.AlertDialog:
-        """Construye diálogo CRUD completo"""
         return ft.AlertDialog(
             title=ft.Text(titulo, color=COLORES.TEXTO),
             content=ft.Container(
@@ -565,9 +528,9 @@ class FormularioCRUD:
             ),
             actions=[
                 ft.TextButton("Cancelar", on_click=on_cancelar),
-                ft.ElevatedButton(
+                ft.Button(
                     "Actualizar" if es_edicion else "Guardar",
-                    icon=ft.Icons.SAVE,
+                    icon=ft.icons.Icons.SAVE,
                     on_click=on_guardar,
                     bgcolor=COLORES.INFO if es_edicion else COLORES.PRIMARIO,
                     color=COLORES.TEXTO_BLANCO
@@ -575,12 +538,7 @@ class FormularioCRUD:
             ]
         )
 
-
 class TablaCRUD(ft.DataTable):
-    """
-    Tabla CRUD genérica con acciones estándar
-    Elimina código repetido de tablas
-    """
     
     def __init__(
         self,
@@ -591,7 +549,6 @@ class TablaCRUD(ft.DataTable):
         on_eliminar: Optional[Callable] = None,
         mostrar_id: bool = True
     ):
-        # Construir columnas
         cols = []
         if mostrar_id:
             cols.append(ft.DataColumn(ft.Text("ID", weight=ft.FontWeight.BOLD)))
@@ -601,7 +558,6 @@ class TablaCRUD(ft.DataTable):
         
         cols.append(ft.DataColumn(ft.Text("Acciones", weight=ft.FontWeight.BOLD)))
         
-        # Construir filas
         rows = []
         for item in datos:
             cells = []
@@ -610,15 +566,31 @@ class TablaCRUD(ft.DataTable):
                 cells.append(ft.DataCell(ft.Text(str(item.ID))))
             
             for campo in campos_mostrar:
-                valor = getattr(item, campo, "-")
-                cells.append(ft.DataCell(ft.Text(str(valor) if valor else "-")))
+                try:
+                    valor = getattr(item, campo)
+                except DetachedInstanceError:
+                    # Item detached from session; try to read raw __dict__ or fallback
+                    try:
+                        valor = item.__dict__.get(campo)
+                    except Exception:
+                        valor = None
+                except Exception:
+                    valor = None
+
+                if valor is None:
+                    # Try common alternate keys
+                    try:
+                        valor = item.__dict__.get(campo.upper()) or item.__dict__.get(campo.lower()) or item.__dict__.get(f"{campo}_id")
+                    except Exception:
+                        valor = None
+
+                cells.append(ft.DataCell(ft.Text(str(valor) if valor not in (None, "") else "-")))
             
-            # Acciones
             acciones = ft.Row([])
             if on_editar:
                 acciones.controls.append(
                     ft.IconButton(
-                        icon=ft.Icons.EDIT,
+                        icon=ft.icons.Icons.EDIT,
                         tooltip="Editar",
                         icon_color=COLORES.INFO,
                         on_click=lambda e, i=item: on_editar(i)
@@ -627,7 +599,7 @@ class TablaCRUD(ft.DataTable):
             if on_eliminar:
                 acciones.controls.append(
                     ft.IconButton(
-                        icon=ft.Icons.DELETE,
+                        icon=ft.icons.Icons.DELETE,
                         tooltip="Eliminar",
                         icon_color=COLORES.PELIGRO,
                         on_click=lambda e, i=item: on_eliminar(i)
@@ -640,34 +612,27 @@ class TablaCRUD(ft.DataTable):
         super().__init__(
             columns=cols,
             rows=rows,
-            border=ft.border.all(1, COLORES.BORDE),
+            border=ft.Border.all(1, COLORES.BORDE),
             border_radius=TAMANOS.RADIO_MD,
             vertical_lines=ft.BorderSide(1, COLORES.BORDE),
             heading_row_color=COLORES.PRIMARIO_CLARO
         )
 
-
 class BotonesNavegacion:
-    """
-    Botones de navegación estandarizados
-    Elimina código repetido de navegación
-    """
     
     @staticmethod
-    def BOTON_VOLVER(on_click: Callable) -> ft.ElevatedButton:
-        """Botón volver estándar"""
-        return ft.ElevatedButton(
+    def BOTON_VOLVER(on_click: Callable) -> ft.Button:
+        return ft.Button(
             "← Volver",
-            icon=ft.Icons.ARROW_BACK,
+            icon=ft.icons.Icons.ARROW_BACK,
             on_click=on_click,
             bgcolor=COLORES.SECUNDARIO,
             color=COLORES.TEXTO_BLANCO
         )
     
     @staticmethod
-    def BOTON_MENU(on_click: Callable) -> ft.ElevatedButton:
-        """Botón menú estándar"""
-        return ft.ElevatedButton(
+    def BOTON_MENU(on_click: Callable) -> ft.Button:
+        return ft.Button(
             "Menú",
             icon=ICONOS.DASHBOARD,
             on_click=on_click,
@@ -676,9 +641,8 @@ class BotonesNavegacion:
         )
     
     @staticmethod
-    def BOTON_SALIR(on_click: Callable) -> ft.ElevatedButton:
-        """Botón salir estándar"""
-        return ft.ElevatedButton(
+    def BOTON_SALIR(on_click: Callable) -> ft.Button:
+        return ft.Button(
             "Salir",
             icon=ICONOS.CERRAR_SESION,
             on_click=on_click,
@@ -687,9 +651,8 @@ class BotonesNavegacion:
         )
     
     @staticmethod
-    def BOTON_NUEVO(on_click: Callable, texto: str = "Nuevo") -> ft.ElevatedButton:
-        """Botón nuevo estándar"""
-        return ft.ElevatedButton(
+    def BOTON_NUEVO(on_click: Callable, texto: str = "Nuevo") -> ft.Button:
+        return ft.Button(
             f"➕ {texto}",
             icon=ICONOS.AGREGAR,
             on_click=on_click,

@@ -1,5 +1,5 @@
 from typing import Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session, joinedload
 from core.base_datos.ConfiguracionBD import (
     MODELO_USUARIO,
@@ -8,7 +8,6 @@ from core.base_datos.ConfiguracionBD import (
     OBTENER_SESION,
 )
 from core.Constantes import EXPIRACION_REFRESH_TOKEN
-
 
 class FuenteAutenticacionLocal:
 
@@ -87,7 +86,7 @@ class FuenteAutenticacionLocal:
                 HUELLA_DISPOSITIVO=HUELLA_DISPOSITIVO,
                 ACTIVO=True,
                 VERIFICADO=False,
-                FECHA_CREACION=datetime.utcnow(),
+                FECHA_CREACION=datetime.now(timezone.utc),
             )
 
             SESION.add(NUEVO_USUARIO)
@@ -112,7 +111,7 @@ class FuenteAutenticacionLocal:
             USUARIO = SESION.query(MODELO_USUARIO).filter_by(ID=USUARIO_ID).first()
 
             if USUARIO:
-                USUARIO.ULTIMA_CONEXION = datetime.utcnow()
+                USUARIO.ULTIMA_CONEXION = datetime.now(timezone.utc)
                 SESION.commit()
                 print(f" Última conexión actualizada para usuario {USUARIO_ID}")
         except Exception as ERROR:
@@ -133,7 +132,7 @@ class FuenteAutenticacionLocal:
         SESION = self._OBTENER_SESION_BD()
 
         try:
-            FECHA_EXPIRACION = datetime.utcnow() + timedelta(
+            FECHA_EXPIRACION = datetime.now(timezone.utc) + timedelta(
                 seconds=EXPIRACION_REFRESH_TOKEN
             )
 
@@ -144,7 +143,7 @@ class FuenteAutenticacionLocal:
                 IP=IP,
                 NAVEGADOR=NAVEGADOR,
                 ACTIVA=True,
-                FECHA_CREACION=datetime.utcnow(),
+                FECHA_CREACION=datetime.now(timezone.utc),
                 FECHA_EXPIRACION=FECHA_EXPIRACION,
             )
 
@@ -177,7 +176,7 @@ class FuenteAutenticacionLocal:
             if not SESION_BD:
                 return False
 
-            if SESION_BD.FECHA_EXPIRACION < datetime.utcnow():
+            if SESION_BD.FECHA_EXPIRACION < datetime.now(timezone.utc):
                 print(f" Sesión expirada para usuario {USUARIO_ID}")
                 return False
 
@@ -256,7 +255,7 @@ class FuenteAutenticacionLocal:
             SESIONES = (
                 SESION.query(MODELO_SESION)
                 .filter_by(USUARIO_ID=USUARIO_ID, ACTIVA=True)
-                .filter(MODELO_SESION.FECHA_EXPIRACION > datetime.utcnow())
+                .filter(MODELO_SESION.FECHA_EXPIRACION > datetime.now(timezone.utc))
                 .all()
             )
 

@@ -1,7 +1,6 @@
 import flet as ft
 from typing import Optional, Callable
 
-
 class CampoTextoSeguro(ft.Column):
 
     def __init__(

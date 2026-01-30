@@ -21,7 +21,6 @@ class ERRORES_AUTENTICACION:
     DISPOSITIVO_NO_AUTORIZADO = "Este dispositivo no está autorizado"
     HUELLA_INVALIDA = "La huella del dispositivo es inválida"
 
-
 class ERRORES_VALIDACION:
     
     CAMPO_REQUERIDO = "Este campo es obligatorio"
@@ -50,7 +49,6 @@ class ERRORES_VALIDACION:
     URL_INVALIDA = "La URL ingresada es inválida"
     TELEFONO_INVALIDO = "El número de teléfono es inválido"
 
-
 class ERRORES_BASE_DATOS:
     
     CONEXION_FALLIDA = "No se pudo conectar a la base de datos"
@@ -61,7 +59,6 @@ class ERRORES_BASE_DATOS:
     RELACION_INVALIDA = "La relación entre entidades es inválida"
     TRANSACCION_FALLIDA = "La transacción falló y fue revertida"
 
-
 class ERRORES_WEBSOCKET:
     
     CONEXION_FALLIDA = "No se pudo establecer conexión con el servidor"
@@ -70,7 +67,6 @@ class ERRORES_WEBSOCKET:
     TIMEOUT = "La operación excedió el tiempo de espera"
     MENSAJE_INVALIDO = "El mensaje recibido es inválido"
     ENVIO_FALLIDO = "No se pudo enviar el mensaje"
-
 
 class ERRORES_GENERALES:
     
@@ -81,7 +77,6 @@ class ERRORES_GENERALES:
     SERVICIO_NO_DISPONIBLE = "El servicio no está disponible en este momento"
     LIMITE_EXCEDIDO = "Se excedió el límite permitido"
     CONFIGURACION_INVALIDA = "La configuración es inválida"
-
 
 class MENSAJES_EXITO:
     
@@ -100,7 +95,6 @@ class MENSAJES_EXITO:
     
     CONEXION_EXITOSA = "Conexión establecida correctamente"
     SINCRONIZACION_EXITOSA = "Sincronización completada"
-
 
 class MENSAJES_CONFIRMACION:
     

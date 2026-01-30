@@ -10,7 +10,6 @@ from core.base_datos.ConfiguracionBD import (
 from core.constantes import COLORES, TAMANOS, ICONOS
 from core.decoradores.DecoradorVistas import REQUIERE_ROL
 
-
 @REQUIERE_ROL("LIMPIEZA", "ADMIN", "SUPERADMIN")
 class PaginaDashboardLimpieza:
     
@@ -90,7 +89,7 @@ class PaginaDashboardLimpieza:
                     color=COLORES.TEXTO_SECUNDARIO,
                     size=12
                 ),
-                ft.ElevatedButton(
+                ft.Button(
                     "Ver Fotos",
                     icon=ICONOS.IMAGEN,
                     on_click=lambda e, r=REPORTE: self._VER_FOTOS(r),
@@ -98,7 +97,7 @@ class PaginaDashboardLimpieza:
                 ),
             ], spacing=10),
             padding=15,
-            border=ft.border.all(1, COLORES.BORDE),
+            border=ft.Border.all(1, COLORES.BORDE),
             border_radius=TAMANOS.RADIO_BORDE,
             bgcolor=COLORES.FONDO_TARJETA,
         )
@@ -163,7 +162,7 @@ class PaginaDashboardLimpieza:
             content=ft.Column([SUCURSAL, AREA, OBSERVACIONES], tight=True),
             actions=[
                 ft.TextButton("Cancelar", on_click=lambda e: self._CERRAR_DIALOG()),
-                ft.ElevatedButton("Continuar", on_click=GUARDAR_REPORTE),
+                ft.Button("Continuar", on_click=GUARDAR_REPORTE),
             ]
         )
         
@@ -239,7 +238,7 @@ class PaginaDashboardLimpieza:
             content=ft.Column([
                 IMAGEN_URL,
                 DESCRIPCION,
-                ft.ElevatedButton(
+                ft.Button(
                     "Agregar Foto",
                     icon=ICONOS.AGREGAR,
                     on_click=AGREGAR_FOTO
@@ -250,7 +249,7 @@ class PaginaDashboardLimpieza:
             ], tight=True, scroll=ft.ScrollMode.AUTO, height=500),
             actions=[
                 ft.TextButton("Cancelar", on_click=lambda e: self._CERRAR_DIALOG()),
-                ft.ElevatedButton(
+                ft.Button(
                     "Finalizar",
                     on_click=FINALIZAR,
                     disabled=len(FOTOS) == 0
@@ -289,7 +288,7 @@ class PaginaDashboardLimpieza:
                         ),
                     ]),
                     padding=10,
-                    border=ft.border.all(1, COLORES.BORDE),
+                    border=ft.Border.all(1, COLORES.BORDE),
                     border_radius=TAMANOS.RADIO_BORDE,
                 )
             )
@@ -322,7 +321,7 @@ class PaginaDashboardLimpieza:
             ft.Row([
                 ft.Text("Dashboard Limpieza", size=TAMANOS.TITULO, weight=ft.FontWeight.BOLD),
                 ft.Container(expand=True),
-                ft.ElevatedButton(
+                ft.Button(
                     "Crear Reporte",
                     icon=ICONOS.AGREGAR,
                     bgcolor=COLORES.EXITO,

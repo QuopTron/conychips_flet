@@ -1,7 +1,3 @@
-"""
-BLoC para Gestión de Sucursales
-Presentation Layer - Clean Architecture
-"""
 
 import asyncio
 from typing import Callable, List, Optional
@@ -9,57 +5,46 @@ from dataclasses import dataclass
 
 from core.base_datos.ConfiguracionBD import OBTENER_SESION, MODELO_SUCURSAL
 
-
 @dataclass
 class SucursalesEstado:
     pass
-
 
 @dataclass
 class SucursalesInicial(SucursalesEstado):
     pass
 
-
 @dataclass
 class SucursalesCargando(SucursalesEstado):
     pass
-
 
 @dataclass
 class SucursalesCargadas(SucursalesEstado):
     sucursales: List
     total: int
 
-
 @dataclass
 class SucursalError(SucursalesEstado):
     mensaje: str
-
 
 @dataclass
 class SucursalGuardada(SucursalesEstado):
     mensaje: str
 
-
 @dataclass
 class SucursalesEvento:
     pass
-
 
 @dataclass
 class CargarSucursales(SucursalesEvento):
     pass
 
-
 @dataclass
 class GuardarSucursal(SucursalesEvento):
     datos: dict
 
-
 @dataclass
 class EliminarSucursal(SucursalesEvento):
     sucursal_id: int
-
 
 class SucursalesBloc:
     def __init__(self):
@@ -126,6 +111,5 @@ class SucursalesBloc:
             await self._CARGAR()
         except Exception as e:
             self._CAMBIAR_ESTADO(SucursalError(mensaje=str(e)))
-
 
 SUCURSALES_BLOC = SucursalesBloc()

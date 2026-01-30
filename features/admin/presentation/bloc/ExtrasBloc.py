@@ -1,7 +1,3 @@
-"""
-BLoC para Gestión de Extrases
-Presentation Layer - Clean Architecture
-"""
 
 import asyncio
 from typing import Callable, List, Optional
@@ -9,90 +5,52 @@ from dataclasses import dataclass
 
 from core.base_datos.ConfiguracionBD import OBTENER_SESION, MODELO_EXTRAS
 
-
-# ============================================================================
-# Estados
-# ============================================================================
-
 @dataclass
 class ExtrasEstado:
-    """Estado base"""
     pass
-
 
 @dataclass
 class ExtrasInicial(ExtrasEstado):
-    """Estado inicial"""
     pass
-
 
 @dataclass
 class ExtrasCargando(ExtrasEstado):
-    """Cargando datos"""
     pass
-
 
 @dataclass
 class ExtrasesCargados(ExtrasEstado):
-    """Extrases cargados"""
     extrass: List
     total: int
 
-
 @dataclass
 class ExtrasError(ExtrasEstado):
-    """Error en operación"""
     mensaje: str
-
 
 @dataclass
 class ExtrasGuardado(ExtrasEstado):
-    """Extras guardado exitosamente"""
     mensaje: str
-
 
 @dataclass
 class ExtrasEliminado(ExtrasEstado):
-    """Extras eliminado"""
     mensaje: str
-
-
-# ============================================================================
-# Eventos
-# ============================================================================
 
 @dataclass
 class ExtrasEvento:
-    """Evento base"""
     pass
-
 
 @dataclass
 class CargarExtrases(ExtrasEvento):
-    """Cargar lista de extrass"""
     filtro: Optional[str] = None
-
 
 @dataclass
 class GuardarExtras(ExtrasEvento):
-    """Guardar extras"""
     datos: dict
-
 
 @dataclass
 class EliminarExtras(ExtrasEvento):
-    """Eliminar extras"""
     extras_id: int
 
-
-# ============================================================================
-# BLoC
-# ============================================================================
-
 class ExtrasBloc:
-    """
-    BLoC para gestión de extrass
-    """
     
     def __init__(self):
         self._estado: ExtrasEstado = ExtrasInicial()
@@ -119,7 +77,6 @@ class ExtrasBloc:
                 print(f"Error en listener: {e}")
     
     def AGREGAR_EVENTO(self, evento: ExtrasEvento):
-        """Procesa eventos"""
         if isinstance(evento, CargarExtrases):
             asyncio.create_task(self._CARGAR(evento.filtro))
         elif isinstance(evento, GuardarExtras):
@@ -128,7 +85,6 @@ class ExtrasBloc:
             asyncio.create_task(self._ELIMINAR(evento))
     
     async def _CARGAR(self, filtro: Optional[str]):
-        """Carga extrass de la BD"""
         self._CAMBIAR_ESTADO(ExtrasCargando())
         
         try:
@@ -136,7 +92,6 @@ class ExtrasBloc:
             query = sesion.query(MODELO_EXTRAS)
             
             if filtro:
-                # TODO: Ajustar filtro según campos del modelo
                 query = query.filter(MODELO_EXTRAS.NOMBRE.contains(filtro))
             
             datos = query.all()
@@ -150,28 +105,22 @@ class ExtrasBloc:
             self._CAMBIAR_ESTADO(ExtrasError(mensaje=f"Error cargando: {str(e)}"))
     
     async def _GUARDAR(self, evento: GuardarExtras):
-        """Guarda extras"""
         self._CAMBIAR_ESTADO(ExtrasCargando())
         
         try:
             sesion = OBTENER_SESION()
             
-            # TODO: Implementar lógica de guardado
-            # Si es nuevo: crear
-            # Si existe: actualizar
             
             sesion.commit()
             sesion.close()
             
             self._CAMBIAR_ESTADO(ExtrasGuardado(mensaje="Extras guardado exitosamente"))
-            # Recargar lista
             await self._CARGAR(None)
         
         except Exception as e:
             self._CAMBIAR_ESTADO(ExtrasError(mensaje=f"Error guardando: {str(e)}"))
     
     async def _ELIMINAR(self, evento: EliminarExtras):
-        """Elimina extras"""
         self._CAMBIAR_ESTADO(ExtrasCargando())
         
         try:
@@ -192,6 +141,4 @@ class ExtrasBloc:
         except Exception as e:
             self._CAMBIAR_ESTADO(ExtrasError(mensaje=f"Error eliminando: {str(e)}"))
 
-
-# Instancia global
 EXTRAS_BLOC = ExtrasBloc()
