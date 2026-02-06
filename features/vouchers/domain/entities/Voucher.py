@@ -1,7 +1,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
 @dataclass
 class Voucher:
@@ -21,6 +21,15 @@ class Voucher:
     validado_por: Optional[int] = None
     fecha_validacion: Optional[datetime] = None
     codigo_operacion: Optional[str] = None
+    
+    # Datos del pedido asociado
+    pedido_total: Optional[float] = None
+    pedido_estado: Optional[str] = None
+    pedido_fecha: Optional[datetime] = None
+    pedido_productos: Optional[List[Dict[str, Any]]] = None  # Lista de {nombre, cantidad, precio}
+    cliente_nombre: Optional[str] = None
+    cliente_direccion: Optional[str] = None
+    sucursal_nombre: Optional[str] = None
     
     def es_pendiente(self) -> bool:
         return self.estado == "PENDIENTE"

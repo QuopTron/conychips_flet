@@ -1,4 +1,5 @@
 from typing import Dict, List
+import asyncio
 from features.pedidos.domain.RepositorioPedidos import RepositorioPedidos
 from core.base_datos.ConfiguracionBD import (
     OBTENER_SESION,
@@ -41,6 +42,22 @@ class RepositorioPedidosImpl(RepositorioPedidos):
         sesion.add(pedido)
         sesion.commit()
 
+        # Fire-and-forget: notify local websocket clients immediately (low-latency)
+        try:
+            asyncio.create_task(
+                self._MANJADOR.BROADCAST(
+                    {
+                        "tipo": "nuevo_pedido:created",
+                        "pedido_id": pedido.ID,
+                        "estado": pedido.ESTADO,
+                        "paso": "pedido_creado",
+                    }
+                )
+            )
+        except Exception:
+            # best-effort: don't block the flow if broadcasting fails
+            pass
+
         detalle = MODELO_DETALLE_PEDIDO(
             PEDIDO_ID=pedido.ID,
             PRODUCTO_ID=PRODUCTO_ID,
@@ -51,32 +68,39 @@ class RepositorioPedidosImpl(RepositorioPedidos):
         sesion.add(detalle)
         sesion.commit()
 
+        # Broadcast a progress update (detalle agregado) without awaiting
         try:
-            await self._MANJADOR.BROADCAST(
-                {
-                    "tipo": "nuevo_pedido",
-                    "pedido_id": pedido.ID,
-                    "cliente_id": CLIENTE_ID,
-                    "sucursal_id": SUCURSAL_ID,
-                    "producto": producto.NOMBRE,
-                    "cantidad": CANTIDAD,
-                    "estado": pedido.ESTADO,
-                }
+            asyncio.create_task(
+                self._MANJADOR.BROADCAST(
+                    {
+                        "tipo": "nuevo_pedido:detalle_agregado",
+                        "pedido_id": pedido.ID,
+                        "detalle_id": getattr(detalle, 'ID', None),
+                        "producto": getattr(producto, 'NOMBRE', None),
+                        "cantidad": CANTIDAD,
+                        "estado": pedido.ESTADO,
+                        "paso": "detalle_agregado",
+                    }
+                )
             )
         except Exception:
             pass
 
-        # Notify external realtime broker as well (development-friendly)
+        # Notify external realtime broker in executor to avoid blocking
         try:
             from core.realtime.broker_notify import notify
+
             payload = {
                 'type': 'pedido_creado',
                 'pedido_id': pedido.ID,
                 'cliente_id': CLIENTE_ID,
                 'sucursal_id': SUCURSAL_ID,
                 'nuevo_estado': pedido.ESTADO,
+                'progreso': '100%',
             }
-            notify(payload)
+
+            loop = asyncio.get_running_loop()
+            loop.run_in_executor(None, notify, payload)
         except Exception:
             pass
 
@@ -115,16 +139,30 @@ class RepositorioPedidosImpl(RepositorioPedidos):
         pedido.ESTADO = "pagado"
         sesion.commit()
 
+        # Broadcast payment event quickly (do not block)
         try:
-            await self._MANJADOR.BROADCAST(
-                {"tipo": "pedido_pagado", "pedido_id": PEDIDO_ID, "monto": MONTO}
+            asyncio.create_task(
+                self._MANJADOR.BROADCAST(
+                    {"tipo": "pedido_pagado", "pedido_id": PEDIDO_ID, "monto": MONTO, "paso": "pagado"}
+                )
             )
         except Exception:
             pass
 
+        # External notify in executor (best-effort, non-blocking)
         try:
             from core.realtime.broker_notify import notify
-            notify({'type': 'pedido_actualizado', 'pedido_id': PEDIDO_ID, 'nuevo_estado': pedido.ESTADO, 'monto': MONTO, 'sucursal_id': getattr(pedido, 'SUCURSAL_ID', None)})
+
+            payload = {
+                'type': 'pedido_actualizado',
+                'pedido_id': PEDIDO_ID,
+                'nuevo_estado': pedido.ESTADO,
+                'monto': MONTO,
+                'sucursal_id': getattr(pedido, 'SUCURSAL_ID', None),
+                'paso': 'pagado',
+            }
+            loop = asyncio.get_running_loop()
+            loop.run_in_executor(None, notify, payload)
         except Exception:
             pass
 

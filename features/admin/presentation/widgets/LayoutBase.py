@@ -8,6 +8,8 @@ from core.Constantes import COLORES
 from core.ui.safe_actions import safe_update
 from .NavbarGlobal import NavbarGlobal
 from .BottomNavigation import BottomNavigation
+from core.chat.ChatFlotante import ChatFlotante
+from core.base_datos.ConfiguracionBD import OBTENER_SESION, MODELO_USUARIO
 
 
 class LayoutBase(ft.Column):
@@ -42,6 +44,18 @@ class LayoutBase(ft.Column):
         
         # Soporte para gestos
         self._gesture_detector = None
+        
+        # Chat flotante
+        sesion = OBTENER_SESION()
+        usuario_db = sesion.query(MODELO_USUARIO).get(usuario.ID)
+        rol_usuario = usuario_db.ROLES[0].NOMBRE if usuario_db and usuario_db.ROLES else "ADMIN"
+        sesion.close()
+        
+        self._chat_flotante = ChatFlotante(
+            pagina=pagina,
+            usuario_id=usuario.ID,
+            usuario_rol=rol_usuario
+        )
         
         self.spacing = 0
         self.expand = True
@@ -93,13 +107,28 @@ class LayoutBase(ft.Column):
             expand=True
         )
         
-        # Layout completo con bottom nav fijo
-        print("🟢 LayoutBase - Asignando self.controls")
+        # Layout completo con bottom nav fijo y chat flotante
+        print("🟢 LayoutBase - Asignando self.controls con Stack")
+        layout_con_nav = ft.Column(
+            controls=[
+                contenido_principal,
+                self._bottom_nav
+            ],
+            spacing=0,
+            expand=True
+        )
+        
+        # Envolver en Stack para agregar chat flotante encima
         self.controls = [
-            contenido_principal,
-            self._bottom_nav
+            ft.Stack(
+                controls=[
+                    layout_con_nav,
+                    self._chat_flotante
+                ],
+                expand=True
+            )
         ]
-        print(f"🟢 LayoutBase - self.controls asignado con {len(self.controls)} items")
+        print(f"🟢 LayoutBase - self.controls asignado con Stack + ChatFlotante")
         
         # Forzar actualización si la página existe
         if self._pagina:
@@ -281,17 +310,17 @@ class LayoutBase(ft.Column):
         self._pagina.update()
     
     def _ir_a_productos(self):
-        """Navega a productos"""
-        from features.admin.presentation.pages.gestion.ProductosPage import ProductosPage
+        """Navega a productos (versión moderna)"""
+        from features.productos.presentation.pages.ProductosPageModerna import ProductosPageModerna
         self._pagina.controls.clear()
-        self._pagina.add(ProductosPage(self._pagina, self._usuario))
+        self._pagina.add(ProductosPageModerna(self._pagina, self._usuario))
         safe_update(self._pagina)
     
     def _ir_a_pedidos(self):
-        """Navega a pedidos"""
-        from features.admin.presentation.pages.vistas.PedidosPage import PedidosPage
+        """Navega a pedidos (Vouchers/Comprobantes)"""
+        from features.admin.presentation.pages.vistas.VouchersPage import VouchersPage
         self._pagina.controls.clear()
-        self._pagina.add(PedidosPage(self._pagina, self._usuario))
+        self._pagina.add(VouchersPage(self._pagina, self._usuario))
         safe_update(self._pagina)
     
     def _ir_dashboard(self):
@@ -316,59 +345,59 @@ class LayoutBase(ft.Column):
         safe_update(self._pagina)
     
     def _ir_a_usuarios(self):
-        """Navega a usuarios"""
-        from features.gestion_usuarios.presentation.pages.PaginaGestionUsuarios import PaginaGestionUsuarios
+        """Navega a usuarios con UI moderna"""
+        from features.admin.presentation.pages.vistas.UsuariosPageModerna import UsuariosPageModerna
         self._pagina.controls.clear()
-        self._pagina.add(PaginaGestionUsuarios(self._pagina, self._usuario))
+        self._pagina.add(UsuariosPageModerna(self._pagina, self._usuario))
         safe_update(self._pagina)
     
     def _ir_a_auditoria(self):
         """Navega a auditoría"""
-        from features.admin.presentation.pages.vistas.AuditoriaPage import AuditoriaPage
+        from features.admin.presentation.pages.vistas.AuditoriaPageModerna import AuditoriaPageModerna
         self._pagina.controls.clear()
-        self._pagina.add(AuditoriaPage(self._pagina, self._usuario))
+        self._pagina.add(AuditoriaPageModerna(self._pagina, self._usuario))
         safe_update(self._pagina)
     
     def _ir_a_extras(self):
         """Navega a extras"""
-        from features.admin.presentation.pages.gestion.ExtrasPage import ExtrasPage
+        from features.admin.presentation.pages.vistas.ExtrasPageModerna import ExtrasPageModerna
         self._pagina.controls.clear()
-        self._pagina.add(ExtrasPage(self._pagina, self._usuario))
+        self._pagina.add(ExtrasPageModerna(self._pagina, self._usuario))
         safe_update(self._pagina)
     
     def _ir_a_ofertas(self):
         """Navega a ofertas"""
-        from features.admin.presentation.pages.gestion.OfertasPage import OfertasPage
+        from features.admin.presentation.pages.vistas.OfertasPageModerna import OfertasPageModerna
         self._pagina.controls.clear()
-        self._pagina.add(OfertasPage(self._pagina, self._usuario))
+        self._pagina.add(OfertasPageModerna(self._pagina, self._usuario))
         safe_update(self._pagina)
     
     def _ir_a_horarios(self):
         """Navega a horarios"""
-        from features.admin.presentation.pages.gestion.HorariosPage import HorariosPage
+        from features.admin.presentation.pages.vistas.HorariosPageModerna import HorariosPageModerna
         self._pagina.controls.clear()
-        self._pagina.add(HorariosPage(self._pagina, self._usuario))
+        self._pagina.add(HorariosPageModerna(self._pagina, self._usuario))
         safe_update(self._pagina)
     
     def _ir_a_insumos(self):
         """Navega a insumos"""
-        from features.admin.presentation.pages.gestion.InsumosPage import InsumosPage
+        from features.admin.presentation.pages.vistas.InsumosPageModerna import InsumosPageModerna
         self._pagina.controls.clear()
-        self._pagina.add(InsumosPage(self._pagina, self._usuario))
+        self._pagina.add(InsumosPageModerna(self._pagina, self._usuario))
         safe_update(self._pagina)
     
     def _ir_a_proveedores(self):
         """Navega a proveedores"""
-        from features.admin.presentation.pages.gestion.ProveedoresPage import ProveedoresPage
+        from features.admin.presentation.pages.vistas.ProveedoresPageModerna import ProveedoresPageModerna
         self._pagina.controls.clear()
-        self._pagina.add(ProveedoresPage(self._pagina, self._usuario))
+        self._pagina.add(ProveedoresPageModerna(self._pagina, self._usuario))
         safe_update(self._pagina)
     
     def _ir_a_caja(self):
-        """Navega a caja"""
-        from features.admin.presentation.pages.gestion.CajaPage import CajaPage
+        """Navega a caja - versión moderna"""
+        from features.admin.presentation.pages.vistas.CajasPageModerna import CajasPageModerna
         self._pagina.controls.clear()
-        self._pagina.add(CajaPage(self._pagina, self._usuario))
+        self._pagina.add(CajasPageModerna(self._pagina, self._usuario))
         safe_update(self._pagina)
     
     def _ir_a_resenas(self):
@@ -380,13 +409,13 @@ class LayoutBase(ft.Column):
     
     def _ir_a_sucursales(self):
         """Navega a sucursales"""
-        from features.admin.presentation.pages.gestion.SucursalesPage import SucursalesPage
+        from features.admin.presentation.pages.vistas.SucursalesPage import SucursalesPage
         self._pagina.controls.clear()
         self._pagina.add(SucursalesPage(self._pagina, self._usuario))
         safe_update(self._pagina)
     
     def _ir_a_roles(self):
-        """Navega a roles"""
+        """Navega a roles (versión moderna)"""
         from features.admin.presentation.pages.gestion.RolesPage import RolesPage
         self._pagina.controls.clear()
         self._pagina.add(RolesPage(self._pagina, self._usuario))

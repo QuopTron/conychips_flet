@@ -7,6 +7,7 @@ from core.base_datos.ConfiguracionBD import (
     MODELO_INSUMO,
     MODELO_REFILL_SOLICITUD,
     MODELO_USUARIO,
+    MODELO_ALERTA_COCINA,
 )
 from core.constantes import COLORES, TAMANOS, ICONOS
 from core.decoradores.DecoradorVistas import REQUIERE_ROL
@@ -26,9 +27,10 @@ class PaginaDashboardCocina:
         self.SOLICITUDES_REFILL = ft.ListView(spacing=10, expand=True)
         
         self._CARGAR_DATOS()
-        # register for realtime cocina alerts
+        # register for realtime cocina alerts and refill requests
         try:
-            dispatcher.register('pedido_alerta_cocina', self._on_realtime_alert)
+            dispatcher.register('alerta_cocina', self._on_realtime_alert)
+            dispatcher.register('refill_solicitado', self._on_realtime_refill)
         except Exception:
             pass
     
@@ -67,28 +69,100 @@ class PaginaDashboardCocina:
             self.PAGINA.update()
 
     def _on_realtime_alert(self, payload: dict):
-        pid = payload.get('pedido_id')
-        # Filter by sucursal if event provides it
-        sucursal_evt = payload.get('sucursal_id')
+        """Maneja alertas de cocina en tiempo real"""
         try:
-            sesion = OBTENER_SESION()
-            usuario = sesion.query(MODELO_USUARIO).filter_by(ID=self.USUARIO_ID).first()
-            usuario_suc = getattr(usuario, 'SUCURSAL_ID', None) if usuario else None
-            sesion.close()
+            alerta_id = payload.get('alerta_id')
+            pid = payload.get('pedido_id')
+            prioridad = payload.get('prioridad', 'normal')
+            mensaje = payload.get('mensaje', f'Alerta para pedido #{pid}')
+            
+            # Filter by sucursal if event provides it
+            sucursal_evt = payload.get('sucursal_id')
+            try:
+                sesion = OBTENER_SESION()
+                usuario = sesion.query(MODELO_USUARIO).filter_by(ID=self.USUARIO_ID).first()
+                usuario_suc = getattr(usuario, 'SUCURSAL_ID', None) if usuario else None
+                sesion.close()
+            except Exception:
+                usuario_suc = None
+
+            if sucursal_evt is not None and usuario_suc is not None and sucursal_evt != usuario_suc:
+                return
+
+            # Color según prioridad
+            color_borde = COLORES.ADVERTENCIA if prioridad == 'normal' else COLORES.ERROR
+            icono_color = COLORES.ADVERTENCIA if prioridad == 'normal' else COLORES.ERROR
+            
+            # Añadir alerta visual al inicio de la lista
+            self.PEDIDOS_PREPARACION.controls.insert(0, ft.Container(
+                content=ft.Row([
+                    ft.Icon(ICONOS.ALERTA, color=icono_color),
+                    ft.Column([
+                        ft.Text(f"🔔 ALERTA: {mensaje}", weight=ft.FontWeight.BOLD, color=icono_color),
+                        ft.Text(f"Prioridad: {prioridad.upper()}", size=12, color=COLORES.TEXTO_SECUNDARIO),
+                    ], spacing=5),
+                    ft.Container(expand=True),
+                    ft.IconButton(
+                        icon=ft.icons.CLOSE,
+                        on_click=lambda e, aid=alerta_id: self._marcar_alerta_leida(aid, e),
+                        tooltip="Marcar como leída"
+                    )
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                padding=15,
+                border=ft.Border.all(2, color_borde),
+                border_radius=TAMANOS.RADIO_BORDE,
+                bgcolor=COLORES.FONDO_TARJETA,
+            ))
+            
+            # keep list manageable
+            if len(self.PEDIDOS_PREPARACION.controls) > 200:
+                self.PEDIDOS_PREPARACION.controls.pop()
+            
+            if self.PAGINA:
+                self.PAGINA.update()
+        except Exception as e:
+            pass
+    
+    def _on_realtime_refill(self, payload: dict):
+        """Maneja solicitudes de refill en tiempo real"""
+        try:
+            # Recargar lista de solicitudes de refill
+            self._CARGAR_SOLICITUDES_REFILL()
+            
+            # Mostrar notificación
+            if self.PAGINA:
+                self.PAGINA.snack_bar = ft.SnackBar(
+                    content=ft.Text(f"🔔 Nueva solicitud de refill: {payload.get('insumo_nombre', 'Insumo')}"),
+                    bgcolor=COLORES.ADVERTENCIA
+                )
+                self.PAGINA.snack_bar.open = True
+                self.PAGINA.update()
         except Exception:
-            usuario_suc = None
-
-        if sucursal_evt is not None and usuario_suc is not None and sucursal_evt != usuario_suc:
-            return
-
-        self.PEDIDOS_PREPARACION.controls.insert(0, ft.Container(content=ft.Row([
-            ft.Icon(ICONOS.ALERTA, color=COLORES.ERROR),
-            ft.Text(f"ALERTA: Pedido #{pid} - revisar ingredientes", weight=ft.FontWeight.BOLD),
-        ]), padding=10, border=ft.Border.all(1, COLORES.ERROR), border_radius=8))
-        # keep list manageable
-        if len(self.PEDIDOS_PREPARACION.controls) > 200:
-            self.PEDIDOS_PREPARACION.controls.pop()
-        if self.PAGINA:
+            pass
+    
+    def _marcar_alerta_leida(self, alerta_id: int, e):
+        """Marca una alerta como leída y la oculta"""
+        try:
+            if not alerta_id:
+                return
+            
+            sesion = OBTENER_SESION()
+            alerta = sesion.query(MODELO_ALERTA_COCINA).filter_by(ID=alerta_id).first()
+            if alerta:
+                alerta.LEIDA = True
+                alerta.FECHA_LECTURA = datetime.utcnow()
+                sesion.commit()
+            sesion.close()
+            
+            # Remover de la vista
+            if e and e.control and e.control.parent and e.control.parent.parent:
+                container = e.control.parent.parent
+                if container in self.PEDIDOS_PREPARACION.controls:
+                    self.PEDIDOS_PREPARACION.controls.remove(container)
+                    if self.PAGINA:
+                        self.PAGINA.update()
+        except Exception:
+            pass
             self.PAGINA.update()
     
     

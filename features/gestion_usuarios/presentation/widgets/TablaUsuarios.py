@@ -68,7 +68,7 @@ class TablaUsuarios(ft.Column):
                 ft.DataColumn(ft.Text("Acciones", weight=ft.FontWeight.BOLD, size=12)),
             ],
             rows=filas,
-            border=ft.border.all(1, ft.Colors.GREY_300),
+            border=ft.Border.all(1, ft.Colors.GREY_300),
             border_radius=8,
             vertical_lines=ft.BorderSide(0.5, ft.Colors.GREY_200),
             horizontal_lines=ft.BorderSide(0.5, ft.Colors.GREY_200),
@@ -90,7 +90,7 @@ class TablaUsuarios(ft.Column):
                 border_radius=4,
                 padding=0,
                 expand=True,
-                border=ft.border.all(1, ft.Colors.BLUE_200)
+                border=ft.Border.all(1, ft.Colors.BLUE_200)
             )
         )
     
@@ -146,7 +146,7 @@ class TablaUsuarios(ft.Column):
                         weight=ft.FontWeight.BOLD
                     ),
                     bgcolor=rol_color,
-                    padding=ft.padding.symmetric(horizontal=8, vertical=4),
+                    padding=ft.Padding.symmetric(horizontal=8, vertical=4),
                     border_radius=4
                 )),
                 ft.DataCell(ft.Text(

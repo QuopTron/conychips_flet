@@ -121,12 +121,7 @@ class FuenteUsuariosLocal:
                 usuario_id=nuevo_usuario.ID,
                 detalles=f"Usuario '{nombre_usuario}' creado con rol '{rol}'"
             )
-            try:
-                from core.realtime.broker_notify import notify
-                notify({'type': 'usuario_creado', 'usuario_id': nuevo_usuario.ID, 'sucursal_id': sucursal_id})
-            except Exception:
-                pass
-
+            
             return nuevo_usuario.ID
             
         except Exception as e:
@@ -176,12 +171,7 @@ class FuenteUsuariosLocal:
                 usuario_id=usuario_id,
                 detalles=f"Usuario '{usuario.NOMBRE_USUARIO}' actualizado"
             )
-            try:
-                from core.realtime.broker_notify import notify
-                notify({'type': 'usuario_actualizado', 'usuario_id': usuario_id, 'sucursal_id': getattr(usuario, 'SUCURSAL_ID', None)})
-            except Exception:
-                pass
-
+            
             return True
             
         except Exception as e:
@@ -209,12 +199,7 @@ class FuenteUsuariosLocal:
                 usuario_id=usuario_id,
                 detalles=f"Usuario '{usuario.NOMBRE_USUARIO}' marcado como inactivo"
             )
-            try:
-                from core.realtime.broker_notify import notify
-                notify({'type': 'usuario_desactivado', 'usuario_id': usuario_id, 'sucursal_id': getattr(usuario, 'SUCURSAL_ID', None)})
-            except Exception:
-                pass
-
+            
             return True
             
         except Exception as e:
@@ -243,12 +228,7 @@ class FuenteUsuariosLocal:
                 usuario_id=usuario_id,
                 detalles=f"Usuario '{usuario.NOMBRE_USUARIO}' {estado}"
             )
-            try:
-                from core.realtime.broker_notify import notify
-                notify({'type': 'usuario_cambio_estado', 'usuario_id': usuario_id, 'nuevo_estado': estado})
-            except Exception:
-                pass
-
+            
             return True
             
         except Exception as e:
@@ -282,12 +262,7 @@ class FuenteUsuariosLocal:
                 usuario_id=usuario_id,
                 detalles=f"Rol de '{usuario.NOMBRE_USUARIO}' cambiado a '{nuevo_rol}'"
             )
-            try:
-                from core.realtime.broker_notify import notify
-                notify({'type': 'usuario_cambio_rol', 'usuario_id': usuario_id, 'nuevo_rol': nuevo_rol})
-            except Exception:
-                pass
-
+            
             return True
             
         except Exception as e:
@@ -320,12 +295,7 @@ class FuenteUsuariosLocal:
                 usuario_id=usuario_id,
                 detalles=f"Contraseña de '{usuario.NOMBRE_USUARIO}' reseteada"
             )
-            try:
-                from core.realtime.broker_notify import notify
-                notify({'type': 'usuario_reset_contrasena', 'usuario_id': usuario_id})
-            except Exception:
-                pass
-
+            
             return True
             
         except Exception as e:

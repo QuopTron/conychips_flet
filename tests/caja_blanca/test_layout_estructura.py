@@ -54,7 +54,7 @@ def test_layout_base_estructura(pagina: ft.Page):
         print(f"   Título: {layout._navbar._titulo_vista}")
     else:
         print("❌ Navbar no inicializado")
-        return False
+        assert False
     
     # 4. Verificar bottom nav
     print("\n4️⃣  Verificando bottom navigation...")
@@ -64,7 +64,7 @@ def test_layout_base_estructura(pagina: ft.Page):
         print(f"   Height: {layout._bottom_nav.height}")
     else:
         print("❌ Bottom nav no inicializado")
-        return False
+        assert False
     
     # 5. Verificar método construir
     print("\n5️⃣  Verificando método construir...")
@@ -77,7 +77,7 @@ def test_layout_base_estructura(pagina: ft.Page):
         print("✅ Método construir ejecutado")
     else:
         print("❌ Método construir no encontrado")
-        return False
+        assert False
     
     # 6. Verificar controls
     print("\n6️⃣  Verificando controls...")
@@ -86,13 +86,13 @@ def test_layout_base_estructura(pagina: ft.Page):
         print(f"   Número de controls: {len(layout.controls)}")
     else:
         print("❌ Controls incorrectos")
-        return False
+        assert False
     
     print("\n" + "=" * 60)
     print("✅ ESTRUCTURA LAYOUTBASE VALIDADA")
     print("=" * 60)
     
-    return True
+    assert True
 
 
 def main(pagina: ft.Page):

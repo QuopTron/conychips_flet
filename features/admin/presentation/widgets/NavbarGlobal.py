@@ -42,7 +42,6 @@ class NavbarGlobal(ft.Container):
         self._btn_sucursales = None
         self._checkboxes = {}
         self._texto_titulo = None  # Referencia al texto del título
-        self._pedidos_pendientes_chip = ft.Chip(label=ft.Text("0"), bgcolor=COLORES.ADVERTENCIA)
         
         self._construir()
     
@@ -69,9 +68,6 @@ class NavbarGlobal(ft.Container):
             ),
             height=45
         )
-        
-        # Componentes de pedidos pendientes
-        self._pedidos_pendientes_chip = ft.Chip(label=ft.Text("0"), bgcolor=COLORES.ADVERTENCIA)
         
         # Panel desplegable de sucursales - Mejorado para mejor visibilidad
         self._panel_sucursales = ft.Container(
@@ -169,19 +165,6 @@ class NavbarGlobal(ft.Container):
             color=ft.Colors.with_opacity(0.1, ft.Colors.BLACK),
             offset=ft.Offset(0, 2)
         )
-        
-        # subscribe to realtime events to update pending counter
-        try:
-            dispatcher.register('pedido_creado', self._on_realtime_pedido)
-            dispatcher.register('pedido_actualizado', self._on_realtime_pedido)
-        except Exception:
-            pass
-
-        # initialize value
-        try:
-            self._actualizar_contador_pedidos()
-        except Exception:
-            pass
     
     def _crear_contenido_panel(self) -> ft.Column:
         """Crea el contenido del panel de sucursales"""
@@ -200,8 +183,6 @@ class NavbarGlobal(ft.Container):
                 size=14
             )
         )
-        
-        # finish building panel later
         
         # Checkboxes individuales con mejor diseño
         checkboxes_list = [
@@ -287,43 +268,6 @@ class NavbarGlobal(ft.Container):
             ft.Divider(height=15),
             botones
         ], spacing=5, tight=True)
-
-    def _actualizar_contador_pedidos(self):
-        """Actualiza el chip con la cantidad de pedidos pendientes (sucursal-aware)"""
-        sesion = OBTENER_SESION()
-        try:
-            usuario_suc = getattr(self._usuario, 'SUCURSAL_ID', None)
-            # Default
-            count = 0
-            try:
-                from core.base_datos.ConfiguracionBD import MODELO_PEDIDO
-                if usuario_suc:
-                    count = sesion.query(MODELO_PEDIDO).filter_by(ESTADO='PENDIENTE', SUCURSAL_ID=usuario_suc).count()
-                else:
-                    count = sesion.query(MODELO_PEDIDO).filter_by(ESTADO='PENDIENTE').count()
-            except Exception:
-                # If the model isn't available or query fails, leave count as 0
-                count = 0
-
-            # Update chip label
-            try:
-                self._pedidos_pendientes_chip.label = ft.Text(str(count))
-            except Exception:
-                pass
-
-            if self._pagina:
-                try:
-                    safe_update(self._pagina)
-                except Exception:
-                    try:
-                        self.update()
-                    except Exception:
-                        pass
-        finally:
-            try:
-                sesion.close()
-            except Exception:
-                pass
     
     def _obtener_texto_sucursales(self) -> str:
         """Obtiene el texto a mostrar en el botón"""
@@ -441,12 +385,6 @@ class NavbarGlobal(ft.Container):
             sesion.add(auditoria)
             sesion.commit()
             sesion.close()
-            # Notify realtime broker about filter change
-            try:
-                from core.realtime.broker_notify import notify
-                notify({'type': 'filtro_sucursales_cambiado', 'usuario_id': self._usuario.ID, 'todas': self._todas_seleccionadas, 'sucursales': self._sucursales_seleccionadas})
-            except Exception:
-                pass
         except Exception as e:
             print(f"Error registrando auditoría: {e}")
     
@@ -470,10 +408,42 @@ class NavbarGlobal(ft.Container):
                 try:
                     self._pagina.update()
                 except:
-                    try:
-                        self.update()
-                    except:
-                        pass
+                    pass
+    
+    def recargar_sucursales(self):
+        """Recarga las sucursales del panel después de cambios en BD"""
+        try:
+            # Guardar estado actual
+            todas_seleccionadas = self._todas_seleccionadas
+            sucursales_ids = list(self._sucursales_seleccionadas)
+            
+            # Limpiar checkboxes actuales
+            self._checkboxes.clear()
+            
+            # Recrear panel con datos actualizados
+            nuevo_contenido = self._crear_contenido_panel()
+            
+            # Restaurar selecciones si es posible
+            if todas_seleccionadas:
+                if self._checkbox_todas:
+                    self._checkbox_todas.value = True
+            else:
+                for suc_id in sucursales_ids:
+                    if suc_id in self._checkboxes:
+                        self._checkboxes[suc_id].value = True
+            
+            # Actualizar el contenido del panel
+            if hasattr(self, '_panel_sucursales') and self._panel_sucursales:
+                self._panel_sucursales.content = nuevo_contenido
+                
+                # Actualizar texto del botón
+                if self._btn_sucursales:
+                    self._btn_sucursales.text = self._obtener_texto_sucursales()
+                
+                if self._pagina:
+                    self._pagina.update()
+        except Exception as e:
+            print(f"⚠️ Error recargando sucursales en navbar: {e}")
     
     def _es_superadmin(self) -> bool:
         """Verificar si el usuario es superadmin"""
@@ -546,7 +516,7 @@ class NavbarGlobal(ft.Container):
     def _ir_sucursales(self, e):
         """Navegar a gestión de sucursales"""
         try:
-            from features.admin.presentation.pages.gestion.SucursalesPage import SucursalesPage
+            from features.admin.presentation.pages.vistas.SucursalesPage import SucursalesPage
             self._pagina.controls.clear()
             self._pagina.add(SucursalesPage(self._pagina, self._usuario))
             self._pagina.update()

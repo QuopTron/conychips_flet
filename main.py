@@ -13,16 +13,30 @@ if CONFIGURACION_APP.ES_DESARROLLO():
         import threading
         from tools.ws_client_example import start_ws_client_in_thread
         import subprocess
+        import socket
 
-        # Start broker process
+        # Check if port 8765 is already in use
+        def is_port_in_use(port):
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                return s.connect_ex(('localhost', port)) == 0
+
+        # Start broker process only if not already running
         def _start_broker():
-            subprocess.Popen(['python3', os.path.join(os.path.dirname(__file__), 'tools', 'ws_server.py')])
+            if not is_port_in_use(8765):
+                subprocess.Popen(
+                    ['python3', os.path.join(os.path.dirname(__file__), 'tools', 'ws_server.py')],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+                print("✓ WebSocket server started on port 8765")
+            else:
+                print("✓ WebSocket server already running on port 8765")
 
         threading.Thread(target=_start_broker, daemon=True).start()
         # Start client listener thread
         start_ws_client_in_thread()
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"⚠️ WebSocket setup skipped: {e}")
 
 os.environ["NO_AT_BRIDGE"] = "1"
 

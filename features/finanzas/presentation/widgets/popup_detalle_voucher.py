@@ -80,7 +80,7 @@ class PopupDetalleVoucher(ft.AlertDialog):
                                     color=ft.Colors.WHITE
                                 ),
                                 bgcolor=color_estado,
-                                padding=ft.padding.symmetric(horizontal=10, vertical=4),
+                                padding=ft.Padding.symmetric(horizontal=10, vertical=4),
                                 border_radius=10
                             )
                         ],
@@ -159,7 +159,7 @@ class PopupDetalleVoucher(ft.AlertDialog):
                 padding=15,
                 bgcolor=ft.Colors.ERROR_CONTAINER,
                 border_radius=8,
-                border=ft.border.all(1, PELIGRO)
+                border=ft.Border.all(1, PELIGRO)
             )
             controles_contenido.append(motivo)
         

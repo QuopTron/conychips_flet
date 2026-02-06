@@ -76,6 +76,10 @@ class PaginaCRUDBase(ft.Column):
     def _OBTENER_TITULO_FORMULARIO(self, es_edicion: bool) -> str:
         return f"{'Editar' if es_edicion else 'Nuevo'} {self._TITULO}"
     
+    def _FORMATEAR_VALOR_CELDA(self, item: Any, campo: str) -> Any:
+        """Hook para formatear valores de celdas personalizados"""
+        return getattr(item, campo, "")
+    
     
     def _CONSTRUIR_UI(self):
         header = ft.Container(
@@ -106,7 +110,7 @@ class PaginaCRUDBase(ft.Column):
             bgcolor=ft.Colors.BLUE_50,
             border_radius=4,
             padding=8,
-            border=ft.border.all(1, ft.Colors.BLUE_200)
+            border=ft.Border.all(1, ft.Colors.BLUE_200)
         )
         
         self.controls = [
@@ -163,7 +167,8 @@ class PaginaCRUDBase(ft.Column):
                 datos=datos,
                 campos_mostrar=self._OBTENER_CAMPOS_TABLA(),
                 on_editar=self._ABRIR_FORMULARIO_EDITAR,
-                on_eliminar=self._CONFIRMAR_ELIMINAR
+                on_eliminar=self._CONFIRMAR_ELIMINAR,
+                formatear_celda=self._FORMATEAR_VALOR_CELDA
             )
             
             self._LISTA.controls.append(

@@ -63,19 +63,13 @@ class BottomNavigation(ft.Container):
                 "Pedidos",
                 ft.icons.Icons.SHOPPING_CART_OUTLINED,
                 ft.icons.Icons.SHOPPING_CART,
-                "pedidos"
+                "vouchers"
             ),
             BottomNavItem(
                 "Finanzas",
                 ft.icons.Icons.ATTACH_MONEY_OUTLINED,
                 ft.icons.Icons.ATTACH_MONEY,
                 "finanzas"
-            ),
-            BottomNavItem(
-                "Vouchers",
-                ft.icons.Icons.RECEIPT_OUTLINED,
-                ft.icons.Icons.RECEIPT,
-                "vouchers"
             ),
             BottomNavItem(
                 "Más",
@@ -103,7 +97,7 @@ class BottomNavigation(ft.Container):
                 spacing=0
             ),
             bgcolor=ft.Colors.WHITE,
-            padding=ft.padding.symmetric(vertical=8, horizontal=20),
+            padding=ft.Padding.symmetric(vertical=8, horizontal=20),
             border=ft.border.only(top=ft.BorderSide(2, COLORES.BORDE)),
             shadow=ft.BoxShadow(
                 spread_radius=0,
@@ -140,7 +134,7 @@ class BottomNavigation(ft.Container):
                 )
             ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=4, tight=True),
             bgcolor=bg_color,
-            padding=ft.padding.symmetric(horizontal=20, vertical=8),
+            padding=ft.Padding.symmetric(horizontal=20, vertical=8),
             border_radius=12,
             ink=True,
             on_click=lambda e, idx=index, route=item.route: self._on_item_click(idx, route),

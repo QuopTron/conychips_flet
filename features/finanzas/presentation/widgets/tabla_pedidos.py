@@ -75,7 +75,7 @@ class TablaPedidos(ft.Container):
                 ft.DataColumn(ft.Text("Acciones", size=12, weight=ft.FontWeight.BOLD))
             ],
             rows=[],
-            border=ft.border.all(1, ft.Colors.GREY_300),
+            border=ft.Border.all(1, ft.Colors.GREY_300),
             border_radius=8,
             vertical_lines=ft.BorderSide(0.5, ft.Colors.GREY_200),
             horizontal_lines=ft.BorderSide(0.5, ft.Colors.GREY_200),
@@ -109,7 +109,7 @@ class TablaPedidos(ft.Container):
                     bgcolor=ft.Colors.BLUE_50,
                     border_radius=4,
                     padding=6,
-                    border=ft.border.all(1, ft.Colors.BLUE_200)
+                    border=ft.Border.all(1, ft.Colors.BLUE_200)
                 ),
                 # Tabla 100% altura restante con scroll horizontal y vertical
                 ft.Container(
@@ -122,7 +122,7 @@ class TablaPedidos(ft.Container):
                     bgcolor=ft.Colors.WHITE,
                     border_radius=4,
                     padding=0,
-                    border=ft.border.all(1, ft.Colors.BLUE_200)
+                    border=ft.Border.all(1, ft.Colors.BLUE_200)
                 )
             ],
             spacing=4,
@@ -181,7 +181,7 @@ class TablaPedidos(ft.Container):
                             weight=ft.FontWeight.BOLD
                         ),
                         bgcolor=self._get_color_estado(pedido.estado),
-                        padding=ft.padding.symmetric(horizontal=10, vertical=5),
+                        padding=ft.Padding.symmetric(horizontal=10, vertical=5),
                         border_radius=12
                     )
                 ),
@@ -274,7 +274,7 @@ class TablaPedidos(ft.Container):
                             weight=ft.FontWeight.BOLD
                         ),
                         bgcolor=self._get_color_estado(pedido.estado),
-                        padding=ft.padding.symmetric(horizontal=10, vertical=5),
+                        padding=ft.Padding.symmetric(horizontal=10, vertical=5),
                         border_radius=12
                     )
                 ], spacing=2),

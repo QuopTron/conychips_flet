@@ -28,22 +28,25 @@ class ResenasPage(ft.Column):
             on_salir=self._SALIR
         )
         
+        # Dropdown con manejo correcto para Flet 0.8.0
+        self._dropdown_filtro = ft.Dropdown(
+            label="Calificación",
+            options=[
+                ft.dropdown.Option("TODAS", "Todas"),
+                ft.dropdown.Option("5", "⭐⭐⭐⭐⭐ (5)"),
+                ft.dropdown.Option("4", "⭐⭐⭐⭐ (4)"),
+                ft.dropdown.Option("3", "⭐⭐⭐ (3)"),
+                ft.dropdown.Option("2", "⭐⭐ (2)"),
+                ft.dropdown.Option("1", "⭐ (1)"),
+            ],
+            value=self._FILTRO,
+        )
+        self._dropdown_filtro.on_select = self._CAMBIAR_FILTRO
+        
         filtros = ft.Container(
             content=ft.ResponsiveRow([
                 ft.Container(
-                    ft.Dropdown(
-                        label="Calificación",
-                        options=[
-                            ft.dropdown.Option("TODAS", "Todas"),
-                            ft.dropdown.Option("5", "⭐⭐⭐⭐⭐ (5)"),
-                            ft.dropdown.Option("4", "⭐⭐⭐⭐ (4)"),
-                            ft.dropdown.Option("3", "⭐⭐⭐ (3)"),
-                            ft.dropdown.Option("2", "⭐⭐ (2)"),
-                            ft.dropdown.Option("1", "⭐ (1)"),
-                        ],
-                        value=self._FILTRO,
-                        on_change=self._CAMBIAR_FILTRO,
-                    ),
+                    self._dropdown_filtro,
                     col={"xs": 12, "sm": 6, "md": 3}
                 ),
                 ft.Container(
@@ -58,7 +61,7 @@ class ResenasPage(ft.Column):
             bgcolor=ft.Colors.BLUE_50,
             border_radius=4,
             padding=6,
-            border=ft.border.all(1, ft.Colors.BLUE_200)
+            border=ft.Border.all(1, ft.Colors.BLUE_200)
         )
         
         self._lista = ft.Column(spacing=4, scroll=ft.ScrollMode.ADAPTIVE, expand=True)
@@ -97,12 +100,17 @@ class ResenasPage(ft.Column):
             for resena in resenas:
                 estrellas = "⭐" * resena.CALIFICACION
                 
+                # Obtener nombre del usuario
+                nombre_usuario = "Cliente Anónimo"
+                if resena.USUARIO:
+                    nombre_usuario = resena.USUARIO.NOMBRE_USUARIO
+                
                 card = ft.Card(
                     content=ft.Container(
                         content=ft.Column([
                             ft.Row([
                                 ft.Column([
-                                    ft.Text(resena.CLIENTE or "Cliente Anónimo", 
+                                    ft.Text(nombre_usuario, 
                                            weight=ft.FontWeight.BOLD),
                                     ft.Text(
                                         resena.FECHA.strftime("%d/%m/%Y %H:%M"),
@@ -119,15 +127,6 @@ class ResenasPage(ft.Column):
                                 size=14,
                                 max_lines=None
                             ),
-                            ft.Row([
-                                ft.Icon(ICONOS.PRODUCTO, size=16, 
-                                       color=COLORES.TEXTO_SECUNDARIO),
-                                ft.Text(
-                                    resena.PRODUCTO or "Experiencia general",
-                                    size=12,
-                                    color=COLORES.TEXTO_SECUNDARIO
-                                ),
-                            ]) if hasattr(resena, 'PRODUCTO') else ft.Container(),
                         ], spacing=10),
                         padding=TAMANOS.PADDING_MD,
                     ),

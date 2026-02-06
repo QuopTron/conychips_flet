@@ -465,10 +465,18 @@ class PaginaAdmin(LayoutBase):
         safe_update(self._pagina)
 
     def _VER_SUCURSALES(self, e):
-        from features.admin.presentation.pages.gestion.SucursalesPage import SucursalesPage
+        from features.admin.presentation.pages.vistas.SucursalesPage import SucursalesPage
         
         self._pagina.controls.clear()
         self._pagina.controls.append(SucursalesPage(self._pagina, self._usuario))
+        safe_update(self._pagina)
+    
+    def _VER_USUARIOS(self, e):
+        """Abre la nueva página moderna de usuarios con logs de auditoría"""
+        from features.admin.presentation.pages.vistas.UsuariosPageModerna import UsuariosPageModerna
+        
+        self._pagina.controls.clear()
+        self._pagina.controls.append(UsuariosPageModerna(self._pagina, self._usuario))
         safe_update(self._pagina)
 
     def _VER_USUARIOS_AVANZADO(self, e):
@@ -479,24 +487,24 @@ class PaginaAdmin(LayoutBase):
         safe_update(self._pagina)
 
     def _VER_EXTRAS(self, e):
-        from features.admin.presentation.pages.gestion.ExtrasPage import ExtrasPage
+        from features.admin.presentation.pages.vistas.ExtrasPageModerna import ExtrasPageModerna
         
         self._pagina.controls.clear()
-        self._pagina.controls.append(ExtrasPage(self._pagina, self._usuario))
+        self._pagina.controls.append(ExtrasPageModerna(self._pagina, self._usuario))
         safe_update(self._pagina)
 
     def _VER_OFERTAS(self, e):
-        from features.admin.presentation.pages.gestion.OfertasPage import OfertasPage
+        from features.admin.presentation.pages.vistas.OfertasPageModerna import OfertasPageModerna
         
         self._pagina.controls.clear()
-        self._pagina.controls.append(OfertasPage(self._pagina, self._usuario))
+        self._pagina.controls.append(OfertasPageModerna(self._pagina, self._usuario))
         safe_update(self._pagina)
 
     def _VER_HORARIOS(self, e):
-        from features.admin.presentation.pages.gestion.HorariosPage import HorariosPage
+        from features.admin.presentation.pages.vistas.HorariosPageModerna import HorariosPageModerna
         
         self._pagina.controls.clear()
-        self._pagina.controls.append(HorariosPage(self._pagina, self._usuario))
+        self._pagina.controls.append(HorariosPageModerna(self._pagina, self._usuario))
         safe_update(self._pagina)
 
     def _VER_PEDIDOS_ADMIN(self, e):
@@ -507,17 +515,17 @@ class PaginaAdmin(LayoutBase):
         safe_update(self._pagina)
 
     def _VER_INSUMOS(self, e):
-        from features.admin.presentation.pages.gestion.InsumosPage import InsumosPage
+        from features.admin.presentation.pages.vistas.InsumosPageModerna import InsumosPageModerna
         
         self._pagina.controls.clear()
-        self._pagina.controls.append(InsumosPage(self._pagina, self._usuario))
+        self._pagina.controls.append(InsumosPageModerna(self._pagina, self._usuario))
         safe_update(self._pagina)
 
     def _VER_PROVEEDORES(self, e):
-        from features.admin.presentation.pages.gestion.ProveedoresPage import ProveedoresPage
+        from features.admin.presentation.pages.vistas.ProveedoresPageModerna import ProveedoresPageModerna
         
         self._pagina.controls.clear()
-        self._pagina.controls.append(ProveedoresPage(self._pagina, self._usuario))
+        self._pagina.controls.append(ProveedoresPageModerna(self._pagina, self._usuario))
         safe_update(self._pagina)
 
     def _VER_CAJA(self, e):
@@ -528,10 +536,10 @@ class PaginaAdmin(LayoutBase):
         safe_update(self._pagina)
 
     def _VER_AUDITORIA(self, e):
-        from features.admin.presentation.pages.vistas.AuditoriaPage import AuditoriaPage
+        from features.admin.presentation.pages.vistas.AuditoriaPageModerna import AuditoriaPageModerna
         
         self._pagina.controls.clear()
-        self._pagina.controls.append(AuditoriaPage(self._pagina, self._usuario))
+        self._pagina.controls.append(AuditoriaPageModerna(self._pagina, self._usuario))
         safe_update(self._pagina)
 
     def _VER_RESENAS(self, e):

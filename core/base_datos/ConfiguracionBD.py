@@ -113,13 +113,23 @@ class MODELO_SUCURSAL(BASE):
     NOMBRE = Column(String(100), unique=True, nullable=False)
     DIRECCION = Column(String(255))
     ACTIVA = Column(Boolean, default=True)
+    ESTADO = Column(String(50), default="ACTIVA")  # ACTIVA, MANTENIMIENTO, VACACIONES, CERRADA
+    TELEFONO = Column(String(20), nullable=True)
+    HORARIO = Column(String(100), nullable=True)
     FECHA_CREACION = Column(DateTime, default=datetime.utcnow)
+    FECHA_ULTIMA_MODIFICACION = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Eliminación lógica
+    ELIMINADA = Column(Boolean, default=False)
+    FECHA_ELIMINACION = Column(DateTime, nullable=True)
+    USUARIO_ELIMINO_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=True)
 
     PRODUCTOS = relationship(
         "MODELO_PRODUCTO", secondary="PRODUCTO_SUCURSAL", back_populates="SUCURSALES"
     )
     PEDIDOS = relationship("MODELO_PEDIDO", back_populates="SUCURSAL")
     CAJAS = relationship("MODELO_CAJA", back_populates="SUCURSAL")
+    USUARIO_ELIMINO = relationship("MODELO_USUARIO", foreign_keys=[USUARIO_ELIMINO_ID])
 
 TABLA_PRODUCTO_SUCURSAL = Table(
     "PRODUCTO_SUCURSAL",
@@ -228,19 +238,43 @@ class MODELO_OFERTA(BASE):
     __tablename__ = "OFERTAS"
 
     ID = Column(Integer, primary_key=True, autoincrement=True)
+    NOMBRE = Column(String(100), nullable=False)  # Nombre descriptivo de la oferta
+    TIPO = Column(String(50), default="DESCUENTO")  # DESCUENTO, 2x1, 3x2, COMBO, ESPECIAL
     PRODUCTO_ID = Column(Integer, ForeignKey("PRODUCTOS.ID"), nullable=False)
     DESCUENTO_PORCENTAJE = Column(Integer, nullable=False)
     FECHA_INICIO = Column(DateTime, default=datetime.utcnow)
-    FECHA_FIN = Column(DateTime, nullable=True)
+    FECHA_FIN = Column(DateTime, nullable=True)  # Fecha fin global (si aplica a todas las sucursales por igual)
     ACTIVA = Column(Boolean, default=True)
+    APLICAR_TODAS_SUCURSALES = Column(Boolean, default=True)  # Si aplica a todas o solo a específicas
+    ELIMINADO = Column(Boolean, default=False)  # Soft delete
 
     PRODUCTO = relationship("MODELO_PRODUCTO")
+    SUCURSALES = relationship("MODELO_OFERTA_SUCURSAL", back_populates="OFERTA", cascade="all, delete-orphan")
+
+# Tabla intermedia para ofertas por sucursal con fechas específicas
+class MODELO_OFERTA_SUCURSAL(BASE):
+    __tablename__ = "OFERTA_SUCURSAL"
+
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    OFERTA_ID = Column(Integer, ForeignKey("OFERTAS.ID"), nullable=False)
+    SUCURSAL_ID = Column(Integer, ForeignKey("SUCURSALES.ID"), nullable=False)
+    FECHA_FIN_ESPECIFICA = Column(DateTime, nullable=True)  # Fecha fin específica para esta sucursal
+    ACTIVA = Column(Boolean, default=True)
+
+    OFERTA = relationship("MODELO_OFERTA", back_populates="SUCURSALES")
+    SUCURSAL = relationship("MODELO_SUCURSAL")
 
 TABLA_INSUMO_PROVEEDOR = Table(
     "INSUMO_PROVEEDOR",
     BASE.metadata,
     Column("INSUMO_ID", Integer, ForeignKey("INSUMOS.ID")),
     Column("PROVEEDOR_ID", Integer, ForeignKey("PROVEEDORES.ID")),
+    Column("PRECIO_PROVEEDOR", Integer, nullable=False, default=0),  # Precio específico del proveedor (en centavos)
+    Column("TIEMPO_ENTREGA", Integer, nullable=True),  # días de entrega
+    Column("STOCK_DISPONIBLE", Integer, nullable=False, default=0),  # stock que tiene el proveedor
+    Column("CODIGO_INTERNO", String(50), nullable=True),  # código del insumo en el proveedor
+    Column("FECHA_ULTIMO_PEDIDO", DateTime, nullable=True),  # último pedido a este proveedor
+    Column("ACTIVO", Boolean, default=True),
 )
 
 class MODELO_PROVEEDOR(BASE):
@@ -258,40 +292,6 @@ class MODELO_PROVEEDOR(BASE):
     INSUMOS = relationship(
         "MODELO_INSUMO", secondary=TABLA_INSUMO_PROVEEDOR, back_populates="PROVEEDORES"
     )
-
-class MODELO_INSUMO(BASE):
-    __tablename__ = "INSUMOS"
-
-    ID = Column(Integer, primary_key=True, autoincrement=True)
-    NOMBRE = Column(String(120), unique=True, nullable=False)
-    UNIDAD = Column(String(20), default="unidad")
-    STOCK = Column(Integer, default=0)
-    COSTO_UNITARIO = Column(Integer, default=0)
-    SUCURSAL_ID = Column(Integer, ForeignKey("SUCURSALES.ID"), nullable=True)
-    ACTIVO = Column(Boolean, default=True)
-    FECHA_CREACION = Column(DateTime, default=datetime.utcnow)
-
-    PROVEEDORES = relationship(
-        "MODELO_PROVEEDOR", secondary=TABLA_INSUMO_PROVEEDOR, back_populates="INSUMOS"
-    )
-    SUCURSAL = relationship("MODELO_SUCURSAL")
-
-class MODELO_MOVIMIENTO_INSUMO(BASE):
-    __tablename__ = "MOVIMIENTOS_INSUMO"
-
-    ID = Column(Integer, primary_key=True, autoincrement=True)
-    INSUMO_ID = Column(Integer, ForeignKey("INSUMOS.ID"), nullable=False)
-    USUARIO_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=False)
-    PROVEEDOR_ID = Column(Integer, ForeignKey("PROVEEDORES.ID"), nullable=True)
-    TIPO = Column(String(20), default="compra")
-    CANTIDAD = Column(Integer, default=0)
-    COSTO_TOTAL = Column(Integer, default=0)
-    FECHA = Column(DateTime, default=datetime.utcnow)
-    NOTAS = Column(String(200))
-
-    INSUMO = relationship("MODELO_INSUMO")
-    USUARIO = relationship("MODELO_USUARIO")
-    PROVEEDOR = relationship("MODELO_PROVEEDOR")
 
 class MODELO_CAJA_MOVIMIENTO(BASE):
     __tablename__ = "CAJA_MOVIMIENTOS"
@@ -340,6 +340,21 @@ class MODELO_HORARIO(BASE):
     DIA_SEMANA = Column(String(10), nullable=False)
     HORA_INICIO = Column(String(5), nullable=False)
     HORA_FIN = Column(String(5), nullable=False)
+    ACTIVO = Column(Boolean, default=True)
+
+    USUARIO = relationship("MODELO_USUARIO")
+
+class MODELO_PLANTILLA(BASE):
+    __tablename__ = "PLANTILLAS"
+
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    NOMBRE = Column(String(100), nullable=False)
+    DESCRIPCION = Column(String(300), nullable=True)
+    HORA_INICIO = Column(String(5), nullable=False)
+    HORA_FIN = Column(String(5), nullable=False)
+    DIAS = Column(String(200), nullable=False)  # JSON string con lista de días
+    CREADO_POR = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=False)
+    FECHA_CREACION = Column(DateTime, default=datetime.utcnow)
     ACTIVO = Column(Boolean, default=True)
 
     USUARIO = relationship("MODELO_USUARIO")
@@ -646,6 +661,9 @@ class MODELO_MENSAJE_CHAT(BASE):
     MENSAJE = Column(String(1000), nullable=False)
     TIPO = Column(String(20), default="texto")
     LEIDO = Column(Boolean, default=False)
+    ESTADO = Column(String(20), default="enviado")  # enviando, enviado, entregado, leido, error
+    HASH = Column(String(64), nullable=True)  # SHA256 hash del mensaje
+    FECHA_LECTURA = Column(DateTime, nullable=True)  # Cuándo fue leído
     FECHA = Column(DateTime, default=datetime.utcnow)
 
 class MODELO_NOTIFICACION(BASE):
@@ -681,6 +699,41 @@ class MODELO_REFILL_SOLICITUD(BASE):
     FECHA_SOLICITUD = Column(DateTime, default=datetime.utcnow)
     FECHA_APROBACION = Column(DateTime, nullable=True)
 
+class MODELO_ALERTA_COCINA(BASE):
+    """Alertas enviadas desde atención a cocina para pedidos urgentes"""
+    __tablename__ = "ALERTAS_COCINA"
+    
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    PEDIDO_ID = Column(Integer, ForeignKey("PEDIDOS.ID"), nullable=False)
+    USUARIO_ENVIA = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=False)
+    SUCURSAL_ID = Column(Integer, ForeignKey("SUCURSALES.ID"), nullable=True)
+    MENSAJE = Column(String(500), nullable=True)
+    PRIORIDAD = Column(String(20), default="normal")  # normal, alta, urgente
+    LEIDA = Column(Boolean, default=False)
+    FECHA_ENVIO = Column(DateTime, default=datetime.utcnow)
+    FECHA_LECTURA = Column(DateTime, nullable=True)
+    
+    PEDIDO = relationship("MODELO_PEDIDO")
+    USUARIO = relationship("MODELO_USUARIO", foreign_keys=[USUARIO_ENVIA])
+    SUCURSAL = relationship("MODELO_SUCURSAL")
+
+class MODELO_EVENTO_REALTIME(BASE):
+    """Registro de eventos en tiempo real para auditoría y replay"""
+    __tablename__ = "EVENTOS_REALTIME"
+    
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    TIPO = Column(String(50), nullable=False)  # voucher_nuevo, pedido_nuevo, alerta_cocina, refill_solicitud
+    SUBTIPO = Column(String(50), nullable=True)  # whatsapp, presencial, delivery, etc
+    PAYLOAD = Column(String(2000), nullable=False)  # JSON del evento
+    USUARIO_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=True)
+    SUCURSAL_ID = Column(Integer, ForeignKey("SUCURSALES.ID"), nullable=True)
+    ENTIDAD_TIPO = Column(String(50), nullable=True)  # PEDIDO, VOUCHER, etc
+    ENTIDAD_ID = Column(Integer, nullable=True)
+    FECHA = Column(DateTime, default=datetime.utcnow)
+    
+    USUARIO = relationship("MODELO_USUARIO")
+    SUCURSAL = relationship("MODELO_SUCURSAL")
+
 class MODELO_CONFIGURACION_SISTEMA(BASE):
     """Configuraciones globales del sistema (tiempos, límites, etc)"""
     __tablename__ = "CONFIGURACION_SISTEMA"
@@ -707,6 +760,86 @@ class MODELO_LOG_CONFIGURACION(BASE):
     FECHA = Column(DateTime, default=datetime.utcnow)
     
     USUARIO = relationship("MODELO_USUARIO")
+
+# ==================== MODELOS DE INSUMOS ====================
+
+class MODELO_INSUMO(BASE):
+    """Insumos (ingredientes) que se compran"""
+    __tablename__ = "INSUMOS"
+    
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    NOMBRE = Column(String(100), unique=True, nullable=False)
+    DESCRIPCION = Column(String(300), nullable=True)
+    UNIDAD = Column(String(20), nullable=False)  # kg, litro, arroba, unidad, etc
+    PRECIO_UNITARIO = Column(Integer, nullable=False)  # en centavos
+    STOCK_ACTUAL = Column(Integer, nullable=False, default=0)  # cantidad en base de la unidad
+    STOCK_MINIMO = Column(Integer, nullable=False, default=0)  # alerta de stock bajo
+    PROVEEDOR = Column(String(100), nullable=True)
+    TIEMPO_PREP = Column(Integer, default=0, nullable=True)  # tiempo de preparación en minutos
+    NOTAS = Column(String(500), nullable=True)  # notas adicionales del insumo
+    ACTIVO = Column(Boolean, default=True)
+    FECHA_CREACION = Column(DateTime, default=datetime.utcnow)
+    FECHA_MODIFICACION = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Nuevos campos para compras programadas
+    FECHA_PROXIMA_COMPRA = Column(DateTime, nullable=True)  # Cuándo comprar siguiente
+    RECORDATORIO_ACTIVO = Column(Boolean, default=False)  # Si el recordatorio está habilitado
+    FRECUENCIA_COMPRA = Column(String(20), nullable=True)  # diaria, semanal, mensual, etc
+    
+    FORMULAS = relationship("MODELO_FORMULA", back_populates="INSUMO", cascade="all, delete-orphan")
+    MOVIMIENTOS = relationship("MODELO_MOVIMIENTO_INSUMO", back_populates="INSUMO", cascade="all, delete-orphan")
+    PROVEEDORES = relationship(
+        "MODELO_PROVEEDOR", secondary=TABLA_INSUMO_PROVEEDOR, back_populates="INSUMOS"
+    )
+
+class MODELO_FORMULA(BASE):
+    """Fórmulas/Recetas: relación insumo-producto (cuánto insumo por producto)"""
+    __tablename__ = "FORMULAS"
+    
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    PRODUCTO_ID = Column(Integer, ForeignKey("PRODUCTOS.ID"), nullable=False)
+    INSUMO_ID = Column(Integer, ForeignKey("INSUMOS.ID"), nullable=False)
+    CANTIDAD = Column(Integer, nullable=False)  # cantidad de insumo por producto
+    UNIDAD = Column(String(20), nullable=False)  # misma unidad del insumo
+    TIEMPO_PREP = Column(Integer, default=0, nullable=True)  # tiempo de preparación en minutos
+    NOTAS = Column(String(200), nullable=True)
+    ACTIVA = Column(Boolean, default=True)
+    FECHA_CREACION = Column(DateTime, default=datetime.utcnow)
+    
+    PRODUCTO = relationship("MODELO_PRODUCTO")
+    INSUMO = relationship("MODELO_INSUMO", back_populates="FORMULAS")
+
+class MODELO_MOVIMIENTO_INSUMO(BASE):
+    """Registro de movimientos de insumos (entrada, salida, ajuste)"""
+    __tablename__ = "MOVIMIENTOS_INSUMO"
+    
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    INSUMO_ID = Column(Integer, ForeignKey("INSUMOS.ID"), nullable=False)
+    TIPO = Column(String(20), nullable=False)  # ENTRADA, SALIDA, AJUSTE, PRODUCCION
+    CANTIDAD = Column(Integer, nullable=False)  # positivo o negativo
+    STOCK_ANTERIOR = Column(Integer, nullable=False)
+    STOCK_NUEVO = Column(Integer, nullable=False)
+    OBSERVACION = Column(String(300), nullable=True)
+    USUARIO_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=True)
+    FECHA = Column(DateTime, default=datetime.utcnow)
+    
+    INSUMO = relationship("MODELO_INSUMO", back_populates="MOVIMIENTOS")
+    USUARIO = relationship("MODELO_USUARIO")
+
+class MODELO_ALERTA_INSUMO(BASE):
+    """Alertas de stock bajo en insumos"""
+    __tablename__ = "ALERTAS_INSUMO"
+    
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    INSUMO_ID = Column(Integer, ForeignKey("INSUMOS.ID"), nullable=False)
+    TIPO = Column(String(20), nullable=False)  # stock_bajo, compra_vencida, etc
+    MENSAJE = Column(String(300), nullable=False)
+    LEIDA = Column(Boolean, default=False)
+    RESUELTA = Column(Boolean, default=False)  # Si fue resuelta
+    FECHA_CREACION = Column(DateTime, default=datetime.utcnow)
+    FECHA_RESOLUCION = Column(DateTime, nullable=True)
+    
+    INSUMO = relationship("MODELO_INSUMO")
 
 def OBTENER_SESION():
     return SESION_FACTORY()

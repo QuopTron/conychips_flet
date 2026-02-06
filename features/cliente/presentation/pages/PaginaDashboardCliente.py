@@ -7,10 +7,12 @@ from core.base_datos.ConfiguracionBD import (
     MODELO_PRODUCTO,
     MODELO_VOUCHER,
     MODELO_CALIFICACION,
+    MODELO_USUARIO,
 )
 from core.constantes import COLORES, TAMANOS, ICONOS
 from core.decoradores.DecoradorVistas import REQUIERE_ROL
 from core.websocket.GestorNotificaciones import GestorNotificaciones
+from core.chat.ChatFlotante import ChatFlotante
 
 @REQUIERE_ROL("CLIENTE", "ADMIN", "SUPERADMIN")
 class PaginaDashboardCliente:
@@ -24,6 +26,19 @@ class PaginaDashboardCliente:
         self.PRODUCTOS_LISTA = ft.ListView(spacing=10, expand=True)
         self.DIALOG_PRODUCTO = None
         self.CARRITO = []
+        
+        # Obtener rol del usuario
+        sesion = OBTENER_SESION()
+        usuario = sesion.query(MODELO_USUARIO).get(USUARIO_ID)
+        rol_usuario = usuario.ROLES[0].NOMBRE if usuario and usuario.ROLES else "CLIENTE"
+        sesion.close()
+        
+        # Chat flotante
+        self.CHAT_FLOTANTE = ChatFlotante(
+            pagina=PAGINA,
+            usuario_id=USUARIO_ID,
+            usuario_rol=rol_usuario
+        )
         
         self._CARGAR_DATOS()
     
@@ -441,8 +456,22 @@ class PaginaDashboardCliente:
         pass
     
     
+    
     def _ABRIR_CHAT(self, PEDIDO):
-        pass
+        """Abre el chat para un pedido específico"""
+        from core.chat.ChatDialog import ChatDialog
+        
+        chat = ChatDialog(
+            pagina=self.PAGINA,
+            pedido_id=PEDIDO.ID,
+            usuario_id=self.USUARIO_ID,
+            on_cerrar=lambda: None
+        )
+        
+        chat.ABRIR()
+        self.PAGINA.dialog = dialog
+        dialog.open = True
+        self.PAGINA.update()
     
     
     def _CERRAR_DIALOG(self):
@@ -452,7 +481,8 @@ class PaginaDashboardCliente:
     
     
     def CONSTRUIR(self) -> ft.Control:
-        return ft.Column([
+        # Contenido principal
+        contenido_principal = ft.Column([
             ft.Text("Dashboard Cliente", size=TAMANOS.TITULO, weight=ft.FontWeight.BOLD),
             
             ft.Tabs(
@@ -490,4 +520,10 @@ class PaginaDashboardCliente:
                 length=2,
                 selected_index=0,
             )
+        ], expand=True)
+        
+        # Envolver en Stack para agregar chat flotante
+        return ft.Stack([
+            contenido_principal,
+            self.CHAT_FLOTANTE
         ], expand=True)

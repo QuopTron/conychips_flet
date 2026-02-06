@@ -60,7 +60,7 @@ class StatsFinanzas(ft.Container):
             padding=12,
             bgcolor=FONDO_TARJETA,
             border_radius=10,
-            border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT)
+            border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT)
         )
     
     def actualizar_desde_estado(self, estado: EstadoFinanzasCargado):

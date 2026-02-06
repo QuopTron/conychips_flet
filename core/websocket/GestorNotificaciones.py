@@ -9,6 +9,7 @@ from core.base_datos.ConfiguracionBD import (
     MODELO_MENSAJE_CHAT,
     MODELO_UBICACION_MOTORIZADO,
 )
+from core.audio.GestorSonidos import GestorSonidos
 
 class GestorNotificaciones:
     
@@ -38,6 +39,7 @@ class GestorNotificaciones:
             "refill": [],
             "sistema": [],
         }
+        self.GESTOR_SONIDOS = GestorSonidos()
         self._INICIALIZADO = True
     
     
@@ -108,7 +110,6 @@ class GestorNotificaciones:
         await self._ENVIAR_A_USUARIO(USUARIO_ID, PAYLOAD)
         await self._EJECUTAR_CALLBACKS_TIPO(TIPO, PAYLOAD)
     
-    
     async def ENVIAR_MENSAJE_CHAT(
         self,
         PEDIDO_ID: int,
@@ -136,6 +137,7 @@ class GestorNotificaciones:
             "mensaje": MENSAJE,
             "tipo_mensaje": TIPO,
             "fecha": datetime.now(timezone.utc).isoformat(),
+            "sonido": True,  # Indicar que debe reproducir sonido
         }
         
         sesion.close()
@@ -244,18 +246,42 @@ class GestorNotificaciones:
     
     
     async def _BROADCAST_PEDIDO(self, PEDIDO_ID: int, PAYLOAD: dict):
-        from core.base_datos.ConfiguracionBD import MODELO_PEDIDO
+        from core.base_datos.ConfiguracionBD import MODELO_PEDIDO, MODELO_ROL
         
         sesion = OBTENER_SESION()
         pedido = sesion.query(MODELO_PEDIDO).filter_by(ID=PEDIDO_ID).first()
         
+        USUARIOS_NOTIFICAR = []
+        
         if pedido:
-            USUARIOS_NOTIFICAR = [pedido.CLIENTE_ID]
+            # Agregar cliente
+            USUARIOS_NOTIFICAR.append(pedido.CLIENTE_ID)
             
+            # Agregar motorizado si existe
             if hasattr(pedido, 'MOTORIZADO_ID') and pedido.MOTORIZADO_ID:
                 USUARIOS_NOTIFICAR.append(pedido.MOTORIZADO_ID)
+            
+            # Agregar todos los admins de la sucursal
+            from core.base_datos.ConfiguracionBD import MODELO_USUARIO
+            rol_admin = sesion.query(MODELO_ROL).filter_by(NOMBRE="ADMIN").first()
+            
+            if rol_admin:
+                admins = sesion.query(MODELO_USUARIO).filter(
+                    MODELO_USUARIO.ROLES.any(MODELO_ROL.NOMBRE == "ADMIN")
+                ).all()
+                
+                for admin in admins:
+                    if admin.ID not in USUARIOS_NOTIFICAR:
+                        USUARIOS_NOTIFICAR.append(admin.ID)
         
         sesion.close()
+        
+        # Reproducir sonido si es un mensaje de chat
+        if PAYLOAD.get("sonido", False) and PAYLOAD.get("tipo") == "chat":
+            try:
+                self.GESTOR_SONIDOS.NOTIFICAR_MENSAJE_NUEVO()
+            except Exception as e:
+                print(f"Error reproduciendo sonido: {e}")
         
         for USUARIO_ID in USUARIOS_NOTIFICAR:
             await self._ENVIAR_A_USUARIO(USUARIO_ID, PAYLOAD)

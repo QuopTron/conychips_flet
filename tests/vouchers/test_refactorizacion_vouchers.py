@@ -24,12 +24,12 @@ def test_imports():
         )
         print("✓ Casos de uso importados")
         
-        return True
+        assert True
     except Exception as e:
         print(f"✗ Error en imports: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        assert False
 
 def test_voucher_entity():
     print("\n" + "="*60)
@@ -65,12 +65,12 @@ def test_voucher_entity():
         print(f"  - Rechazado: {voucher.rechazado}")
         print(f"  - Motivo: {voucher.motivo_rechazo}")
         
-        return True
+        assert True
     except Exception as e:
         print(f"✗ Error: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        assert False
 
 def test_database():
     print("\n" + "="*60)
@@ -82,9 +82,20 @@ def test_database():
         from sqlalchemy import text
         
         sesion = OBTENER_SESION()
-        
-        
-        columnas = [row[0] for row in result.fetchall()]
+
+        # Obtener nombres de columnas usando el inspector de SQLAlchemy
+        from sqlalchemy import inspect
+        try:
+            inspector = inspect(sesion.bind)
+            columnas = [c['name'] for c in inspector.get_columns('VOUCHERS')]
+        except Exception:
+            # Fallback simple: intentar una consulta limitada y extraer keys
+            try:
+                result = sesion.execute(text("SELECT * FROM VOUCHERS LIMIT 0"))
+                columnas = list(result.keys())
+            except Exception:
+                columnas = []
+
         sesion.close()
         
         print(f"Columnas en VOUCHERS: {', '.join(columnas)}")
@@ -97,12 +108,12 @@ def test_database():
                 print(f"✗ Columna {col} NO existe")
                 return False
         
-        return True
+        assert True
     except Exception as e:
         print(f"✗ Error: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        assert False
 
 def test_use_case():
     print("\n" + "="*60)
@@ -133,12 +144,12 @@ def test_use_case():
             print("✗ Debería detectar voucher inexistente")
             return False
         
-        return True
+        assert True
     except Exception as e:
         print(f"✗ Error: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        assert False
 
 def test_bloc():
     print("\n" + "="*60)
@@ -166,12 +177,12 @@ def test_bloc():
         assert hasattr(evento, 'motivo'), "Falta campo motivo en RechazarVoucherEvento"
         print("✓ RechazarVoucherEvento tiene campo motivo")
         
-        return True
+        assert True
     except Exception as e:
         print(f"✗ Error: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        assert False
 
 if __name__ == "__main__":
     print("\n" + "="*60)

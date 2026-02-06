@@ -6,12 +6,15 @@ from core.base_datos.ConfiguracionBD import (
     MODELO_PEDIDO,
     MODELO_CAJA,
     MODELO_CAJA_MOVIMIENTO,
+    MODELO_USUARIO,
+    MODELO_INSUMO,
 )
 from core.constantes import COLORES, TAMANOS, ICONOS
 from core.decoradores.DecoradorVistas import REQUIERE_ROL
 from core.websocket.GestorNotificaciones import GestorNotificaciones
 from core.realtime import dispatcher
 from core.realtime.broker_notify import notify
+from core.chat.ChatFlotante import ChatFlotante
 
 @REQUIERE_ROL("ATENCION", "ADMIN", "SUPERADMIN")
 class PaginaDashboardAtencion:
@@ -28,6 +31,19 @@ class PaginaDashboardAtencion:
         self.SALDO_ACTUAL = ft.Text("S/ 0.00", size=24, weight=ft.FontWeight.BOLD, color=COLORES.EXITO)
         # Pending count badge
         self.PEDIDOS_PENDIENTES_CHIP = ft.Chip(label=ft.Text("0"), bgcolor=COLORES.ADVERTENCIA)
+        
+        # Obtener rol del usuario
+        sesion = OBTENER_SESION()
+        usuario = sesion.query(MODELO_USUARIO).get(USUARIO_ID)
+        rol_usuario = usuario.ROLES[0].NOMBRE if usuario and usuario.ROLES else "ATENCION"
+        sesion.close()
+        
+        # Chat flotante
+        self.CHAT_FLOTANTE = ChatFlotante(
+            pagina=PAGINA,
+            usuario_id=USUARIO_ID,
+            usuario_rol=rol_usuario
+        )
         
         self._CARGAR_DATOS()
         # load pending whatsapp orders and register realtime callbacks
@@ -157,12 +173,21 @@ class PaginaDashboardAtencion:
                     color=COLORES.TEXTO_SECUNDARIO,
                     size=12
                 ),
-                ft.Button(
-                    "Servir y Cobrar",
-                    icon=ICONOS.CONFIRMAR,
-                    bgcolor=COLORES.EXITO,
-                    on_click=lambda e, p=PEDIDO: self._SERVIR_PEDIDO(p),
-                ),
+                ft.Row([
+                    ft.Button(
+                        "Servir y Cobrar",
+                        icon=ICONOS.CONFIRMAR,
+                        bgcolor=COLORES.EXITO,
+                        on_click=lambda e, p=PEDIDO: self._SERVIR_PEDIDO(p),
+                        expand=True,
+                    ),
+                    ft.IconButton(
+                        icon=ICONOS.CHAT,
+                        icon_color=COLORES.PRIMARIO,
+                        tooltip="Chat con cliente",
+                        on_click=lambda e, p=PEDIDO: self._ABRIR_CHAT_PEDIDO(p),
+                    ),
+                ]),
             ], spacing=10),
             padding=15,
             border=ft.Border.all(1, COLORES.BORDE),
@@ -218,6 +243,20 @@ class PaginaDashboardAtencion:
         )
         self.PAGINA.snack_bar.open = True
         self.PAGINA.update()
+    
+    
+    def _ABRIR_CHAT_PEDIDO(self, PEDIDO):
+        """Abre el chat para un pedido específico"""
+        from core.chat.ChatDialog import ChatDialog
+        
+        chat = ChatDialog(
+            pagina=self.PAGINA,
+            pedido_id=PEDIDO.ID,
+            usuario_id=self.USUARIO_ID,
+            on_cerrar=lambda: None
+        )
+        
+        chat.ABRIR()
     
     
     def _ABRIR_CAJA(self):
@@ -435,8 +474,37 @@ class PaginaDashboardAtencion:
             if p:
                 p.ESTADO = 'EN_PREPARACION'
                 sesion.commit()
+                
+                # Emitir evento realtime
                 try:
-                    notify({'type':'pedido_actualizado','pedido_id':pedido_id,'nuevo_estado':'EN_PREPARACION'})
+                    from core.base_datos.ConfiguracionBD import MODELO_EVENTO_REALTIME
+                    import json
+                    from datetime import datetime, timezone
+                    
+                    payload = {
+                        'tipo': 'pedido_aprobado',
+                        'pedido_id': pedido_id,
+                        'nuevo_estado': 'EN_PREPARACION',
+                        'usuario_id': self.USUARIO_ID,
+                        'sucursal_id': p.SUCURSAL_ID,
+                        'fecha': datetime.now(timezone.utc).isoformat()
+                    }
+                    
+                    # Guardar en BD
+                    evento_rt = MODELO_EVENTO_REALTIME(
+                        TIPO="pedido_aprobado",
+                        SUBTIPO="whatsapp",
+                        PAYLOAD=json.dumps(payload),
+                        USUARIO_ID=self.USUARIO_ID,
+                        SUCURSAL_ID=p.SUCURSAL_ID,
+                        ENTIDAD_TIPO="PEDIDO",
+                        ENTIDAD_ID=pedido_id
+                    )
+                    sesion.add(evento_rt)
+                    sesion.commit()
+                    
+                    # Broadcast
+                    notify(payload)
                 except Exception:
                     pass
         finally:
@@ -444,16 +512,146 @@ class PaginaDashboardAtencion:
         self._CARGAR_PENDIENTES()
 
     def _alertar_cocina(self, pedido_id: int):
+        sesion = OBTENER_SESION()
         try:
-            notify({'type':'pedido_alerta_cocina','pedido_id':pedido_id})
-        except Exception:
-            pass
+            from core.base_datos.ConfiguracionBD import MODELO_ALERTA_COCINA, MODELO_EVENTO_REALTIME
+            import json
+            from datetime import datetime, timezone
+            
+            # Obtener pedido para contexto
+            pedido = sesion.query(MODELO_PEDIDO).filter_by(ID=pedido_id).first()
+            if not pedido:
+                return
+            
+            # Crear alerta en BD
+            alerta = MODELO_ALERTA_COCINA(
+                PEDIDO_ID=pedido_id,
+                USUARIO_ENVIA=self.USUARIO_ID,
+                SUCURSAL_ID=pedido.SUCURSAL_ID,
+                MENSAJE=f"Pedido #{pedido_id} requiere atención urgente",
+                PRIORIDAD="alta"
+            )
+            sesion.add(alerta)
+            sesion.commit()
+            
+            # Evento realtime
+            payload = {
+                'tipo': 'alerta_cocina',
+                'alerta_id': alerta.ID,
+                'pedido_id': pedido_id,
+                'usuario_id': self.USUARIO_ID,
+                'sucursal_id': pedido.SUCURSAL_ID,
+                'mensaje': alerta.MENSAJE,
+                'prioridad': 'alta',
+                'fecha': datetime.now(timezone.utc).isoformat()
+            }
+            
+            evento_rt = MODELO_EVENTO_REALTIME(
+                TIPO="alerta_cocina",
+                PAYLOAD=json.dumps(payload),
+                USUARIO_ID=self.USUARIO_ID,
+                SUCURSAL_ID=pedido.SUCURSAL_ID,
+                ENTIDAD_TIPO="PEDIDO",
+                ENTIDAD_ID=pedido_id
+            )
+            sesion.add(evento_rt)
+            sesion.commit()
+            
+            # Broadcast
+            notify(payload)
+            
+            # Mostrar confirmación
+            if self.PAGINA:
+                self.PAGINA.snack_bar = ft.SnackBar(
+                    content=ft.Text(f"✅ Alerta enviada a cocina para pedido #{pedido_id}"),
+                    bgcolor=COLORES.EXITO
+                )
+                self.PAGINA.snack_bar.open = True
+                self.PAGINA.update()
+        except Exception as e:
+            if self.PAGINA:
+                self.PAGINA.snack_bar = ft.SnackBar(
+                    content=ft.Text(f"❌ Error: {str(e)}"),
+                    bgcolor=COLORES.ERROR
+                )
+                self.PAGINA.snack_bar.open = True
+                self.PAGINA.update()
+        finally:
+            sesion.close()
 
     def _pedir_refill(self, pedido_id: int):
+        sesion = OBTENER_SESION()
         try:
-            notify({'type':'pedido_refill','pedido_id':pedido_id})
-        except Exception:
-            pass
+            from core.base_datos.ConfiguracionBD import MODELO_REFILL_SOLICITUD, MODELO_EVENTO_REALTIME, MODELO_INSUMO
+            import json
+            from datetime import datetime, timezone
+            
+            # Para simplificar, creamos solicitud genérica
+            # En producción deberías mostrar diálogo para seleccionar insumo
+            insumo_generico = sesion.query(MODELO_INSUMO).first()
+            if not insumo_generico:
+                if self.PAGINA:
+                    self.PAGINA.snack_bar = ft.SnackBar(
+                        content=ft.Text("❌ No hay insumos en el sistema"),
+                        bgcolor=COLORES.ERROR
+                    )
+                    self.PAGINA.snack_bar.open = True
+                    self.PAGINA.update()
+                return
+            
+            # Crear solicitud de refill
+            refill = MODELO_REFILL_SOLICITUD(
+                INSUMO_ID=insumo_generico.ID,
+                USUARIO_SOLICITA=self.USUARIO_ID,
+                CANTIDAD_SOLICITADA=1,
+                ESTADO="pendiente"
+            )
+            sesion.add(refill)
+            sesion.commit()
+            
+            # Evento realtime
+            payload = {
+                'tipo': 'refill_solicitado',
+                'refill_id': refill.ID,
+                'insumo_id': insumo_generico.ID,
+                'insumo_nombre': insumo_generico.NOMBRE,
+                'cantidad': 1,
+                'usuario_id': self.USUARIO_ID,
+                'pedido_id': pedido_id,
+                'fecha': datetime.now(timezone.utc).isoformat()
+            }
+            
+            evento_rt = MODELO_EVENTO_REALTIME(
+                TIPO="refill_solicitado",
+                PAYLOAD=json.dumps(payload),
+                USUARIO_ID=self.USUARIO_ID,
+                ENTIDAD_TIPO="REFILL_SOLICITUD",
+                ENTIDAD_ID=refill.ID
+            )
+            sesion.add(evento_rt)
+            sesion.commit()
+            
+            # Broadcast
+            notify(payload)
+            
+            # Confirmación
+            if self.PAGINA:
+                self.PAGINA.snack_bar = ft.SnackBar(
+                    content=ft.Text(f"✅ Solicitud de refill enviada"),
+                    bgcolor=COLORES.EXITO
+                )
+                self.PAGINA.snack_bar.open = True
+                self.PAGINA.update()
+        except Exception as e:
+            if self.PAGINA:
+                self.PAGINA.snack_bar = ft.SnackBar(
+                    content=ft.Text(f"❌ Error: {str(e)}"),
+                    bgcolor=COLORES.ERROR
+                )
+                self.PAGINA.snack_bar.open = True
+                self.PAGINA.update()
+        finally:
+            sesion.close()
 
     def _on_realtime_pedido(self, payload: dict):
         # refresh pending list on incoming pedido events
@@ -472,7 +670,8 @@ class PaginaDashboardAtencion:
     
     
     def CONSTRUIR(self) -> ft.Control:
-        return ft.Column([
+        # Contenido principal
+        contenido_principal = ft.Column([
             ft.Row([ft.Text("Dashboard Atención", size=TAMANOS.TITULO, weight=ft.FontWeight.BOLD), ft.Container(expand=True), ft.Row([ft.Button("Registrar Pedido en Tienda", icon=ICONOS.PEDIDO, on_click=self._registrar_pedido_tienda, bgcolor=COLORES.PRIMARIO), ft.IconButton(icon=ICONOS.ALERTA, tooltip="Pedidos pendientes", on_click=self._abrir_dialog_pendientes), self.PEDIDOS_PENDIENTES_CHIP])]),
             
             ft.Container(
@@ -522,4 +721,10 @@ class PaginaDashboardAtencion:
                 length=2,
                 selected_index=0,
             )
+        ], expand=True)
+        
+        # Envolver en Stack para agregar chat flotante
+        return ft.Stack([
+            contenido_principal,
+            self.CHAT_FLOTANTE
         ], expand=True)

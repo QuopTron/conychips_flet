@@ -31,7 +31,7 @@ class FakeUser:
         return rol in self._roles
 
     def TIENE_PERMISO(self, permiso):
-        return False
+        assert False
 
 _orig_create_task = asyncio.create_task
 asyncio.create_task = lambda coro: None

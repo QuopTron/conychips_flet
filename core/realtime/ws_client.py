@@ -37,10 +37,10 @@ async def run_client(stop_event: asyncio.Event = None):
                     log.debug('Received WS event: %s', payload)
                     # Log and dispatch to registered local callbacks
                     try:
-                        from core.realtime import dispatcher, logs
+                        from core.realtime import dispatcher, append_log
                         # append to logs for admin/superadmin
                         try:
-                            logs.append(payload)
+                            append_log(payload)
                         except Exception:
                             pass
 

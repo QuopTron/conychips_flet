@@ -13,7 +13,7 @@ class VouchersInicial(VouchersEstado):
 
 @dataclass
 class VouchersCargando(VouchersEstado):
-    pass
+    estado_actual: str = "PENDIENTE"
 
 @dataclass
 class VouchersCargados(VouchersEstado):

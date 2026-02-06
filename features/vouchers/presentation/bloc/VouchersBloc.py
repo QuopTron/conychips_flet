@@ -13,9 +13,11 @@ from ...data.RepositorioVouchersImpl import REPOSITORIO_VOUCHERS_IMPL
 
 class VouchersBloc:
     
-    def __init__(self):
+    def __init__(self, use_threads: bool = True):
         self._estado: VouchersEstado = VouchersInicial()
         self._listeners: List[Callable[[VouchersEstado], None]] = []
+        self._disposed = False
+        self._use_threads = use_threads
         
         self._estado_filtro = "PENDIENTE"
         self._offset_actual = 0
@@ -28,6 +30,27 @@ class VouchersBloc:
         self._aprobar_voucher = AprobarVoucher(REPOSITORIO_VOUCHERS_IMPL)
         self._rechazar_voucher = RechazarVoucher(REPOSITORIO_VOUCHERS_IMPL)
         self._obtener_estadisticas = ObtenerEstadisticasVouchers(REPOSITORIO_VOUCHERS_IMPL)
+        
+        # Registrar callback para eventos realtime de vouchers
+        self._registrar_realtime()
+    
+    def _registrar_realtime(self):
+        """Registra callbacks para eventos WebSocket de nuevos vouchers"""
+        try:
+            from core.realtime import dispatcher
+            dispatcher.register('voucher_nuevo', self._on_voucher_nuevo_realtime)
+            dispatcher.register('voucher_whatsapp', self._on_voucher_nuevo_realtime)
+        except Exception as e:
+            pass  # Silenciar si dispatcher no disponible
+    
+    def _on_voucher_nuevo_realtime(self, payload: dict):
+        """Callback cuando llega un nuevo voucher via WebSocket"""
+        try:
+            # Recargar vouchers pendientes para mostrar el nuevo
+            evento = CargarVouchers(estado="PENDIENTE", offset=0, sucursal_id=payload.get('sucursal_id'))
+            self.AGREGAR_EVENTO(evento)
+        except Exception as e:
+            pass
     
     @property
     def ESTADO(self) -> VouchersEstado:
@@ -79,7 +102,7 @@ class VouchersBloc:
         self._vouchers_por_estado[estado_solicitado] = []
         self._vouchers_actuales = []
 
-        self._CAMBIAR_ESTADO(VouchersCargando())
+        self._CAMBIAR_ESTADO(VouchersCargando(estado_actual=estado_solicitado))
 
         thread = threading.Thread(target=self._cargar_vouchers_sync, args=(estado_solicitado, offset, sucursal_id), daemon=True)
         thread.start()
@@ -124,7 +147,7 @@ class VouchersBloc:
         self._vouchers_actuales = []
 
         estado_solicitado = evento.nuevo_estado
-        self._CAMBIAR_ESTADO(VouchersCargando())
+        self._CAMBIAR_ESTADO(VouchersCargando(estado_actual=estado_solicitado))
 
         thread = threading.Thread(target=self._cargar_vouchers_sync, args=(estado_solicitado, 0, None), daemon=True)
         thread.start()
@@ -135,12 +158,14 @@ class VouchersBloc:
     
     def _cargar_vouchers_sync(self, estado: str, offset: int = 0, sucursal_id: int | None = None):
         try:
+            print(f"[DEBUG BLoC] _cargar_vouchers_sync iniciado - estado: {estado}, offset: {offset}, sucursal_id: {sucursal_id}")
             # Usar el estado proporcionado explícitamente para evitar race conditions
             vouchers = self._obtener_vouchers.ejecutar(
                 estado,
                 self._limite,
                 offset
             )
+            print(f"[DEBUG BLoC] Vouchers obtenidos: {len(vouchers)} items")
 
             # Guardar en la lista por estado y en el arreglo actual
             self._vouchers_por_estado.setdefault(estado, [])
@@ -149,6 +174,8 @@ class VouchersBloc:
 
             total = REPOSITORIO_VOUCHERS_IMPL.contar_por_estado(estado)
             tiene_mas = (offset + len(vouchers)) < total
+            
+            print(f"[DEBUG BLoC] Emitiendo VouchersCargados - {len(vouchers)} vouchers, total: {total}, tiene_mas: {tiene_mas}")
 
             self._CAMBIAR_ESTADO(VouchersCargados(
                 vouchers=vouchers,
@@ -156,7 +183,11 @@ class VouchersBloc:
                 tiene_mas=tiene_mas,
                 estado_actual=estado
             ))
+            print(f"[DEBUG BLoC] Estado VouchersCargados emitido correctamente")
         except Exception as error:
+            print(f"[DEBUG BLoC] Error en _cargar_vouchers_sync: {error}")
+            import traceback
+            traceback.print_exc()
             self._CAMBIAR_ESTADO(VouchersError(mensaje=f"Error: {str(error)}"))
     
     def _cargar_mas_sync(self, estado: str, offset: int = 0, snapshot_vouchers=None, sucursal_id: int | None = None):
@@ -195,6 +226,7 @@ class VouchersBloc:
             resultado = self._aprobar_voucher.ejecutar(voucher_id, validador_id)
             
             if resultado["exito"]:
+                # Recargar el estado actual (generalmente PENDIENTE)
                 vouchers = self._obtener_vouchers.ejecutar(
                     self._estado_filtro,
                     self._limite,
@@ -210,12 +242,13 @@ class VouchersBloc:
                 total = REPOSITORIO_VOUCHERS_IMPL.contar_por_estado(self._estado_filtro)
                 tiene_mas = len(vouchers) < total
                 
+                # Emitir VoucherValidado con el estado destino = APROBADO
                 self._CAMBIAR_ESTADO(VoucherValidado(
                     mensaje=resultado["mensaje"],
                     vouchers=vouchers,
                     total=total,
                     tiene_mas=tiene_mas,
-                    estado_actual=self._estado_filtro
+                    estado_actual="APROBADO"  # Estado al que se movió el voucher
                 ))
             else:
                 self._CAMBIAR_ESTADO(VouchersError(mensaje=resultado["mensaje"]))
@@ -248,12 +281,13 @@ class VouchersBloc:
                 tiene_mas = len(vouchers) < total
                 
                 print(f"[DEBUG BLoC] Emitiendo VoucherValidado")
+                # Emitir VoucherValidado con el estado destino = RECHAZADO
                 self._CAMBIAR_ESTADO(VoucherValidado(
                     mensaje=resultado["mensaje"],
                     vouchers=vouchers,
                     total=total,
                     tiene_mas=tiene_mas,
-                    estado_actual=self._estado_filtro
+                    estado_actual="RECHAZADO"  # Estado al que se movió el voucher
                 ))
             else:
                 print(f"[DEBUG BLoC] Rechazo fallido: {resultado['mensaje']}")

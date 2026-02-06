@@ -31,7 +31,7 @@ def test_flujo_navegacion(pagina: ft.Page):
     
     if not usuario:
         print("❌ Error: Usuario no encontrado")
-        return False
+        assert False
     print(f"✅ Usuario cargado: {usuario.EMAIL}")
     
     # 2. Crear Dashboard
@@ -85,7 +85,7 @@ def test_flujo_navegacion(pagina: ft.Page):
     print("✅ FLUJO DE NAVEGACIÓN COMPLETADO EXITOSAMENTE")
     print("=" * 60)
     
-    return True
+    assert True
 
 
 def main(pagina: ft.Page):

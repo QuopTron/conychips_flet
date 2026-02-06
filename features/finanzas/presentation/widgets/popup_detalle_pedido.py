@@ -90,7 +90,7 @@ class PopupDetallePedido(ft.AlertDialog):
                                     color=ft.Colors.WHITE
                                 ),
                                 bgcolor=color_estado,
-                                padding=ft.padding.symmetric(horizontal=12, vertical=6),
+                                padding=ft.Padding.symmetric(horizontal=12, vertical=6),
                                 border_radius=12
                             )
                         ],
@@ -238,7 +238,7 @@ class PopupDetallePedido(ft.AlertDialog):
                 ft.DataColumn(ft.Text("Subtotal", weight=ft.FontWeight.BOLD))
             ],
             rows=filas,
-            border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
+            border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
             border_radius=8,
             horizontal_lines=ft.BorderSide(1, ft.Colors.OUTLINE_VARIANT)
         )

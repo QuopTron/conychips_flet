@@ -1,0 +1,963 @@
+"""
+Página moderna de gestión de ofertas con sistema avanzado
+Incluye: Tipos de oferta, sucursales específicas, tiempos personalizados, overlays hermosos
+"""
+import flet as ft
+from typing import Optional, List, Dict
+from datetime import datetime, timedelta
+import threading
+import time
+from core.base_datos.ConfiguracionBD import (
+    MODELO_OFERTA, MODELO_PRODUCTO, MODELO_SUCURSAL, 
+    MODELO_OFERTA_SUCURSAL, OBTENER_SESION
+)
+from core.ui.safe_actions import safe_update
+from features.admin.presentation.widgets.LayoutBase import LayoutBase
+from core.realtime.broker_notify import notify
+from core.realtime import dispatcher
+from core.decoradores.DecoradorPermisosUI import requiere_permiso_ui
+from core.Constantes import ROLES
+
+
+# Tipos de oferta disponibles
+TIPOS_OFERTA = [
+    ("DESCUENTO", "💰 Descuento", "Descuento porcentual directo"),
+    ("2X1", "🎁 2x1", "Dos productos por el precio de uno"),
+    ("3X2", "🎉 3x2", "Tres productos por el precio de dos"),
+    ("COMBO", "🍔 Combo", "Oferta especial en combo"),
+    ("ESPECIAL", "⭐ Especial", "Oferta especial del día"),
+    ("FLASH", "⚡ Flash", "Oferta relámpago limitada")
+]
+
+
+class OfertasPageModerna(LayoutBase):
+    """Página moderna para gestión de ofertas con configuración avanzada"""
+
+    def __init__(self, pagina: ft.Page, usuario):
+        # Caches y filtros
+        self._ofertas_cache: List = []
+        self._productos_cache: List = []
+        self._sucursales_cache: List = []
+        self._filtro_estado = "ACTIVAS"
+        self._filtro_busqueda = ""
+        
+        # Componentes UI
+        self._lista_ofertas: Optional[ft.Column] = None
+        self._campo_busqueda: Optional[ft.TextField] = None
+        
+        # Overlays
+        self._overlay_crear: Optional[ft.AlertDialog] = None
+        self._overlay_editar: Optional[ft.AlertDialog] = None
+        self._overlay_configurar_sucursales: Optional[ft.AlertDialog] = None
+        
+        # Timer de expiración
+        self._timer_thread: Optional[threading.Thread] = None
+        self._timer_running = False
+        
+        # Estado temporal para creación de oferta
+        self._temp_oferta_data: Dict = {}
+        self._temp_sucursales_seleccionadas: List = []
+        self._temp_oferta_editando: Optional[int] = None
+        
+        # Guardar referencia al usuario para decoradores
+        self.usuario = usuario
+        self.pagina = pagina
+        
+        # Inicializar LayoutBase
+        super().__init__(
+            pagina=pagina,
+            usuario=usuario,
+            titulo_vista="🏷️ Gestión de Ofertas Avanzada",
+            mostrar_boton_volver=True,
+            index_navegacion=0,
+            on_volver_dashboard=self._volver_dashboard,
+            on_cerrar_sesion=self._cerrar_sesion
+        )
+        
+        # Construir interfaz
+        contenido = self._construir_contenido()
+        self.construir(contenido)
+        
+        # Registrar websocket handlers
+        dispatcher.register("oferta_expirada", self._on_oferta_expirada)
+        dispatcher.register("oferta_actualizada", self._on_oferta_actualizada)
+        
+        # Cargar datos e iniciar timer
+        self._cargar_productos()
+        self._cargar_sucursales()
+        self._cargar_ofertas()
+        self._iniciar_timer_expiracion()
+    
+    def _construir_contenido(self) -> ft.Container:
+        """Construye el contenido principal"""
+        # Barra de búsqueda
+        self._campo_busqueda = ft.TextField(
+            hint_text="Buscar por nombre, producto o tipo...",
+            prefix_icon=ft.icons.Icons.SEARCH,
+            on_change=self._on_buscar,
+            expand=True,
+            border_radius=10,
+            height=50
+        )
+        
+        # Botones de acción - visibles siempre pero controlados por permisos
+        puede_crear = self._puede_ejecutar("ofertas.crear")
+        
+        btn_crear = ft.ElevatedButton(
+            "Nueva Oferta",
+            icon=ft.icons.Icons.ADD,
+            on_click=lambda e: self._intentar_crear(),
+            bgcolor=ft.Colors.GREEN_700 if puede_crear else ft.Colors.GREY_400,
+            color=ft.Colors.WHITE,
+            height=50,
+            disabled=not puede_crear,
+            tooltip="Nueva Oferta" if puede_crear else "Sin permisos para crear ofertas"
+        )
+        
+        btn_refrescar = ft.IconButton(
+            icon=ft.icons.Icons.REFRESH,
+            on_click=lambda e: self._cargar_ofertas(),
+            tooltip="Refrescar",
+            icon_size=30
+        )
+        
+        # Chips de filtro
+        filtros = self._crear_filtros()
+        
+        # Lista de ofertas
+        self._lista_ofertas = ft.Column(
+            spacing=15,
+            scroll=ft.ScrollMode.AUTO,
+            expand=True
+        )
+        
+        return ft.Container(
+            content=ft.Column([
+                # Header
+                ft.Row([
+                    self._campo_busqueda,
+                    btn_crear,
+                    btn_refrescar
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                
+                # Filtros
+                filtros,
+                
+                ft.Divider(height=1, color=ft.Colors.GREY_300),
+                
+                # Lista
+                ft.Container(
+                    content=self._lista_ofertas,
+                    expand=True,
+                    padding=10
+                )
+            ], spacing=15, expand=True),
+            padding=20,
+            expand=True
+        )
+    
+    def _crear_filtros(self) -> ft.Row:
+        """Crea los chips de filtro"""
+        return ft.Row([
+            ft.Text("Filtrar:", weight=ft.FontWeight.BOLD, size=14),
+            ft.Chip(
+                label=ft.Text("TODAS"),
+                on_click=lambda e: self._cambiar_filtro("TODAS"),
+                bgcolor=ft.Colors.BLUE_700 if self._filtro_estado == "TODAS" else ft.Colors.GREY_300
+            ),
+            ft.Chip(
+                label=ft.Text("ACTIVAS"),
+                on_click=lambda e: self._cambiar_filtro("ACTIVAS"),
+                bgcolor=ft.Colors.GREEN_700 if self._filtro_estado == "ACTIVAS" else ft.Colors.GREY_300
+            ),
+            ft.Chip(
+                label=ft.Text("EXPIRADAS"),
+                on_click=lambda e: self._cambiar_filtro("EXPIRADAS"),
+                bgcolor=ft.Colors.RED_700 if self._filtro_estado == "EXPIRADAS" else ft.Colors.GREY_300
+            )
+        ], spacing=10)
+    
+    def _cambiar_filtro(self, nuevo_filtro: str):
+        """Cambia el filtro activo"""
+        self._filtro_estado = nuevo_filtro
+        self._aplicar_filtros()
+        safe_update(self._pagina)
+    
+    def _on_buscar(self, e):
+        """Búsqueda en tiempo real"""
+        self._filtro_busqueda = e.control.value.lower()
+        self._aplicar_filtros()
+    
+    def _aplicar_filtros(self):
+        """Aplica los filtros"""
+        ofertas_filtradas = self._ofertas_cache.copy()
+        
+        # Filtrar por búsqueda
+        if self._filtro_busqueda:
+            ofertas_filtradas = [
+                o for o in ofertas_filtradas
+                if self._filtro_busqueda in o.NOMBRE.lower() or
+                   self._filtro_busqueda in o.PRODUCTO.NOMBRE.lower() or
+                   self._filtro_busqueda in o.TIPO.lower()
+            ]
+        
+        # Filtrar por estado
+        ahora = datetime.now()
+        if self._filtro_estado == "ACTIVAS":
+            ofertas_filtradas = [
+                o for o in ofertas_filtradas
+                if o.ACTIVA and (not o.FECHA_FIN or o.FECHA_FIN > ahora)
+            ]
+        elif self._filtro_estado == "EXPIRADAS":
+            ofertas_filtradas = [
+                o for o in ofertas_filtradas
+                if not o.ACTIVA or (o.FECHA_FIN and o.FECHA_FIN <= ahora)
+            ]
+        
+        self._actualizar_lista_ofertas(ofertas_filtradas)
+    
+    def _cargar_productos(self):
+        """Carga productos disponibles"""
+        with OBTENER_SESION() as sesion:
+            self._productos_cache = sesion.query(MODELO_PRODUCTO).filter_by(DISPONIBLE=True).all()
+    
+    def _cargar_sucursales(self):
+        """Carga sucursales activas"""
+        with OBTENER_SESION() as sesion:
+            self._sucursales_cache = sesion.query(MODELO_SUCURSAL).filter_by(ACTIVA=True, ELIMINADA=False).all()
+    
+    def _cargar_ofertas(self):
+        """Carga ofertas con relaciones"""
+        from sqlalchemy.orm import joinedload
+        
+        with OBTENER_SESION() as sesion:
+            self._ofertas_cache = sesion.query(MODELO_OFERTA).options(
+                joinedload(MODELO_OFERTA.PRODUCTO),
+                joinedload(MODELO_OFERTA.SUCURSALES).joinedload(MODELO_OFERTA_SUCURSAL.SUCURSAL)
+            ).all()
+        
+        self._aplicar_filtros()
+    
+    def _actualizar_lista_ofertas(self, ofertas: List):
+        """Actualiza la lista visual"""
+        if not self._lista_ofertas:
+            return
+        
+        self._lista_ofertas.controls.clear()
+        
+        if not ofertas:
+            self._lista_ofertas.controls.append(
+                ft.Container(
+                    content=ft.Column([
+                        ft.Icon(ft.icons.Icons.LOCAL_OFFER_OUTLINED, size=100, color=ft.Colors.GREY_400),
+                        ft.Text("No hay ofertas", size=24, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_600),
+                        ft.Text("Crea una nueva oferta para comenzar", size=14, color=ft.Colors.GREY_500)
+                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=15),
+                    alignment=ft.alignment.center,
+                    expand=True
+                )
+            )
+        else:
+            for oferta in ofertas:
+                self._lista_ofertas.controls.append(self._crear_card_oferta(oferta))
+        
+        safe_update(self._pagina)
+    
+    def _crear_card_oferta(self, oferta) -> ft.Card:
+        """Crea una card hermosa para la oferta"""
+        ahora = datetime.now()
+        expirada = oferta.FECHA_FIN and oferta.FECHA_FIN <= ahora
+        activa = oferta.ACTIVA and not expirada
+        
+        # Icono y color según tipo
+        tipo_info = next((t for t in TIPOS_OFERTA if t[0] == oferta.TIPO), TIPOS_OFERTA[0])
+        
+        # Badge de estado
+        if activa:
+            estado_badge = ft.Container(
+                content=ft.Row([
+                    ft.Icon(ft.icons.Icons.CHECK_CIRCLE, size=16, color=ft.Colors.WHITE),
+                    ft.Text("ACTIVA", size=12, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE)
+                ], spacing=5),
+                bgcolor=ft.Colors.GREEN_700,
+                padding=8,
+                border_radius=20
+            )
+        elif expirada:
+            estado_badge = ft.Container(
+                content=ft.Row([
+                    ft.Icon(ft.icons.Icons.ERROR, size=16, color=ft.Colors.WHITE),
+                    ft.Text("EXPIRADA", size=12, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE)
+                ], spacing=5),
+                bgcolor=ft.Colors.RED_700,
+                padding=8,
+                border_radius=20
+            )
+        else:
+            estado_badge = ft.Container(
+                content=ft.Row([
+                    ft.Icon(ft.icons.Icons.PAUSE_CIRCLE, size=16, color=ft.Colors.WHITE),
+                    ft.Text("INACTIVA", size=12, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE)
+                ], spacing=5),
+                bgcolor=ft.Colors.GREY_700,
+                padding=8,
+                border_radius=20
+            )
+        
+        # Header
+        header = ft.Container(
+            content=ft.Row([
+                ft.Container(
+                    content=ft.Text(tipo_info[1], size=24),
+                    width=50
+                ),
+                ft.Column([
+                    ft.Text(oferta.NOMBRE, size=18, weight=ft.FontWeight.BOLD),
+                    ft.Text(tipo_info[2], size=12, color=ft.Colors.GREY_600, italic=True)
+                ], spacing=2, expand=True),
+                estado_badge
+            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+            padding=15,
+            bgcolor=ft.Colors.with_opacity(0.05, ft.Colors.BLUE)
+        )
+        
+        # Información del producto y descuento
+        precio_original = oferta.PRODUCTO.PRECIO / 100
+        precio_final = precio_original * (1 - oferta.DESCUENTO_PORCENTAJE / 100)
+        
+        info_descuento = ft.Container(
+            content=ft.Row([
+                ft.Container(
+                    content=ft.Column([
+                        ft.Text(f"{oferta.DESCUENTO_PORCENTAJE}%", size=36, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_700),
+                        ft.Text("DESCUENTO", size=10, color=ft.Colors.GREY_600)
+                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=0),
+                    padding=15,
+                    bgcolor=ft.Colors.GREEN_50,
+                    border_radius=10
+                ),
+                ft.Column([
+                    ft.Text("Producto", size=11, color=ft.Colors.GREY_600),
+                    ft.Text(oferta.PRODUCTO.NOMBRE, size=15, weight=ft.FontWeight.W_500),
+                    ft.Divider(height=5),
+                    ft.Row([
+                        ft.Column([
+                            ft.Text("Original", size=10, color=ft.Colors.GREY_500),
+                            ft.Text(f"${precio_original:.2f}", size=14, color=ft.Colors.GREY_500)
+                        ], spacing=2),
+                        ft.Icon(ft.icons.Icons.ARROW_FORWARD, size=16, color=ft.Colors.ORANGE_700),
+                        ft.Column([
+                            ft.Text("Con oferta", size=10, color=ft.Colors.GREEN_700),
+                            ft.Text(f"${precio_final:.2f}", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_700)
+                        ], spacing=2)
+                    ], spacing=8)
+                ], spacing=5, expand=True)
+            ], spacing=15),
+            padding=15
+        )
+        
+        # Información de sucursales
+        if oferta.APLICAR_TODAS_SUCURSALES:
+            sucursales_info = ft.Container(
+                content=ft.Row([
+                    ft.Icon(ft.icons.Icons.STORE, size=18, color=ft.Colors.BLUE_700),
+                    ft.Text("Aplica en TODAS las sucursales", size=13, weight=ft.FontWeight.W_500, color=ft.Colors.BLUE_700)
+                ], spacing=8),
+                padding=10,
+                bgcolor=ft.Colors.BLUE_50,
+                border_radius=8
+            )
+        else:
+            sucursales_nombres = [s.SUCURSAL.NOMBRE for s in oferta.SUCURSALES if s.ACTIVA]
+            sucursales_info = ft.Container(
+                content=ft.Column([
+                    ft.Row([
+                        ft.Icon(ft.icons.Icons.STORE, size=18, color=ft.Colors.PURPLE_700),
+                        ft.Text(f"Sucursales específicas ({len(sucursales_nombres)}):", size=13, weight=ft.FontWeight.W_500)
+                    ], spacing=8),
+                    ft.Text(", ".join(sucursales_nombres), size=12, color=ft.Colors.GREY_700)
+                ], spacing=5),
+                padding=10,
+                bgcolor=ft.Colors.PURPLE_50,
+                border_radius=8
+            )
+        
+        # Fechas y tiempo restante
+        fechas = ft.Column([
+            ft.Row([
+                ft.Icon(ft.icons.Icons.CALENDAR_TODAY, size=16, color=ft.Colors.GREY_600),
+                ft.Text(f"Inicio: {oferta.FECHA_INICIO.strftime('%d/%m/%Y %H:%M')}", size=12)
+            ], spacing=8),
+            ft.Row([
+                ft.Icon(ft.icons.Icons.EVENT, size=16, color=ft.Colors.GREY_600),
+                ft.Text(
+                    f"Fin: {oferta.FECHA_FIN.strftime('%d/%m/%Y %H:%M') if oferta.FECHA_FIN else 'Sin límite'}", 
+                    size=12,
+                    color=ft.Colors.RED_700 if expirada else None
+                )
+            ], spacing=8)
+        ], spacing=5)
+        
+        # Tiempo restante
+        if activa and oferta.FECHA_FIN:
+            delta = oferta.FECHA_FIN - ahora
+            if delta.days > 0:
+                tiempo_text = f"⏱️ {delta.days} días restantes"
+                color_tiempo = ft.Colors.GREEN_700
+            elif delta.seconds > 3600:
+                horas = delta.seconds // 3600
+                tiempo_text = f"⏱️ {horas} horas restantes"
+                color_tiempo = ft.Colors.ORANGE_700
+            else:
+                minutos = delta.seconds // 60
+                tiempo_text = f"⏱️ {minutos} minutos restantes"
+                color_tiempo = ft.Colors.RED_700
+            
+            fechas.controls.append(
+                ft.Container(
+                    content=ft.Text(tiempo_text, size=13, weight=ft.FontWeight.BOLD, color=color_tiempo),
+                    padding=8,
+                    bgcolor=ft.Colors.with_opacity(0.1, color_tiempo),
+                    border_radius=5
+                )
+            )
+        
+        # Botones de acción
+        acciones = ft.Row([
+            ft.IconButton(
+                icon=ft.icons.Icons.INFO_OUTLINE,
+                tooltip="Ver detalles",
+                icon_color=ft.Colors.BLUE_700,
+                on_click=lambda e, o=oferta: self._mostrar_detalle(o)
+            ),
+            ft.IconButton(
+                icon=ft.icons.Icons.EDIT,
+                tooltip="Editar",
+                icon_color=ft.Colors.ORANGE_700,
+                on_click=lambda e, o=oferta: self._mostrar_editar(o),
+                disabled=expirada
+            ),
+            ft.IconButton(
+                icon=ft.icons.Icons.TOGGLE_ON if activa else ft.icons.Icons.TOGGLE_OFF,
+                tooltip="Activar/Desactivar",
+                icon_color=ft.Colors.GREEN if activa else ft.Colors.GREY,
+                on_click=lambda e, o=oferta: self._toggle_estado(o),
+                disabled=expirada
+            )
+        ], alignment=ft.MainAxisAlignment.END, spacing=5)
+        
+        return ft.Card(
+            content=ft.Container(
+                content=ft.Column([
+                    header,
+                    info_descuento,
+                    sucursales_info,
+                    ft.Divider(height=1, color=ft.Colors.GREY_300),
+                    fechas,
+                    ft.Divider(height=1, color=ft.Colors.GREY_300),
+                    acciones
+                ], spacing=12),
+                padding=0
+            ),
+            elevation=3
+        )
+    
+    def _puede_ejecutar(self, permiso: str) -> bool:
+        """Verifica si el usuario tiene permiso para ejecutar acción"""
+        try:
+            # SUPERADMIN puede todo
+            if hasattr(self.usuario, 'TIENE_ROL') and self.usuario.TIENE_ROL(ROLES.SUPERADMIN):
+                return True
+            # Verificar permiso específico
+            if hasattr(self.usuario, 'TIENE_PERMISO'):
+                return self.usuario.TIENE_PERMISO(permiso)
+            return False
+        except:
+            return False
+    
+    def _intentar_crear(self):
+        """Wrapper que verifica permisos antes de crear"""
+        if self._puede_ejecutar("ofertas.crear"):
+            self._mostrar_crear()
+        else:
+            self._mostrar_advertencia("No tienes permisos para crear ofertas")
+    
+    def _intentar_ver_detalle(self, oferta):
+        """Wrapper que verifica permisos antes de ver detalles"""
+        if self._puede_ejecutar("ofertas.ver"):
+            self._mostrar_detalle(oferta)
+        else:
+            self._mostrar_advertencia("No tienes permisos para ver detalles")
+    
+    def _intentar_editar(self, oferta):
+        """Wrapper que verifica permisos antes de editar"""
+        if self._puede_ejecutar("ofertas.editar"):
+            self._mostrar_editar(oferta)
+        else:
+            self._mostrar_advertencia("No tienes permisos para editar ofertas")
+    
+    def _intentar_toggle_estado(self, oferta):
+        """Wrapper que verifica permisos antes de cambiar estado"""
+        if self._puede_ejecutar("ofertas.editar"):
+            self._toggle_estado(oferta)
+        else:
+            self._mostrar_advertencia("No tienes permisos para modificar ofertas")
+    
+    def _intentar_eliminar(self, oferta):
+        """Wrapper que verifica permisos antes de eliminar"""
+        if self._puede_ejecutar("ofertas.eliminar"):
+            self._confirmar_eliminar(oferta)
+        else:
+            self._mostrar_advertencia("No tienes permisos para eliminar ofertas")
+    
+    @requiere_permiso_ui("ofertas.crear")
+    def _mostrar_crear(self):
+        """Muestra el diálogo de creación completo - PASO 1: Información básica"""
+        # Resetear datos temporales
+        self._temp_oferta_data = {}
+        self._temp_sucursales_seleccionadas = []
+        
+        # Dropdown de productos
+        dropdown_producto = ft.Dropdown(
+            label="Producto",
+            hint_text="Selecciona un producto",
+            options=[
+                ft.dropdown.Option(key=str(p.ID), text=p.NOMBRE)
+                for p in self._productos_cache
+            ],
+            width=400
+        )
+        
+        # Dropdown de tipo
+        dropdown_tipo = ft.Dropdown(
+            label="Tipo de Oferta",
+            hint_text="Selecciona el tipo",
+            options=[
+                ft.dropdown.Option(key=t[0], text=t[1])
+                for t in TIPOS_OFERTA
+            ],
+            width=400
+        )
+        
+        # Campo nombre
+        campo_nombre = ft.TextField(
+            label="Nombre de la oferta",
+            hint_text="Ej: Super descuento fin de semana",
+            width=400
+        )
+        
+        # Campo descuento
+        campo_descuento = ft.Slider(
+            min=5,
+            max=90,
+            divisions=17,
+            label="{value}%",
+            value=10,
+            width=400
+        )
+        
+        texto_descuento = ft.Text("Descuento: 10%", size=16, weight=ft.FontWeight.BOLD)
+        
+        def on_descuento_change(e):
+            texto_descuento.value = f"Descuento: {int(campo_descuento.value)}%"
+            texto_descuento.update()
+        
+        campo_descuento.on_change = on_descuento_change
+        
+        def siguiente():
+            if not dropdown_producto.value:
+                self._mostrar_error("Selecciona un producto")
+                return
+            if not dropdown_tipo.value:
+                self._mostrar_error("Selecciona un tipo de oferta")
+                return
+            if not campo_nombre.value:
+                self._mostrar_error("Ingresa un nombre para la oferta")
+                return
+            
+            # Guardar datos
+            self._temp_oferta_data = {
+                "producto_id": int(dropdown_producto.value),
+                "tipo": dropdown_tipo.value,
+                "nombre": campo_nombre.value,
+                "descuento": int(campo_descuento.value)
+            }
+            
+            self._cerrar_overlays()
+            self._mostrar_crear_paso2()
+        
+        contenido = ft.Column([
+            ft.Text("📝 Nueva Oferta - Paso 1/3", size=20, weight=ft.FontWeight.BOLD),
+            ft.Text("Información básica de la oferta", color=ft.Colors.GREY_600),
+            ft.Divider(),
+            dropdown_producto,
+            dropdown_tipo,
+            campo_nombre,
+            ft.Divider(),
+            texto_descuento,
+            campo_descuento,
+        ], spacing=15, width=450, scroll=ft.ScrollMode.AUTO)
+        
+        self._overlay_crear = ft.AlertDialog(
+            title=ft.Text("Nueva Oferta"),
+            content=contenido,
+            actions=[
+                ft.TextButton("Cancelar", on_click=lambda e: self._cerrar_overlays()),
+                ft.ElevatedButton("Siguiente →", on_click=lambda e: siguiente(), bgcolor=ft.Colors.BLUE_700, color=ft.Colors.WHITE)
+            ]
+        )
+        
+        self._pagina.dialog = self._overlay_crear
+        self._overlay_crear.open = True
+        safe_update(self._pagina)
+    
+    def _mostrar_crear_paso2(self):
+        """PASO 2: Selección de sucursales"""
+        checkbox_todas = ft.Checkbox(label="Aplicar en TODAS las sucursales", value=True)
+        
+        checkboxes_sucursales = []
+        for sucursal in self._sucursales_cache:
+            cb = ft.Checkbox(label=sucursal.NOMBRE, value=False, data=sucursal.ID)
+            checkboxes_sucursales.append(cb)
+        
+        container_sucursales = ft.Column(checkboxes_sucursales, spacing=10, visible=False)
+        
+        def on_todas_change(e):
+            container_sucursales.visible = not checkbox_todas.value
+            for cb in checkboxes_sucursales:
+                cb.value = False
+            container_sucursales.update()
+        
+        checkbox_todas.on_change = on_todas_change
+        
+        def siguiente():
+            self._temp_oferta_data["aplicar_todas"] = checkbox_todas.value
+            
+            if not checkbox_todas.value:
+                seleccionadas = [cb.data for cb in checkboxes_sucursales if cb.value]
+                if not seleccionadas:
+                    self._mostrar_error("Selecciona al menos una sucursal")
+                    return
+                self._temp_sucursales_seleccionadas = seleccionadas
+            else:
+                self._temp_sucursales_seleccionadas = []
+            
+            self._cerrar_overlays()
+            self._mostrar_crear_paso3()
+        
+        contenido = ft.Column([
+            ft.Text("🏪 Nueva Oferta - Paso 2/3", size=20, weight=ft.FontWeight.BOLD),
+            ft.Text("Selección de sucursales", color=ft.Colors.GREY_600),
+            ft.Divider(),
+            checkbox_todas,
+            ft.Divider(),
+            ft.Text("O selecciona sucursales específicas:", weight=ft.FontWeight.BOLD, visible=not checkbox_todas.value),
+            container_sucursales
+        ], spacing=15, width=450, height=400, scroll=ft.ScrollMode.AUTO)
+        
+        self._overlay_crear = ft.AlertDialog(
+            title=ft.Text("Configurar Sucursales"),
+            content=contenido,
+            actions=[
+                ft.TextButton("← Atrás", on_click=lambda e: (self._cerrar_overlays(), self._mostrar_crear())),
+                ft.ElevatedButton("Siguiente →", on_click=lambda e: siguiente(), bgcolor=ft.Colors.BLUE_700, color=ft.Colors.WHITE)
+            ]
+        )
+        
+        self._pagina.dialog = self._overlay_crear
+        self._overlay_crear.open = True
+        safe_update(self._pagina)
+    
+    def _mostrar_crear_paso3(self):
+        """PASO 3: Fechas y confirmación"""
+        # Fecha inicio (por defecto ahora)
+        fecha_inicio = ft.TextField(
+            label="Fecha de Inicio",
+            value=datetime.now().strftime("%Y-%m-%d %H:%M"),
+            hint_text="YYYY-MM-DD HH:MM",
+            width=400
+        )
+        
+        # Checkbox para fecha fin
+        checkbox_sin_limite = ft.Checkbox(label="Sin fecha de expiración", value=False)
+        
+        fecha_fin = ft.TextField(
+            label="Fecha de Fin",
+            value=(datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d %H:%M"),
+            hint_text="YYYY-MM-DD HH:MM",
+            width=400
+        )
+        
+        def on_sin_limite_change(e):
+            fecha_fin.visible = not checkbox_sin_limite.value
+            fecha_fin.update()
+        
+        checkbox_sin_limite.on_change = on_sin_limite_change
+        
+        # Botones rápidos
+        def set_duracion(dias):
+            fecha_fin.value = (datetime.now() + timedelta(days=dias)).strftime("%Y-%m-%d %H:%M")
+            fecha_fin.update()
+        
+        btns_rapidos = ft.Row([
+            ft.TextButton("1 día", on_click=lambda e: set_duracion(1)),
+            ft.TextButton("3 días", on_click=lambda e: set_duracion(3)),
+            ft.TextButton("7 días", on_click=lambda e: set_duracion(7)),
+            ft.TextButton("30 días", on_click=lambda e: set_duracion(30)),
+        ], spacing=10)
+        
+        def crear_oferta():
+            try:
+                # Parsear fechas
+                inicio = datetime.strptime(fecha_inicio.value, "%Y-%m-%d %H:%M")
+                fin = None if checkbox_sin_limite.value else datetime.strptime(fecha_fin.value, "%Y-%m-%d %H:%M")
+                
+                # Validar
+                if fin and fin <= inicio:
+                    self._mostrar_error("La fecha de fin debe ser posterior al inicio")
+                    return
+                
+                # Crear en BD
+                with OBTENER_SESION() as sesion:
+                    nueva_oferta = MODELO_OFERTA(
+                        PRODUCTO_ID=self._temp_oferta_data["producto_id"],
+                        NOMBRE=self._temp_oferta_data["nombre"],
+                        TIPO=self._temp_oferta_data["tipo"],
+                        DESCUENTO_PORCENTAJE=self._temp_oferta_data["descuento"],
+                        FECHA_INICIO=inicio,
+                        FECHA_FIN=fin,
+                        ACTIVA=True,
+                        APLICAR_TODAS_SUCURSALES=self._temp_oferta_data["aplicar_todas"]
+                    )
+                    
+                    sesion.add(nueva_oferta)
+                    sesion.flush()
+                    
+                    # Si son sucursales específicas, crear registros
+                    if not self._temp_oferta_data["aplicar_todas"]:
+                        for sucursal_id in self._temp_sucursales_seleccionadas:
+                            rel = MODELO_OFERTA_SUCURSAL(
+                                OFERTA_ID=nueva_oferta.ID,
+                                SUCURSAL_ID=sucursal_id,
+                                FECHA_FIN_ESPECIFICA=fin,
+                                ACTIVA=True
+                            )
+                            sesion.add(rel)
+                    
+                    sesion.commit()
+                    
+                    notify({
+                        "tipo": "oferta_actualizada",
+                        "oferta_id": nueva_oferta.ID
+                    })
+                
+                self._cerrar_overlays()
+                self._cargar_ofertas()
+                self._mostrar_exito(f"✅ Oferta '{self._temp_oferta_data['nombre']}' creada exitosamente")
+                
+            except ValueError:
+                self._mostrar_error("Formato de fecha incorrecto. Usa: YYYY-MM-DD HH:MM")
+            except Exception as e:
+                self._mostrar_error(f"Error al crear oferta: {str(e)}")
+        
+        contenido = ft.Column([
+            ft.Text("📅 Nueva Oferta - Paso 3/3", size=20, weight=ft.FontWeight.BOLD),
+            ft.Text("Configuración de fechas", color=ft.Colors.GREY_600),
+            ft.Divider(),
+            fecha_inicio,
+            ft.Divider(),
+            checkbox_sin_limite,
+            fecha_fin,
+            ft.Text("Atajos:", size=12, color=ft.Colors.GREY_600),
+            btns_rapidos,
+        ], spacing=15, width=450, scroll=ft.ScrollMode.AUTO)
+        
+        self._overlay_crear = ft.AlertDialog(
+            title=ft.Text("Finalizar Oferta"),
+            content=contenido,
+            actions=[
+                ft.TextButton("← Atrás", on_click=lambda e: (self._cerrar_overlays(), self._mostrar_crear_paso2())),
+                ft.ElevatedButton("Crear Oferta", on_click=lambda e: crear_oferta(), bgcolor=ft.Colors.GREEN_700, color=ft.Colors.WHITE)
+            ]
+        )
+        
+        self._pagina.dialog = self._overlay_crear
+        self._overlay_crear.open = True
+        safe_update(self._pagina)
+    
+    def _mostrar_detalle(self, oferta):
+        """Muestra detalles completos"""
+        tipo_info = next((t for t in TIPOS_OFERTA if t[0] == oferta.TIPO), TIPOS_OFERTA[0])
+        precio_original = oferta.PRODUCTO.PRECIO / 100
+        precio_final = precio_original * (1 - oferta.DESCUENTO_PORCENTAJE / 100)
+        
+        detalles = ft.Column([
+            ft.Container(
+                content=ft.Row([
+                    ft.Text(tipo_info[1], size=32),
+                    ft.Column([
+                        ft.Text(oferta.NOMBRE, size=18, weight=ft.FontWeight.BOLD),
+                        ft.Text(tipo_info[2], size=12, color=ft.Colors.GREY_600, italic=True)
+                    ], expand=True)
+                ]),
+                padding=15,
+                bgcolor=ft.Colors.BLUE_50,
+                border_radius=10
+            ),
+            ft.Divider(),
+            ft.Text("📦 Producto", weight=ft.FontWeight.BOLD),
+            ft.Text(oferta.PRODUCTO.NOMBRE, size=16),
+            ft.Divider(),
+            ft.Text("💰 Precios", weight=ft.FontWeight.BOLD),
+            ft.Row([
+                ft.Column([
+                    ft.Text("Original", size=12, color=ft.Colors.GREY_600),
+                    ft.Text(f"${precio_original:.2f}", size=16, color=ft.Colors.GREY_600)
+                ]),
+                ft.Icon(ft.icons.Icons.ARROW_FORWARD, color=ft.Colors.ORANGE_700),
+                ft.Column([
+                    ft.Text("Con descuento", size=12, color=ft.Colors.GREY_600),
+                    ft.Text(f"${precio_final:.2f}", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_700)
+                ])
+            ], spacing=15),
+            ft.Text(f"Descuento: {oferta.DESCUENTO_PORCENTAJE}%", size=14, color=ft.Colors.GREEN_700),
+            ft.Divider(),
+            ft.Text("🏪 Sucursales", weight=ft.FontWeight.BOLD),
+            ft.Text(
+                "Aplica en TODAS las sucursales" if oferta.APLICAR_TODAS_SUCURSALES
+                else f"{len(oferta.SUCURSALES)} sucursales específicas"
+            ),
+            ft.Divider(),
+            ft.Text("📅 Fechas", weight=ft.FontWeight.BOLD),
+            ft.Text(f"Inicio: {oferta.FECHA_INICIO.strftime('%d/%m/%Y %H:%M')}"),
+            ft.Text(f"Fin: {oferta.FECHA_FIN.strftime('%d/%m/%Y %H:%M') if oferta.FECHA_FIN else 'Sin límite'}"),
+        ], spacing=10, scroll=ft.ScrollMode.AUTO)
+        
+        overlay = ft.AlertDialog(
+            title=ft.Text("Detalles de la Oferta"),
+            content=ft.Container(content=detalles, width=450, height=500),
+            actions=[ft.TextButton("Cerrar", on_click=lambda e: self._cerrar_overlays())]
+        )
+        
+        self._pagina.dialog = overlay
+        overlay.open = True
+        safe_update(self._pagina)
+    
+    def _mostrar_editar(self, oferta):
+        """Edición en desarrollo"""
+        self._mostrar_error("Función de edición en desarrollo")
+    
+    def _toggle_estado(self, oferta):
+        """Activa/desactiva oferta"""
+        with OBTENER_SESION() as sesion:
+            oferta_db = sesion.query(MODELO_OFERTA).filter_by(ID=oferta.ID).first()
+            if oferta_db:
+                oferta_db.ACTIVA = not oferta_db.ACTIVA
+                sesion.commit()
+                
+                notify({
+                    "tipo": "oferta_actualizada",
+                    "oferta_id": oferta_db.ID
+                })
+        
+        self._cargar_ofertas()
+        self._mostrar_exito(f"✅ Oferta {'activada' if not oferta.ACTIVA else 'desactivada'}")
+    
+    def _iniciar_timer_expiracion(self):
+        """Inicia timer de verificación"""
+        def check_expiracion():
+            self._timer_running = True
+            while self._timer_running:
+                try:
+                    ahora = datetime.now()
+                    with OBTENER_SESION() as sesion:
+                        ofertas_expiradas = sesion.query(MODELO_OFERTA).filter(
+                            MODELO_OFERTA.ACTIVA == True,
+                            MODELO_OFERTA.FECHA_FIN != None,
+                            MODELO_OFERTA.FECHA_FIN <= ahora
+                        ).all()
+                        
+                        for oferta in ofertas_expiradas:
+                            oferta.ACTIVA = False
+                            sesion.commit()
+                            
+                            notify({
+                                "tipo": "oferta_expirada",
+                                "oferta_id": oferta.ID,
+                                "nombre": oferta.NOMBRE,
+                                "mensaje": f"⏰ La oferta '{oferta.NOMBRE}' ha expirado"
+                            })
+                    
+                    time.sleep(30)
+                except Exception as e:
+                    print(f"Error en timer: {e}")
+                    time.sleep(30)
+        
+        self._timer_thread = threading.Thread(target=check_expiracion, daemon=True)
+        self._timer_thread.start()
+    
+    def _on_oferta_expirada(self, payload: dict):
+        """Handler para oferta expirada"""
+        self._cargar_ofertas()
+        mensaje = payload.get("mensaje", "Una oferta ha expirado")
+        self._pagina.snack_bar = ft.SnackBar(
+            content=ft.Row([
+                ft.Icon(ft.icons.Icons.WARNING, color=ft.Colors.WHITE),
+                ft.Text(mensaje, color=ft.Colors.WHITE)
+            ]),
+            bgcolor=ft.Colors.ORANGE_700
+        )
+        self._pagina.snack_bar.open = True
+        safe_update(self._pagina)
+    
+    def _on_oferta_actualizada(self, payload: dict):
+        """Handler para oferta actualizada"""
+        self._cargar_ofertas()
+    
+    def _cerrar_overlays(self):
+        """Cierra overlays"""
+        if self._overlay_crear:
+            self._overlay_crear.open = False
+        if self._overlay_configurar_sucursales:
+            self._overlay_configurar_sucursales.open = False
+        safe_update(self._pagina)
+    
+    def _mostrar_exito(self, mensaje: str):
+        """Mensaje de éxito"""
+        self._pagina.snack_bar = ft.SnackBar(
+            content=ft.Text(mensaje, color=ft.Colors.WHITE),
+            bgcolor=ft.Colors.GREEN_700
+        )
+        self._pagina.snack_bar.open = True
+        safe_update(self._pagina)
+    
+    def _mostrar_error(self, mensaje: str):
+        """Mensaje de error"""
+        self._pagina.snack_bar = ft.SnackBar(
+            content=ft.Text(mensaje, color=ft.Colors.WHITE),
+            bgcolor=ft.Colors.RED_700
+        )
+        self._pagina.snack_bar.open = True
+        safe_update(self._pagina)
+    
+    def _volver_dashboard(self):
+        """Vuelve al dashboard"""
+        self._timer_running = False
+        dispatcher.unregister("oferta_expirada", self._on_oferta_expirada)
+        dispatcher.unregister("oferta_actualizada", self._on_oferta_actualizada)
+        
+        from features.admin.presentation.pages.PaginaAdmin import PaginaAdmin
+        self._pagina.controls.clear()
+        self._pagina.add(PaginaAdmin(self._pagina, self._usuario))
+        safe_update(self._pagina)
+    
+    def _cerrar_sesion(self):
+        """Cierra la sesión"""
+        self._timer_running = False
+        dispatcher.unregister("oferta_expirada", self._on_oferta_expirada)
+        dispatcher.unregister("oferta_actualizada", self._on_oferta_actualizada)
+        
+        from features.autenticacion.presentation.pages.PaginaLogin import PaginaLogin
+        self._pagina.controls.clear()
+        self._pagina.add(PaginaLogin(self._pagina))
+        safe_update(self._pagina)

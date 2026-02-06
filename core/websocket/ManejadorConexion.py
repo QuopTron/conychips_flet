@@ -73,8 +73,11 @@ class ManejadorConexion:
 
     async def BROADCAST(self, MENSAJE: dict):
 
+        # Send to all connections without awaiting each send to avoid blocking
         for CLIENTE in list(self._CONEXIONES.values()):
             try:
-                await CLIENTE.ENVIAR(MENSAJE)
+                # schedule send as a fire-and-forget task
+                asyncio.create_task(CLIENTE.ENVIAR(MENSAJE))
             except Exception:
+                # If scheduling fails, skip this client
                 continue

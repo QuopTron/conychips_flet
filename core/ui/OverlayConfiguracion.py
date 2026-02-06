@@ -372,7 +372,7 @@ class OverlayHistorialConfig:
                 ft.DataColumn(ft.Text("Fecha", size=12, weight=ft.FontWeight.BOLD)),
             ],
             rows=filas,
-            border=ft.border.all(1, ft.Colors.BLACK12),
+            border=ft.Border.all(1, ft.Colors.BLACK12),
             border_radius=8,
             vertical_lines=ft.border.BorderSide(1, ft.Colors.BLACK12),
             heading_row_color=ft.Colors.BLACK12,

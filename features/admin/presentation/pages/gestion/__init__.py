@@ -1,6 +1,5 @@
 
 from .ExtrasPage import ExtrasPage
-from .ProveedoresPage import ProveedoresPage
 from .InsumosPage import InsumosPage
 from .OfertasPage import OfertasPage
 from .ProductosPage import ProductosPage

@@ -7,7 +7,6 @@ import threading
 import sys
 
 from core.Constantes import COLORES, TAMANOS, ICONOS, ROLES
-from unittest.mock import Mock as _Mock
 from core.decoradores.DecoradorVistas import REQUIERE_ROL
 from core.ui.safe_actions import safe_update
 
@@ -42,7 +41,7 @@ class VouchersPage(LayoutBase):
         super().__init__(
             pagina=PAGINA,
             usuario=USUARIO,
-            titulo_vista="📋 Gestión de Vouchers",
+            titulo_vista="🧾 Vouchers",
             mostrar_boton_volver=True,
             index_navegacion=1,  # Vouchers es el 2do item
             on_volver_dashboard=self._ir_dashboard,
@@ -67,33 +66,45 @@ class VouchersPage(LayoutBase):
         # Conectar BLoC
         VOUCHERS_BLOC.AGREGAR_LISTENER(self._ON_ESTADO_CAMBIO)
         
-        # Limpiar cache y cargar los tres estados al entrar
-        for k in self._cache_vouchers:
-            self._cache_vouchers[k] = None
+        # Forzar actualización inicial con el estado actual del BLoC
+        print(f"[DEBUG INIT] Forzando actualización inicial con estado actual del BLoC")
+        estado_actual = VOUCHERS_BLOC._estado
+        if estado_actual:
+            print(f"[DEBUG INIT] Estado actual del BLoC: {type(estado_actual).__name__}")
+            self._ON_ESTADO_CAMBIO(estado_actual)
+        else:
+            print(f"[DEBUG INIT] No hay estado actual en el BLoC")
+        
+        # Cargar los 3 estados de forma escalonada (con delay entre cada uno)
+        # para evitar competencia de threads y tener datos en todos los tabs
         sucursales = self.obtener_sucursales_seleccionadas()
-        estados = ["PENDIENTE", "APROBADO", "RECHAZADO"]
-        def cargar_todos():
-            if sucursales:
-                for estado in estados:
+        
+        def cargar_estado(estado, delay=0):
+            def _cargar():
+                if sucursales:
                     for sucursal_id in sucursales:
                         VOUCHERS_BLOC.AGREGAR_EVENTO(CargarVouchers(estado=estado, sucursal_id=sucursal_id))
-            else:
-                for estado in estados:
+                else:
                     VOUCHERS_BLOC.AGREGAR_EVENTO(CargarVouchers(estado=estado))
-        # In test environments where `PAGINA` is a Mock, run loading synchronously
-        try:
-            if isinstance(PAGINA, _Mock):
-                cargar_todos()
+            
+            if delay > 0:
+                threading.Timer(delay, _cargar).start()
             else:
-                threading.Timer(0.1, cargar_todos).start()
-        except Exception:
-            threading.Timer(0.1, cargar_todos).start()
-        self._INICIAR_AUTO_REFRESH()
+                _cargar()
+        
+        # Cargar en secuencia: PENDIENTE (0s), APROBADO (0.3s), RECHAZADO (0.6s)
+        cargar_estado("PENDIENTE", delay=0)
+        cargar_estado("APROBADO", delay=0.3)
+        cargar_estado("RECHAZADO", delay=0.6)
     
     def _on_sucursales_change(self, sucursales_ids: Optional[List[int]]):
         """OVERRIDE: Callback cuando cambian las sucursales"""
-        # Recargar vouchers con nuevo filtro
-        self._CARGAR_INICIAL(sucursales_ids)
+        # Recargar solo el estado actual
+        if sucursales_ids:
+            for sucursal_id in sucursales_ids:
+                VOUCHERS_BLOC.AGREGAR_EVENTO(CargarVouchers(estado=self._estado_actual, sucursal_id=sucursal_id))
+        else:
+            VOUCHERS_BLOC.AGREGAR_EVENTO(CargarVouchers(estado=self._estado_actual))
     
     def _CONSTRUIR_UI(self):
         """Construye la interfaz de vouchers"""
@@ -133,23 +144,23 @@ class VouchersPage(LayoutBase):
             padding=ft.padding.symmetric(vertical=32, horizontal=0)
         )
         
-        # Contenedores para cada estado
+        # Contenedores para cada estado (cada uno con su propio indicador)
         self._contenedor_pendiente = ft.Column(
-            controls=[self._indicador_carga],
+            controls=[],
             scroll=ft.ScrollMode.ADAPTIVE,
             expand=True,
             spacing=4
         )
         
         self._contenedor_aprobado = ft.Column(
-            controls=[self._indicador_carga],
+            controls=[],
             scroll=ft.ScrollMode.ADAPTIVE,
             expand=True,
             spacing=4
         )
         
         self._contenedor_rechazado = ft.Column(
-            controls=[self._indicador_carga],
+            controls=[],
             scroll=ft.ScrollMode.ADAPTIVE,
             expand=True,
             spacing=4
@@ -179,11 +190,22 @@ class VouchersPage(LayoutBase):
                 expand=True
             )
 
+        # Botón de configuración de tiempo de bloqueo
+        btn_config = ft.IconButton(
+            icon=ft.Icons.SETTINGS,
+            icon_color=ft.Colors.BLUE_700,
+            tooltip="Configurar tiempo de bloqueo",
+            on_click=self._abrir_config_tiempo_bloqueo
+        )
+
+        # Barra de tabs con botón de config
         self._tab_bar = ft.Row([
             _tab("Pendientes", ft.icons.Icons.PENDING_ACTIONS, 0),
             _tab("Aprobados", ft.icons.Icons.CHECK_CIRCLE, 1),
             _tab("Rechazados", ft.icons.Icons.CANCEL, 2),
-        ], spacing=0, alignment=ft.MainAxisAlignment.CENTER)
+            ft.Container(expand=True),  # Espaciador
+            btn_config,
+        ], spacing=0, alignment=ft.MainAxisAlignment.START)
 
         self._tab_views = [
             self._contenedor_pendiente,
@@ -269,14 +291,7 @@ class VouchersPage(LayoutBase):
                             estado=estado
                         )
                     )
-        # If running in test (mock) environment, execute immediately for determinism
-        try:
-            if isinstance(self._pagina, _Mock):
-                cargar_todos_async()
-            else:
-                threading.Timer(0.3, cargar_todos_async).start()
-        except Exception:
-            threading.Timer(0.3, cargar_todos_async).start()
+        threading.Timer(0.3, cargar_todos_async).start()
     
     def _on_tab_change(self, e):
         """Cambia el estado actual cuando se cambia de tab"""
@@ -328,15 +343,37 @@ class VouchersPage(LayoutBase):
         """Actualiza UI según estado del BLoC"""
         
         if isinstance(estado, VouchersCargando):
-            # Mostrar skeleton loader SIEMPRE durante la carga
-            for est in ["PENDIENTE", "APROBADO", "RECHAZADO"]:
-                contenedor = self._obtener_contenedor_por_estado(est)
-                if contenedor:
-                    contenedor.controls = [self._indicador_carga]
-            safe_update(self._pagina)
+            # Mostrar skeleton loader SOLO en el estado que se está cargando
+            estado_cargando = getattr(estado, "estado_actual", self._estado_actual)
+            contenedor = self._obtener_contenedor_por_estado(estado_cargando)
+            if contenedor:
+                # Crear nuevo indicador para evitar problemas de reutilización
+                contenedor.controls = [self._crear_indicador_carga(estado_cargando)]
+                safe_update(self._pagina)
+            
+            # TIMEOUT: Si después de 5 segundos aún no hay datos, mostrar error
+            def verificar_timeout():
+                import time
+                time.sleep(5)
+                # Verificar si sigue en cargando (no hay datos en cache)
+                if self._cache_vouchers.get(estado_cargando) is None:
+                    print(f"⚠️ TIMEOUT: No se recibieron datos para {estado_cargando} en 5s")
+                    contenedor = self._obtener_contenedor_por_estado(estado_cargando)
+                    if contenedor:
+                        contenedor.controls = [self._crear_mensaje_error(
+                            f"Tiempo de espera agotado. Reintentando..."
+                        )]
+                        safe_update(self._pagina)
+                        # Reintentar carga
+                        VOUCHERS_BLOC.AGREGAR_EVENTO(CargarVouchers(estado=estado_cargando))
+            
+            threading.Thread(target=verificar_timeout, daemon=True).start()
+            
         elif isinstance(estado, VouchersCargados):
+            print(f"[DEBUG UI] VouchersCargados recibido - {len(estado.vouchers)} vouchers")
             # Actualizar cache y mostrar vouchers SOLO en el tab/estado correcto
             estado_tab = getattr(estado, "estado_actual", self._estado_actual)
+            print(f"[DEBUG UI] estado_tab={estado_tab}, _estado_actual={self._estado_actual}")
             # Si la carga es paginación, acumular resultados en cache
             existentes = self._cache_vouchers.get(estado_tab)
             if getattr(estado, 'tiene_mas', False) and isinstance(existentes, list):
@@ -347,50 +384,104 @@ class VouchersPage(LayoutBase):
 
             self._ultima_carga[estado_tab] = threading.get_ident()
             contenedor = self._obtener_contenedor_por_estado(estado_tab)
+            print(f"[DEBUG UI] contenedor obtenido: {contenedor is not None}")
             if contenedor:
                 mostrar = self._cache_vouchers[estado_tab]
+                print(f"[DEBUG UI] vouchers a mostrar: {len(mostrar) if mostrar else 0}")
                 if not mostrar:
+                    print(f"[DEBUG UI] Sin vouchers, mostrando mensaje vacío")
                     contenedor.controls = [self._crear_mensaje_vacio(estado_tab)]
                 else:
+                    print(f"[DEBUG UI] Creando {len(mostrar)} cards...")
                     def _aprobar(e):
                         self._handlers.aprobar_click(e)
                     def _rechazar(e):
                         self._handlers.rechazar_click(e)
                     def _ver_comprobante(e):
                         self._handlers.ver_comprobante_click(e)
-                    contenedor.controls = [
-                        VoucherCardBuilder.crear_card(
-                            voucher=v,
-                            estado_actual=estado_tab,
-                            on_aprobar_click=_aprobar,
-                            on_rechazar_click=_rechazar,
-                            on_ver_comprobante_click=_ver_comprobante
-                        ) for v in mostrar
-                    ]
-            safe_update(self._pagina)
+                    def _ver_detalles(e):
+                        self._handlers.ver_detalles_pedido(e)
+                    
+                    try:
+                        contenedor.controls = [
+                            VoucherCardBuilder.crear_card(
+                                voucher=v,
+                                estado_actual=estado_tab,
+                                on_aprobar_click=_aprobar,
+                                on_rechazar_click=_rechazar,
+                                on_ver_comprobante_click=_ver_comprobante,
+                                on_ver_detalles_click=_ver_detalles
+                            ) for v in mostrar
+                        ]
+                        print(f"[DEBUG UI] Cards creadas exitosamente")
+                    except Exception as ex:
+                        print(f"[ERROR] Error creando cards: {ex}")
+                        import traceback
+                        traceback.print_exc()
+                        contenedor.controls = [ft.Text(f"Error: {ex}", color=ft.Colors.ERROR)]
+            
+            # Usar run_task para actualizar desde thread secundario
+            print(f"[DEBUG UI] Programando actualización para {len(self._cache_vouchers.get(estado_tab, []))} vouchers en estado {estado_tab}")
+            
+            async def actualizar_ui():
+                try:
+                    print(f"[DEBUG UI] async actualizar_ui ejecutándose...")
+                    safe_update(self._pagina)
+                    print(f"[DEBUG UI] safe_update completado OK")
+                except Exception as ex:
+                    print(f"[ERROR] actualizar_ui: {ex}")
+                    import traceback
+                    traceback.print_exc()
+            
+            try:
+                self._pagina.run_task(actualizar_ui)
+                print(f"[DEBUG UI] run_task() llamado exitosamente")
+            except Exception as ex:
+                print(f"[ERROR] run_task falló: {ex}")
+                import traceback
+                traceback.print_exc()
         
         elif isinstance(estado, VouchersError):
             # Mostrar error
             contenedor = self._obtener_contenedor_por_estado(self._estado_actual)
             if contenedor:
                 contenedor.controls = [self._crear_mensaje_error(estado.mensaje)]
-                safe_update(self._pagina)
+                
+                # Usar run_task para actualizar desde thread secundario
+                async def actualizar_ui_error():
+                    try:
+                        safe_update(self._pagina)
+                    except Exception as ex:
+                        print(f"[ERROR] actualizar_ui_error: {ex}")
+                
+                self._pagina.run_task(actualizar_ui_error)
         
         elif isinstance(estado, VoucherValidado):
-            # Recargar vouchers después de validar
+            # Recargar los 3 estados para ver el cambio inmediato en todos los tabs
+            # Escalonado para evitar race conditions
             sucursales = self.obtener_sucursales_seleccionadas()
-            VOUCHERS_BLOC.AGREGAR_EVENTO(
-                CargarVouchers(
-                    estado="PENDIENTE",
-                    sucursales_ids=sucursales
-                )
-            )
-            VOUCHERS_BLOC.AGREGAR_EVENTO(
-                CargarVouchers(
-                    estado=estado.nuevo_estado,
-                    sucursales_ids=sucursales
-                )
-            )
+            
+            def cargar_estado(est, delay=0):
+                def _cargar():
+                    if sucursales:
+                        for sucursal_id in sucursales:
+                            VOUCHERS_BLOC.AGREGAR_EVENTO(
+                                CargarVouchers(estado=est, sucursal_id=sucursal_id)
+                            )
+                    else:
+                        VOUCHERS_BLOC.AGREGAR_EVENTO(
+                            CargarVouchers(estado=est)
+                        )
+                
+                if delay > 0:
+                    threading.Timer(delay, _cargar).start()
+                else:
+                    _cargar()
+            
+            # Recargar en secuencia para evitar bucles
+            cargar_estado("PENDIENTE", delay=0)
+            cargar_estado("APROBADO", delay=0.2)
+            cargar_estado("RECHAZADO", delay=0.4)
     
     def _obtener_contenedor_por_estado(self, estado: str):
         """Obtiene el contenedor correspondiente al estado"""
@@ -457,6 +548,93 @@ class VouchersPage(LayoutBase):
             alignment=ft.Alignment(0, 0),
             expand=True
         )
+    
+    def _abrir_config_tiempo_bloqueo(self, e):
+        """Abre el diálogo de configuración de tiempo de bloqueo"""
+        from core.configuracion.ServicioConfiguracion import ServicioConfiguracion
+        
+        # Obtener valor actual
+        tiempo_actual = ServicioConfiguracion.obtener_valor("vouchers.tiempo_bloqueo_minutos", default=5)
+        
+        # Campo de entrada
+        tf_tiempo = ft.TextField(
+            label="Tiempo de bloqueo (minutos)",
+            value=str(tiempo_actual),
+            keyboard_type=ft.KeyboardType.NUMBER,
+            width=300
+        )
+        
+        def guardar_config(evento):
+            try:
+                nuevo_tiempo = int(tf_tiempo.value)
+                if nuevo_tiempo <= 0:
+                    dlg.snack = ft.SnackBar(ft.Text("El tiempo debe ser mayor a 0", color=ft.Colors.WHITE), bgcolor=ft.Colors.RED)
+                    dlg.snack.open = True
+                    self._pagina.update()
+                    return
+                
+                # Guardar en configuración
+                resultado = ServicioConfiguracion.actualizar_valor(
+                    "vouchers.tiempo_bloqueo_minutos",
+                    nuevo_tiempo,
+                    usuario_id=self._usuario.ID
+                )
+                
+                if resultado:
+                    dlg.snack = ft.SnackBar(
+                        ft.Text(f"⏱️ Tiempo de bloqueo actualizado a {nuevo_tiempo} minutos", color=ft.Colors.WHITE),
+                        bgcolor=ft.Colors.GREEN
+                    )
+                    dlg.snack.open = True
+                    dlg.open = False
+                    self._pagina.update()
+                else:
+                    dlg.snack = ft.SnackBar(
+                        ft.Text("Error al guardar la configuración", color=ft.Colors.WHITE),
+                        bgcolor=ft.Colors.RED
+                    )
+                    dlg.snack.open = True
+                    self._pagina.update()
+            except ValueError:
+                dlg.snack = ft.SnackBar(
+                    ft.Text("Por favor ingresa un número válido", color=ft.Colors.WHITE),
+                    bgcolor=ft.Colors.RED
+                )
+                dlg.snack.open = True
+                self._pagina.update()
+        
+        # Diálogo
+        dlg = ft.AlertDialog(
+            title=ft.Text("⏱️ Tiempo de Bloqueo de Vouchers"),
+            content=ft.Container(
+                content=ft.Column([
+                    ft.Text(
+                        "Configura cuántos minutos se bloquean los vouchers después de ser procesados",
+                        size=14,
+                        color=ft.Colors.GREY_700
+                    ),
+                    ft.Divider(height=20),
+                    tf_tiempo,
+                    ft.Container(height=10),
+                    ft.Text(
+                        "💡 Ejemplo: Si estableces 5 minutos, los vouchers no podrán ser editados durante 5 minutos después de su aprobación o rechazo.",
+                        size=12,
+                        color=ft.Colors.GREY_600,
+                        italic=True
+                    )
+                ], spacing=0),
+                width=350
+            ),
+            actions=[
+                ft.TextButton("Cancelar", on_click=lambda _: dlg.close()),
+                ft.ElevatedButton("Guardar", on_click=guardar_config),
+            ],
+            modal=True
+        )
+        
+        self._pagina.dialog = dlg
+        dlg.open = True
+        self._pagina.update()
     
     def _ir_dashboard(self):
         """Volver al dashboard"""

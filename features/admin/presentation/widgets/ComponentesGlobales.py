@@ -547,7 +547,8 @@ class TablaCRUD(ft.DataTable):
         campos_mostrar: List[str],
         on_editar: Optional[Callable] = None,
         on_eliminar: Optional[Callable] = None,
-        mostrar_id: bool = True
+        mostrar_id: bool = True,
+        formatear_celda: Optional[Callable] = None
     ):
         cols = []
         if mostrar_id:
@@ -566,23 +567,32 @@ class TablaCRUD(ft.DataTable):
                 cells.append(ft.DataCell(ft.Text(str(item.ID))))
             
             for campo in campos_mostrar:
-                try:
-                    valor = getattr(item, campo)
-                except DetachedInstanceError:
-                    # Item detached from session; try to read raw __dict__ or fallback
+                # Usar formateador personalizado si existe
+                if formatear_celda:
+                    valor_formateado = formatear_celda(item, campo)
+                    # Si el formateador retorna un Control, usarlo directamente
+                    if isinstance(valor_formateado, ft.Control):
+                        cells.append(ft.DataCell(valor_formateado))
+                        continue
+                    valor = valor_formateado
+                else:
                     try:
-                        valor = item.__dict__.get(campo)
+                        valor = getattr(item, campo)
+                    except DetachedInstanceError:
+                        # Item detached from session; try to read raw __dict__ or fallback
+                        try:
+                            valor = item.__dict__.get(campo)
+                        except Exception:
+                            valor = None
                     except Exception:
                         valor = None
-                except Exception:
-                    valor = None
 
-                if valor is None:
-                    # Try common alternate keys
-                    try:
-                        valor = item.__dict__.get(campo.upper()) or item.__dict__.get(campo.lower()) or item.__dict__.get(f"{campo}_id")
-                    except Exception:
-                        valor = None
+                    if valor is None:
+                        # Try common alternate keys
+                        try:
+                            valor = item.__dict__.get(campo.upper()) or item.__dict__.get(campo.lower()) or item.__dict__.get(f"{campo}_id")
+                        except Exception:
+                            valor = None
 
                 cells.append(ft.DataCell(ft.Text(str(valor) if valor not in (None, "") else "-")))
             

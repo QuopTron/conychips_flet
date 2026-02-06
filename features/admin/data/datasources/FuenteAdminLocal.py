@@ -242,12 +242,6 @@ class FuenteAdminLocal:
                 usuario.ROLES.clear()
                 usuario.ROLES.append(rol)
                 sesion.commit()
-                try:
-                    from core.realtime.broker_notify import notify
-                    notify({'type': 'usuario_cambio_rol', 'usuario_id': usuario_id, 'nuevo_rol': nombre_rol})
-                except Exception:
-                    pass
-
                 return True
             return False
         except Exception as error:

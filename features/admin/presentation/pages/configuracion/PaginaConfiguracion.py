@@ -117,7 +117,7 @@ class PaginaConfiguracion:
             ], spacing=5),
             padding=15,
             bgcolor=ft.Colors.WHITE,
-            border=ft.border.all(1, ft.Colors.BLACK12),
+            border=ft.Border.all(1, ft.Colors.BLACK12),
             border_radius=8,
         )
     

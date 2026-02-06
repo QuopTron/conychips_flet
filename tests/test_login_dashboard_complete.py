@@ -112,13 +112,13 @@ def test_login_to_dashboard_flow():
         print("✅ Los callbacks funcionan correctamente")
         print("✅ No hay errores en la construcción")
         
-        return True
+        assert True
         
     except Exception as e:
         print(f"\n❌ ERROR: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        assert False
 
 
 if __name__ == "__main__":

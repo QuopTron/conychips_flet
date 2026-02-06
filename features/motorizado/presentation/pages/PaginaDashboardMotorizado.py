@@ -242,23 +242,43 @@ class PaginaDashboardMotorizado:
                 )
             
             sesion.close()
-            
-            if self.PAGINA.dialog:
-                self.PAGINA.dialog.update()
         
         async def ENVIAR_MENSAJE(e):
             if not MENSAJE_INPUT.value:
                 return
             
+            mensaje_texto = MENSAJE_INPUT.value
+            MENSAJE_INPUT.value = ""
+            
+            # Agregar mensaje localmente ANTES de enviar
+            ES_MIO = True
+            MENSAJES_LISTA.controls.append(
+                ft.Container(
+                    content=ft.Column([
+                        ft.Text(mensaje_texto, size=14),
+                        ft.Text(
+                            datetime.now().strftime("%H:%M"),
+                            size=10,
+                            color=COLORES.TEXTO_SECUNDARIO
+                        ),
+                    ], tight=True),
+                    padding=10,
+                    bgcolor=COLORES.PRIMARIO if ES_MIO else COLORES.FONDO_TARJETA,
+                    border_radius=TAMANOS.RADIO_BORDE,
+                    alignment=ft.Alignment(1, 0) if ES_MIO else ft.Alignment(-1, 0),
+                )
+            )
+            
+            if self.PAGINA.dialog:
+                self.PAGINA.dialog.update()
+            
             await self.GESTOR_NOTIFICACIONES.ENVIAR_MENSAJE_CHAT(
                 PEDIDO_ID=PEDIDO.ID,
                 USUARIO_ID=self.USUARIO_ID,
-                MENSAJE=MENSAJE_INPUT.value,
+                MENSAJE=mensaje_texto,
             )
-            
-            MENSAJE_INPUT.value = ""
-            CARGAR_MENSAJES()
         
+        # Cargar mensajes SOLO UNA VEZ al abrir el chat
         CARGAR_MENSAJES()
         
         dialog = ft.AlertDialog(
@@ -282,9 +302,9 @@ class PaginaDashboardMotorizado:
             ]
         )
         
-        self.PAGINA.dialog = dialog
+        self._PAGINA.dialog = dialog
         dialog.open = True
-        self.PAGINA.update()
+        self._PAGINA.update()
     
     
     def _CERRAR_DIALOG(self):

@@ -37,7 +37,7 @@ def test_dropdown_sucursales(pagina: ft.Page):
         print("✅ Navbar encontrado")
     else:
         print("❌ Navbar no encontrado")
-        return False
+        assert False
     
     # 3. Verificar botón de sucursales
     print("\n3️⃣  Verificando botón de sucursales...")
@@ -46,7 +46,7 @@ def test_dropdown_sucursales(pagina: ft.Page):
         print("✅ Botón de sucursales encontrado")
     else:
         print("❌ Botón no encontrado")
-        return False
+        assert False
     
     # 4. Verificar panel de sucursales
     print("\n4️⃣  Verificando panel...")
@@ -55,13 +55,13 @@ def test_dropdown_sucursales(pagina: ft.Page):
         print(f"   Visible: {navbar._panel_sucursales.visible}")
     else:
         print("❌ Panel no encontrado")
-        return False
+        assert False
     
     print("\n" + "=" * 60)
     print("✅ TEST DE DROPDOWN COMPLETADO")
     print("=" * 60)
     
-    return True
+    assert True
 
 
 def main(pagina: ft.Page):

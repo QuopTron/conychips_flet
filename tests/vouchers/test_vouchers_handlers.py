@@ -29,14 +29,14 @@ def test_partial_order():
         print(f"✓ Handler llamado correctamente")
         print(f"  - Evento recibido: {type(e).__name__}")
         print(f"  - Voucher ID: {voucher.id}")
-        return True
+        assert True
     
     # Simulación del método con parámetros incorrectos (voucher, e)
     def handler_incorrecto(voucher, e):
         print(f"✗ Handler con parámetros invertidos")
         print(f"  - Voucher ID: {voucher.id}")
         print(f"  - Evento recibido: {type(e).__name__}")
-        return True
+        assert True
     
     voucher = MockVoucher(123)
     event = MockEvent()

@@ -200,7 +200,7 @@ class ContenedorFiltros(ft.Container):
         self.bgcolor = ft.Colors.GREY_50
         self.border_radius = 8
         self.padding = 15
-        self.border = ft.border.all(1, ft.Colors.GREY_300)
+        self.border = ft.Border.all(1, ft.Colors.GREY_300)
 
 
 class TablaResponsive(ft.Container):
@@ -224,7 +224,7 @@ class TablaResponsive(ft.Container):
         )
         
         self.expand = True
-        self.border = ft.border.all(1, ft.Colors.GREY_300)
+        self.border = ft.Border.all(1, ft.Colors.GREY_300)
         self.border_radius = 8
         self.bgcolor = ft.Colors.WHITE
         self.padding = 8
@@ -255,7 +255,7 @@ class TarjetaEstadistica(ft.Container):
         ], spacing=5)
         
         self.bgcolor = ft.Colors.WHITE
-        self.border = ft.border.all(2, color_final)
+        self.border = ft.Border.all(2, color_final)
         self.border_radius = 12
         self.padding = 15
         self.shadow = ft.BoxShadow(

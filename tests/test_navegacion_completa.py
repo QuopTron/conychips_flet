@@ -48,7 +48,7 @@ def test_bottom_navigation():
             print(f"    ✗ Click no funcionó")
             return False
     
-    return True
+    assert True
 
 
 def test_navbar_panel_sucursales():
@@ -86,7 +86,7 @@ def test_navbar_panel_sucursales():
         print("✓ Botón sucursales existe")
     else:
         print("✗ Botón sucursales NO existe")
-        return False
+        assert False
     
     # Verificar checkboxes
     print(f"  Total checkboxes: {len(navbar._checkboxes)}")
@@ -119,9 +119,9 @@ def test_navbar_panel_sucursales():
         else:
             print("    ✓ Callback ejecutado (todas las sucursales)")
         
-        return True
+        assert True
     
-    return True
+    assert True
 
 
 def test_layout_renderizado():
@@ -166,7 +166,7 @@ def test_layout_renderizado():
         print(f"  Tipo: {type(dashboard._navbar).__name__}")
     else:
         print("\n✗ Navbar NO existe")
-        return False
+        assert False
     
     # Verificar bottom nav
     if dashboard._bottom_nav:
@@ -175,9 +175,9 @@ def test_layout_renderizado():
         print(f"  Items: {len(dashboard._bottom_nav._items)}")
     else:
         print("\n✗ Bottom nav NO existe")
-        return False
+        assert False
     
-    return True
+    assert True
 
 
 if __name__ == "__main__":

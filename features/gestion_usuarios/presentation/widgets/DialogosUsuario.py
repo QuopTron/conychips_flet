@@ -128,7 +128,7 @@ class DialogoUsuario(ft.AlertDialog):
             self.campo_sucursal,
             ft.Container(
                 content=self.switch_activo,
-                padding=ft.padding.symmetric(vertical=10)
+                padding=ft.Padding.symmetric(vertical=10)
             )
         ])
         

@@ -78,7 +78,7 @@ class AuditoriaPage(LayoutBase):
             bgcolor=ft.Colors.BLUE_50,
             border_radius=4,
             padding=6,
-            border=ft.border.all(1, ft.Colors.BLUE_200)
+            border=ft.Border.all(1, ft.Colors.BLUE_200)
         )
         
         self._tabla = ft.Column(spacing=3, scroll=ft.ScrollMode.ADAPTIVE, expand=True)

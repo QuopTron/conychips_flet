@@ -59,7 +59,7 @@ def test_navbar_logica(pagina: ft.Page):
         print("✅ Estado inicial correcto")
     else:
         print("❌ Estado inicial incorrecto")
-        return False
+        assert False
     
     # 4. Verificar método _obtener_texto_sucursales
     print("\n4️⃣  Verificando método _obtener_texto_sucursales...")
@@ -70,7 +70,7 @@ def test_navbar_logica(pagina: ft.Page):
         print("✅ Texto correcto para estado inicial")
     else:
         print("❌ Texto incorrecto")
-        return False
+        assert False
     
     # 5. Simular selección de sucursal
     print("\n5️⃣  Simulando selección de sucursal...")
@@ -97,7 +97,7 @@ def test_navbar_logica(pagina: ft.Page):
     print("✅ LÓGICA NAVBAR VALIDADA")
     print("=" * 60)
     
-    return True
+    assert True
 
 
 def main(pagina: ft.Page):

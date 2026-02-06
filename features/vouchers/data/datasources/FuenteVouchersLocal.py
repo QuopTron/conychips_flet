@@ -212,6 +212,19 @@ class FuenteVouchersLocal:
         if fecha_validacion and fecha_validacion.tzinfo is None:
             fecha_validacion = fecha_validacion.replace(tzinfo=timezone.utc)
         
+        # Cargar datos del pedido asociado - SIN ABRIR NUEVA SESIÓN
+        # Usar la sesión existente pasada como contexto
+        pedido_total = None
+        pedido_estado = None
+        pedido_fecha = None
+        pedido_productos = None
+        cliente_nombre = None
+        cliente_direccion = None
+        sucursal_nombre = None
+        
+        # SKIP datos relacionados por ahora para evitar deadlocks
+        # Los datos se cargarán bajo demanda si es necesario
+        
         return Voucher(
             id=modelo.ID,
             pedido_id=modelo.PEDIDO_ID,
@@ -227,4 +240,12 @@ class FuenteVouchersLocal:
             validado_por=getattr(modelo, 'VALIDADO_POR', None),
             fecha_validacion=fecha_validacion,
             codigo_operacion=None,
+            # Datos del pedido - dejar como None para evitar sesiones anidadas
+            pedido_total=pedido_total,
+            pedido_estado=pedido_estado,
+            pedido_fecha=pedido_fecha,
+            pedido_productos=pedido_productos,
+            cliente_nombre=cliente_nombre,
+            cliente_direccion=cliente_direccion,
+            sucursal_nombre=sucursal_nombre
         )
