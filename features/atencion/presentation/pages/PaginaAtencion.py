@@ -6,8 +6,7 @@ from core.base_datos.ConfiguracionBD import (
     MODELO_CAJA,
     MODELO_SUCURSAL,
 )
-from datetime import datetime
-
+from datetime import datetime, timezone
 
 class PaginaAtencion(ft.Column):
     def __init__(self, PAGINA: ft.Page, USUARIO_ID: int):
@@ -138,7 +137,7 @@ class PaginaAtencion(ft.Column):
             caja = sesion.query(MODELO_CAJA).filter_by(ID=self._CAJA_ACTIVA.ID).first()
             if caja is None:
                 return
-            caja.FECHA_CIERRE = datetime.utcnow()
+            caja.FECHA_CIERRE = datetime.now(timezone.utc)
             caja.ACTIVA = False
             pedidos_hoy = (
                 sesion.query(MODELO_PEDIDO)
@@ -156,7 +155,7 @@ class PaginaAtencion(ft.Column):
             self._TEXTO_CAJA.value = f"Caja cerrada - Ganancias: {ganancias} Bs"
             self._BOTON_CAJA.text = "Abrir Caja"
         else:
-            monto_inicial = 0  # Pedir al usuario
+            monto_inicial = 0
             caja = MODELO_CAJA(
                 USUARIO_ID=self._USUARIO_ID,
                 SUCURSAL_ID=self._SUCURSAL_SELECCIONADA,
@@ -180,7 +179,7 @@ class PaginaAtencion(ft.Column):
         if not self._SUCURSAL_SELECCIONADA:
             return
         sesion = OBTENER_SESION()
-        hoy = datetime.utcnow().date()
+        hoy = datetime.now(timezone.utc).date()
         pedidos = (
             sesion.query(MODELO_PEDIDO)
             .filter(
@@ -235,7 +234,7 @@ class PaginaAtencion(ft.Column):
                 ft.Container(
                     content=fila,
                     padding=10,
-                    border=ft.border.all(1, ft.Colors.GREY_200),
+                    border=ft.Border.all(1, ft.Colors.GREY_200),
                     border_radius=8,
                 )
             )
@@ -245,7 +244,7 @@ class PaginaAtencion(ft.Column):
     async def _CONFIRMAR_PAGO(self, PEDIDO):
         sesion = OBTENER_SESION()
         PEDIDO.ESTADO = "confirmado"
-        PEDIDO.FECHA_CONFIRMACION = datetime.utcnow()
+        PEDIDO.FECHA_CONFIRMACION = datetime.now(timezone.utc)
         sesion.commit()
         from core.websocket.ManejadorConexion import ManejadorConexion
 
@@ -264,4 +263,4 @@ class PaginaAtencion(ft.Column):
 
     def _IMPRIMIR_RECIBO(self, PEDIDO):
         recibo = f
-        print(recibo)  # En producción, enviar a impresora
+        print(recibo)

@@ -2,7 +2,6 @@ import functools
 from typing import Callable
 import re
 
-
 def VALIDAR_EMAIL(FUNCION: Callable) -> Callable:
 
     @functools.wraps(FUNCION)
@@ -16,7 +15,6 @@ def VALIDAR_EMAIL(FUNCION: Callable) -> Callable:
         return await FUNCION(*ARGS, **KWARGS)
 
     return ENVOLTURA
-
 
 def VALIDAR_CONTRASENA_FUERTE(FUNCION: Callable) -> Callable:
 
@@ -62,7 +60,6 @@ def VALIDAR_CONTRASENA_FUERTE(FUNCION: Callable) -> Callable:
         return await FUNCION(*ARGS, **KWARGS)
 
     return ENVOLTURA
-
 
 def VALIDAR_CAMPOS_REQUERIDOS(*CAMPOS_REQUERIDOS):
 

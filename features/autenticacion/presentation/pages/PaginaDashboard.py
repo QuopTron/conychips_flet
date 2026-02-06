@@ -1,10 +1,19 @@
 import flet as ft
+import asyncio
 from features.autenticacion.domain.entities.Usuario import Usuario
 from features.autenticacion.presentation.bloc.AutenticacionBloc import AutenticacionBloc
 from features.autenticacion.presentation.bloc.AutenticacionEvento import (
     EventoCerrarSesion,
 )
-
+from core.Constantes import (
+    COLORES,
+    TAMANOS,
+    ICONOS,
+    ERRORES_AUTENTICACION,
+    ERRORES_VALIDACION,
+    MENSAJES_EXITO,
+    MENSAJES_CONFIRMACION,
+)
 
 class PaginaDashboard(ft.Column):
 
@@ -18,23 +27,61 @@ class PaginaDashboard(ft.Column):
         self._CONSTRUIR()
 
     def _CONSTRUIR(self):
+        self._SECCIONES = [
+            "Dashboard",
+            "Perfil",
+            "Productos",
+            "Pedidos",
+            "Admin",
+        ]
 
-        SIDEBAR = self._CREAR_SIDEBAR()
-
-        CONTENIDO_PRINCIPAL = self._CREAR_CONTENIDO_PRINCIPAL()
-
-        LAYOUT = ft.Row(
-            controls=[
-                SIDEBAR,
-                ft.VerticalDivider(width=1, color=ft.Colors.GREY_300),
-                CONTENIDO_PRINCIPAL,
-            ],
+        self._CONTENIDO = ft.Container(
+            content=self._CREAR_CONTENIDO_PRINCIPAL(),
             expand=True,
-            spacing=0,
         )
 
-        self.controls = [LAYOUT]
+        self._NAVBAR = ft.NavigationBar(
+            selected_index=0,
+            destinations=[
+                ft.NavigationBarDestination(icon=ICONOS.DASHBOARD, label="Inicio"),
+                ft.NavigationBarDestination(icon=ICONOS.USUARIO, label="Perfil"),
+                ft.NavigationBarDestination(icon=ICONOS.PRODUCTOS, label="Productos"),
+                ft.NavigationBarDestination(icon=ICONOS.PEDIDOS, label="Pedidos"),
+                ft.NavigationBarDestination(icon=ICONOS.ADMIN, label="Admin"),
+            ],
+            on_change=self._AL_CAMBIAR_NAV,
+            bgcolor=COLORES.FONDO_BLANCO,
+            indicator_color=ft.Colors.BLUE_50,
+        )
+
+        self.controls = [
+            ft.Column(
+                controls=[self._CONTENIDO, self._NAVBAR],
+                spacing=0,
+                expand=True,
+            )
+        ]
         self.expand = True
+
+    def _AL_CAMBIAR_NAV(self, e):
+        indice = e.control.selected_index
+        seccion = self._SECCIONES[indice]
+
+        if seccion == "Dashboard":
+            self._CONTENIDO.content = self._CREAR_CONTENIDO_PRINCIPAL()
+            self.update()
+            return
+
+        if seccion == "Perfil":
+            from features.autenticacion.presentation.pages.PaginaPerfil import (
+                PaginaPerfil,
+            )
+
+            self._CONTENIDO.content = PaginaPerfil(self._PAGINA, self._USUARIO)
+            self.update()
+            return
+
+        self._NAVEGAR_A(seccion)
 
     def _CREAR_SIDEBAR(self) -> ft.Container:
 
@@ -44,38 +91,37 @@ class PaginaDashboard(ft.Column):
                     ft.CircleAvatar(
                         content=ft.Text(
                             value=self._USUARIO.NOMBRE_USUARIO[0].upper(),
-                            size=32,
+                            size=TAMANOS.TEXTO_4XL,
                             weight=ft.FontWeight.BOLD,
-                            color=ft.Colors.WHITE,
+                            color=COLORES.TEXTO_BLANCO,
                         ),
-                        bgcolor=ft.Colors.BLUE_600,
+                        bgcolor=COLORES.PRIMARIO,
                         radius=40,
                     ),
                     ft.Text(
                         value=self._USUARIO.NOMBRE_USUARIO,
-                        size=18,
+                        size=TAMANOS.TEXTO_XL,
                         weight=ft.FontWeight.BOLD,
                         text_align=ft.TextAlign.CENTER,
                     ),
                     ft.Text(
                         value=self._USUARIO.EMAIL,
-                        size=12,
-                        color=ft.Colors.GREY_600,
+                        size=TAMANOS.TEXTO_SM,
+                        color=COLORES.TEXTO_SECUNDARIO,
                         text_align=ft.TextAlign.CENTER,
                     ),
                     ft.Container(
                         content=ft.Row(
                             controls=[
-                                ft.Icon(
-                                    ft.Icons.VERIFIED_USER,
-                                    size=16,
-                                    color=ft.Colors.GREEN_600,
+                                ft.Icon(ft.icons.Icons.VERIFIED_USER,
+                                    size=TAMANOS.ICONO_XS,
+                                    color=COLORES.EXITO,
                                 ),
-                                ft.Text(  # conychips/features/autentitacion/presentation/pages/PaginaDashboard.py
+                                ft.Text(
                                     value=f"Rol: {', '.join(self._USUARIO.ROLES)}",
-                                    size=12,
+                                    size=TAMANOS.TEXTO_SM,
                                     weight=ft.FontWeight.W_500,
-                                    color=ft.Colors.GREEN_600,
+                                    color=COLORES.EXITO,
                                 ),
                             ],
                             alignment=ft.MainAxisAlignment.CENTER,
@@ -87,57 +133,77 @@ class PaginaDashboard(ft.Column):
                     ),
                 ],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                spacing=10,
+                spacing=TAMANOS.ESPACIADO_MD,
             ),
-            padding=20,
+            padding=TAMANOS.PADDING_XL,
         )
 
-        MENU_ITEMS = [
-            {"icono": ft.Icons.PERSON_ROUNDED, "texto": "Perfil", "permiso": None},
-            {
-                "icono": ft.Icons.DASHBOARD_ROUNDED,
-                "texto": "Dashboard",
-                "permiso": None,
-            },
-            {"icono": ft.Icons.HISTORY_ROUNDED, "texto": "Historial", "permiso": None},
-            {
-                "icono": ft.Icons.SHOPPING_CART_ROUNDED,
-                "texto": "Productos",
-                "permiso": None,
-            },
-            {
-                "icono": ft.Icons.PEOPLE_ROUNDED,
-                "texto": "Usuarios",
-                "permiso": "usuarios.ver",
-            },
-            {
-                "icono": ft.Icons.SETTINGS_ROUNDED,
-                "texto": "Configuración",
-                "permiso": None,
-            },
-            {
-                "icono": ft.Icons.CLEANING_SERVICES_ROUNDED,
-                "texto": "Limpieza",
-                "permiso": None,
-            },
-            {
-                "icono": ft.Icons.ANALYTICS_ROUNDED,
-                "texto": "Reportes",
-                "permiso": "contenido.moderar",
-            },
-        ]
+        MENU_ITEMS = []
+
+        MENU_ITEMS.append(
+            {"icono": ICONOS.DASHBOARD, "texto": "Dashboard", "permiso": None}
+        )
+        MENU_ITEMS.append(
+            {"icono": ICONOS.USUARIO, "texto": "Perfil", "permiso": None}
+        )
+
+        if self._USUARIO.TIENE_PERMISO("usuarios.ver"):
+            MENU_ITEMS.append(
+                {"icono": ICONOS.USUARIOS, "texto": "Usuarios", "permiso": "usuarios.ver"}
+            )
+
+        if self._USUARIO.TIENE_PERMISO("productos.ver"):
+            MENU_ITEMS.append(
+                {"icono": ICONOS.PRODUCTOS, "texto": "Productos", "permiso": "productos.ver"}
+            )
+
+        if self._USUARIO.TIENE_PERMISO("pedidos.ver"):
+            MENU_ITEMS.append(
+                {"icono": ICONOS.PEDIDOS, "texto": "Pedidos", "permiso": "pedidos.ver"}
+            )
+
+        if self._USUARIO.TIENE_PERMISO("reportes.ver"):
+            MENU_ITEMS.append(
+                {"icono": ft.icons.Icons.ANALYTICS_ROUNDED, "texto": "Reportes", "permiso": "reportes.ver"}
+            )
+
+        from core.Constantes import ROLES
+
+        if self._USUARIO.TIENE_ROL(ROLES.COCINERO):
+            MENU_ITEMS.append(
+                {"icono": ICONOS.COCINA, "texto": "Cocina", "permiso": None}
+            )
+
+        if self._USUARIO.TIENE_ROL(ROLES.ATENCION):
+            MENU_ITEMS.append(
+                {"icono": ICONOS.ATENCION, "texto": "Atención", "permiso": None}
+            )
+
+        if self._USUARIO.TIENE_ROL(ROLES.LIMPIEZA):
+            MENU_ITEMS.append(
+                {"icono": ICONOS.LIMPIEZA, "texto": "Limpieza", "permiso": None}
+            )
+
+        if self._USUARIO.TIENE_ROL(ROLES.ADMIN) or self._USUARIO.TIENE_ROL(ROLES.SUPERADMIN):
+            MENU_ITEMS.append(
+                {"icono": ICONOS.ADMIN, "texto": "Admin", "permiso": None}
+            )
+
+        MENU_ITEMS.append(
+            {"icono": ft.icons.Icons.HISTORY_ROUNDED, "texto": "Historial", "permiso": None}
+        )
+        MENU_ITEMS.append(
+            {"icono": ICONOS.CONFIGURACION, "texto": "Configuración", "permiso": None}
+        )
 
         CONTROLES_MENU = []
         for ITEM in MENU_ITEMS:
-            if ITEM["permiso"] and not self._USUARIO.TIENE_PERMISO(ITEM["permiso"]):
-                continue
-
             CONTROLES_MENU.append(
                 ft.Container(
                     content=ft.Row(
                         controls=[
-                            ft.Icon(ITEM["icono"], size=20),
-                            ft.Text(ITEM["texto"], size=14),
+                            ft.Icon(ITEM["icono"], size=TAMANOS.ICONO_SM),
+                            ft.Text(ITEM["texto"], size=TAMANOS.TEXTO_MD),
                         ],
                         spacing=15,
                     ),
@@ -153,8 +219,8 @@ class PaginaDashboard(ft.Column):
         BOTON_LOGOUT = ft.Container(
             content=ft.Row(
                 controls=[
-                    ft.Icon(ft.Icons.LOGOUT_ROUNDED, size=20, color=ft.Colors.RED_600),
-                    ft.Text("Cerrar Sesión", size=14, color=ft.Colors.RED_600),
+                    ft.Icon(ICONOS.CERRAR_SESION, size=TAMANOS.ICONO_SM, color=COLORES.PELIGRO),
+                    ft.Text("Cerrar Sesión", size=TAMANOS.TEXTO_MD, color=COLORES.PELIGRO),
                 ],
                 spacing=15,
             ),
@@ -173,11 +239,11 @@ class PaginaDashboard(ft.Column):
                     ft.Container(expand=True),
                     BOTON_LOGOUT,
                 ],
-                spacing=10,
+                spacing=TAMANOS.ESPACIADO_MD,
             ),
             width=280,
-            bgcolor=ft.Colors.WHITE,
-            padding=ft.padding.only(bottom=20),
+            bgcolor=COLORES.FONDO_BLANCO,
+            padding=ft.Padding.only(bottom=TAMANOS.PADDING_XL),
         )
 
     def _CREAR_CONTENIDO_PRINCIPAL(self) -> ft.Container:
@@ -189,34 +255,39 @@ class PaginaDashboard(ft.Column):
                         value="Dashboard Principal", size=28, weight=ft.FontWeight.BOLD
                     ),
                     ft.Container(expand=True),
-                    ft.Icon(ft.Icons.NOTIFICATIONS_OUTLINED, size=24),
+                    ft.Icon(ft.icons.Icons.NOTIFICATIONS_OUTLINED, size=TAMANOS.ICONO_MD),
+                    ft.IconButton(
+                        icon=ICONOS.CERRAR_SESION,
+                        icon_color=COLORES.PELIGRO,
+                        on_click=lambda e: asyncio.create_task(self._CERRAR_SESION(e)),
+                    ),
                 ],
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             ),
-            padding=20,
-            bgcolor=ft.Colors.WHITE,
-            border=ft.border.only(bottom=ft.BorderSide(1, ft.Colors.GREY_300)),
+            padding=TAMANOS.PADDING_XL,
+            bgcolor=COLORES.FONDO_BLANCO,
+            border=ft.border.only(bottom=ft.BorderSide(1, COLORES.BORDE)),
         )
 
         STATS = ft.Row(
             controls=[
                 self._CREAR_CARD_STAT(
-                    "Sesiones Activas", "1", ft.Icons.PHONE_ANDROID, ft.Colors.BLUE_600
+                    "Sesiones Activas", "1", ft.icons.Icons.PHONE_ANDROID, COLORES.PRIMARIO
                 ),
                 self._CREAR_CARD_STAT(
                     "Permisos",
                     str(len(self._USUARIO.OBTENER_PERMISOS())),
-                    ft.Icons.SECURITY,
-                    ft.Colors.GREEN_600,
+                    ft.icons.Icons.SECURITY,
+                    COLORES.EXITO,
                 ),
                 self._CREAR_CARD_STAT(
                     "Roles",
                     str(len(self._USUARIO.ROLES)),
-                    ft.Icons.ADMIN_PANEL_SETTINGS,
-                    ft.Colors.PURPLE_600,
+                    ICONOS.ADMIN,
+                    COLORES.SECUNDARIO,
                 ),
             ],
-            spacing=20,
+            spacing=TAMANOS.ESPACIADO_XL,
             wrap=True,
         )
 
@@ -233,10 +304,10 @@ class PaginaDashboard(ft.Column):
                         "Nombre de Usuario", self._USUARIO.NOMBRE_USUARIO
                     ),
                     self._CREAR_FILA_INFO(
-                        "Estado", "Activo ✓" if self._USUARIO.ACTIVO else "Inactivo"
+                        "Estado", "Activo " if self._USUARIO.ACTIVO else "Inactivo"
                     ),
                     self._CREAR_FILA_INFO(
-                        "Verificado", "Sí ✓" if self._USUARIO.VERIFICADO else "No ✗"
+                        "Verificado", "Sí " if self._USUARIO.VERIFICADO else "No "
                     ),
                     self._CREAR_FILA_INFO(
                         "Fecha de Registro",
@@ -257,25 +328,24 @@ class PaginaDashboard(ft.Column):
                 ],
                 spacing=15,
             ),
-            padding=20,
-            bgcolor=ft.Colors.WHITE,
-            border_radius=10,
-            border=ft.border.all(1, ft.Colors.GREY_300),
+            padding=TAMANOS.PADDING_XL,
+            bgcolor=COLORES.FONDO_BLANCO,
+            border_radius=TAMANOS.RADIO_MD,
+            border=ft.Border.all(1, COLORES.BORDE),
         )
 
         LISTA_PERMISOS = ft.Container(
             content=ft.Column(
                 controls=[
-                    ft.Text("Tus Permisos", size=20, weight=ft.FontWeight.BOLD),
+                    ft.Text("Tus Permisos", size=TAMANOS.TEXTO_2XL, weight=ft.FontWeight.BOLD),
                     ft.Divider(height=1),
                     ft.Column(
                         controls=[
                             ft.Row(
                                 [
-                                    ft.Icon(
-                                        ft.Icons.CHECK_CIRCLE,
-                                        size=16,
-                                        color=ft.Colors.GREEN_600,
+                                    ft.Icon(ICONOS.EXITO,
+                                        size=TAMANOS.ICONO_XS,
+                                        color=COLORES.EXITO,
                                     ),
                                     ft.Text(PERMISO, size=13),
                                 ],
@@ -288,10 +358,10 @@ class PaginaDashboard(ft.Column):
                 ],
                 spacing=15,
             ),
-            padding=20,
-            bgcolor=ft.Colors.WHITE,
-            border_radius=10,
-            border=ft.border.all(1, ft.Colors.GREY_300),
+            padding=TAMANOS.PADDING_XL,
+            bgcolor=COLORES.FONDO_BLANCO,
+            border_radius=TAMANOS.RADIO_MD,
+            border=ft.Border.all(1, COLORES.BORDE),
         )
 
         CONTENIDO = ft.Container(
@@ -313,40 +383,35 @@ class PaginaDashboard(ft.Column):
                             ],
                             scroll=ft.ScrollMode.AUTO,
                         ),
-                        padding=20,
-                        expand=True,
-                    ),
-                ],
-                spacing=0,
+                padding=TAMANOS.PADDING_XL,
+                expand=True,
             ),
-            expand=True,
-            bgcolor=ft.Colors.GREY_50,
-        )
-
-        return CONTENIDO
-
-    def _CREAR_CARD_STAT(self, TITULO: str, VALOR: str, ICONO, COLOR) -> ft.Container:
+        ],
+        spacing=0,
+    ),
+    expand=True,
+    bgcolor=COLORES.FONDO,
 
         return ft.Container(
             content=ft.Column(
                 controls=[
                     ft.Row(
                         controls=[
-                            ft.Icon(ICONO, size=32, color=COLOR),
+                            ft.Icon(ICONO, size=TAMANOS.ICONO_LG, color=COLOR),
                             ft.Container(expand=True),
                             ft.Text(
-                                VALOR, size=32, weight=ft.FontWeight.BOLD, color=COLOR
+                                VALOR, size=TAMANOS.TEXTO_4XL, weight=ft.FontWeight.BOLD, color=COLOR
                             ),
                         ]
                     ),
-                    ft.Text(TITULO, size=14, color=ft.Colors.GREY_600),
+                    ft.Text(TITULO, size=TAMANOS.TEXTO_MD, color=COLORES.TEXTO_SECUNDARIO),
                 ],
-                spacing=10,
+                spacing=TAMANOS.ESPACIADO_MD,
             ),
-            padding=20,
-            bgcolor=ft.Colors.WHITE,
-            border_radius=10,
-            border=ft.border.all(1, ft.Colors.GREY_300),
+            padding=TAMANOS.PADDING_XL,
+            bgcolor=COLORES.FONDO_BLANCO,
+            border_radius=TAMANOS.RADIO_MD,
+            border=ft.Border.all(1, COLORES.BORDE),
             width=200,
         )
 
@@ -354,16 +419,31 @@ class PaginaDashboard(ft.Column):
 
         return ft.Row(
             controls=[
-                ft.Text(f"{ETIQUETA}:", size=14, weight=ft.FontWeight.W_600, width=180),
-                ft.Text(VALOR, size=14, color=ft.Colors.GREY_700),
+                ft.Text(f"{ETIQUETA}:", size=TAMANOS.TEXTO_MD, weight=ft.FontWeight.W_600, width=180),
+                ft.Text(VALOR, size=TAMANOS.TEXTO_MD, color=ft.Colors.GREY_700),
             ],
-            spacing=10,
+            spacing=TAMANOS.ESPACIADO_MD,
         )
 
     def _NAVEGAR_A(self, SECCION: str):
 
-        print(f"Navegando a: {SECCION}")
+        if not self._PUEDE_ACCEDER(SECCION):
+            self._MOSTRAR_ERROR("No tienes permisos para acceder")
+            return
+
         if SECCION == "Productos":
+            from core.Constantes import ROLES
+
+            if self._USUARIO.TIENE_ROL(ROLES.ADMIN) or self._USUARIO.TIENE_ROL(ROLES.SUPERADMIN):
+                from features.admin.presentation.pages.PaginaProductosAdmin import (
+                    PaginaProductosAdmin,
+                )
+
+                self._PAGINA.controls.clear()
+                self._PAGINA.controls.append(PaginaProductosAdmin(self._PAGINA, self._USUARIO))
+                self._PAGINA.update()
+                return
+
             from features.productos.presentation.pages.PaginaProductos import (
                 PaginaProductos,
             )
@@ -403,6 +483,73 @@ class PaginaDashboard(ft.Column):
             self._PAGINA.controls.append(PaginaPerfil(self._PAGINA, self._USUARIO))
             self._PAGINA.update()
             return
+
+        if SECCION == "Cocina":
+            from features.cocina.presentation.pages.PaginaCocina import PaginaCocina
+
+            self._PAGINA.controls.clear()
+            self._PAGINA.controls.append(PaginaCocina(self._PAGINA, self._USUARIO.ID))
+            self._PAGINA.update()
+            return
+
+        if SECCION == "Atención":
+            from features.atencion.presentation.pages.PaginaAtencion import (
+                PaginaAtencion,
+            )
+
+            self._PAGINA.controls.clear()
+            self._PAGINA.controls.append(PaginaAtencion(self._PAGINA, self._USUARIO.ID))
+            self._PAGINA.update()
+            return
+
+        if SECCION == "Admin":
+            from features.admin.presentation.pages.PaginaAdmin import PaginaAdmin
+
+            self._PAGINA.controls.clear()
+            self._PAGINA.controls.append(PaginaAdmin(self._PAGINA, self._USUARIO))
+            self._PAGINA.update()
+            return
+
+    def _PUEDE_ACCEDER(self, SECCION: str) -> bool:
+        from core.Constantes import ROLES
+
+        if SECCION in ["Dashboard", "Perfil", "Historial", "Configuración"]:
+            return True
+
+        if SECCION == "Productos":
+            return self._USUARIO.TIENE_PERMISO("productos.ver") or self._USUARIO.TIENE_ROL(ROLES.CLIENTE)
+
+        if SECCION == "Pedidos":
+            return self._USUARIO.TIENE_PERMISO("pedidos.ver")
+
+        if SECCION == "Reportes":
+            return self._USUARIO.TIENE_PERMISO("reportes.ver")
+
+        if SECCION == "Usuarios":
+            return self._USUARIO.TIENE_PERMISO("usuarios.ver")
+
+        if SECCION == "Cocina":
+            return self._USUARIO.TIENE_ROL(ROLES.COCINERO)
+
+        if SECCION == "Atención":
+            return self._USUARIO.TIENE_ROL(ROLES.ATENCION)
+
+        if SECCION == "Admin":
+            return self._USUARIO.TIENE_ROL(ROLES.ADMIN) or self._USUARIO.TIENE_ROL(ROLES.SUPERADMIN)
+
+        if SECCION == "Limpieza":
+            return self._USUARIO.TIENE_ROL(ROLES.LIMPIEZA)
+
+        return False
+
+    def _MOSTRAR_ERROR(self, MENSAJE: str):
+        snackbar = ft.SnackBar(
+            content=ft.Text(MENSAJE, color=COLORES.TEXTO_BLANCO),
+            bgcolor=COLORES.PELIGRO,
+        )
+        self._PAGINA.overlay.append(snackbar)
+        snackbar.open = True
+        self._PAGINA.update()
 
     async def _CERRAR_SESION(self, e):
 

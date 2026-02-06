@@ -1,1 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
 venv/
+env/
+ENV/
+
+# Base de datos
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Claves privadas
+config/keys/
+*.pem
+*.key
+
+# Configuración
+.env
+.env.local
+
+# Logs
+*.log
+app_logs.txt
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backups
+*.backup.*
+*.old

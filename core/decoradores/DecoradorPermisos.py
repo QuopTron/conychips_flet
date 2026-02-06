@@ -2,7 +2,6 @@ import functools
 from typing import Callable
 from core.Constantes import ROLES, PERMISOS_POR_ROL
 
-
 def REQUIERE_PERMISOS(*PERMISOS_REQUERIDOS: str):
 
     def DECORADOR(FUNCION: Callable) -> Callable:
@@ -11,8 +10,16 @@ def REQUIERE_PERMISOS(*PERMISOS_REQUERIDOS: str):
             PAYLOAD_JWT = KWARGS.get("PAYLOAD_JWT", {})
             PERMISOS_USUARIO = set(PAYLOAD_JWT.get("PERMISOS", []))
 
+            # Si el usuario tiene permisos globales o es superadmin, permitir
             if "*" in PERMISOS_USUARIO:
                 return await FUNCION(*ARGS, **KWARGS)
+
+            ROLES_USUARIO = set(PAYLOAD_JWT.get("ROLES", []))
+            try:
+                if ROLES.SUPERADMIN in ROLES_USUARIO:
+                    return await FUNCION(*ARGS, **KWARGS)
+            except Exception:
+                pass
 
             PERMISOS_NECESARIOS = set(PERMISOS_REQUERIDOS)
 
@@ -30,7 +37,6 @@ def REQUIERE_PERMISOS(*PERMISOS_REQUERIDOS: str):
 
     return DECORADOR
 
-
 def REQUIERE_ROL(*ROLES_REQUERIDOS: str):
 
     def DECORADOR(FUNCION: Callable) -> Callable:
@@ -40,6 +46,12 @@ def REQUIERE_ROL(*ROLES_REQUERIDOS: str):
             ROLES_USUARIO = set(PAYLOAD_JWT.get("ROLES", []))
             ROLES_NECESARIOS = set(ROLES_REQUERIDOS)
 
+            # Superadmin bypass
+            try:
+                if ROLES.SUPERADMIN in ROLES_USUARIO:
+                    return await FUNCION(*ARGS, **KWARGS)
+            except Exception:
+                pass
             if not ROLES_NECESARIOS.intersection(ROLES_USUARIO):
                 return {
                     "EXITO": False,
@@ -53,7 +65,6 @@ def REQUIERE_ROL(*ROLES_REQUERIDOS: str):
 
     return DECORADOR
 
-
 def SOLO_SUPER_ADMIN(FUNCION: Callable) -> Callable:
 
     @functools.wraps(FUNCION)
@@ -61,7 +72,7 @@ def SOLO_SUPER_ADMIN(FUNCION: Callable) -> Callable:
         PAYLOAD_JWT = KWARGS.get("PAYLOAD_JWT", {})
         ROLES_USUARIO = PAYLOAD_JWT.get("ROLES", [])
 
-        if ROLES.SUPER_ADMIN not in ROLES_USUARIO:
+        if ROLES.SUPERADMIN not in ROLES_USUARIO:
             return {
                 "EXITO": False,
                 "ERROR": "Esta acción requiere privilegios de super administrador",
@@ -71,7 +82,6 @@ def SOLO_SUPER_ADMIN(FUNCION: Callable) -> Callable:
         return await FUNCION(*ARGS, **KWARGS)
 
     return ENVOLTURA
-
 
 def VALIDAR_HUELLA_DISPOSITIVO(FUNCION: Callable) -> Callable:
 

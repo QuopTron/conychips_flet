@@ -7,7 +7,6 @@ from features.autenticacion.domain.usecases.RegistrarUsuario import RegistrarUsu
 from features.autenticacion.domain.usecases.RefrescarToken import RefrescarToken
 from features.autenticacion.domain.usecases.VerificarPermisos import VerificarPermisos
 
-
 class AutenticacionBloc:
 
     def __init__(
@@ -109,7 +108,7 @@ class AutenticacionBloc:
                 )
 
         except Exception as ERROR:
-            print(f"❌ Error al iniciar sesión: {ERROR}")
+            print(f" Error al iniciar sesión: {ERROR}")
             self._EMITIR_ESTADO(
                 EstadoError(ERROR="Error al procesar inicio de sesión", CODIGO=500)
             )
@@ -135,7 +134,7 @@ class AutenticacionBloc:
                 )
 
         except Exception as ERROR:
-            print(f"❌ Error al registrar: {ERROR}")
+            print(f" Error al registrar: {ERROR}")
             self._EMITIR_ESTADO(
                 EstadoError(ERROR="Error al procesar registro", CODIGO=500)
             )
@@ -172,7 +171,7 @@ class AutenticacionBloc:
                 self._EMITIR_ESTADO(EstadoSesionExpirada())
 
         except Exception as ERROR:
-            print(f"❌ Error al refrescar token: {ERROR}")
+            print(f" Error al refrescar token: {ERROR}")
             self._EMITIR_ESTADO(EstadoSesionExpirada())
 
     async def _MANEJAR_VERIFICAR_SESION(self, EVENTO: EventoVerificarSesion):

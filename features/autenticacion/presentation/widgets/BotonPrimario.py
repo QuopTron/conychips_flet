@@ -1,7 +1,6 @@
 import flet as ft
 from typing import Optional, Callable
 
-
 class BotonPrimario(ft.Column):
 
     def __init__(
@@ -56,7 +55,7 @@ class BotonPrimario(ft.Column):
                 bgcolor=self._COLOR_FONDO,
                 shape=ft.RoundedRectangleBorder(radius=10),
                 elevation=3,
-                padding=ft.padding.symmetric(horizontal=20, vertical=15),
+                padding=ft.Padding.symmetric(horizontal=20, vertical=15),
             ),
             width=self._ANCHO if not self._EXPANDIR else None,
             height=self._ALTURA,

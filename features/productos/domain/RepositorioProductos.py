@@ -1,6 +1,5 @@
 from typing import List, Optional
 
-
 class RepositorioProductos:
     async def OBTENER_TODOS(self) -> List[dict]:
         raise NotImplementedError()

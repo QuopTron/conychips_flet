@@ -1,7 +1,6 @@
 import flet as ft
 from typing import Optional, Callable
 
-
 class CampoTextoSeguro(ft.Column):
 
     def __init__(
@@ -44,7 +43,7 @@ class CampoTextoSeguro(ft.Column):
             cursor_color=ft.Colors.BLUE_600,
             text_size=16,
             height=60,
-            content_padding=ft.padding.symmetric(horizontal=15, vertical=10),
+            content_padding=ft.Padding.symmetric(horizontal=15, vertical=10),
             width=self._ANCHO if self._ANCHO else None,
             hint_text=self._TEXTO_AYUDA,
             hint_style=ft.TextStyle(size=14, color=ft.Colors.GREY_500),

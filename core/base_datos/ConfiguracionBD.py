@@ -7,14 +7,19 @@ from sqlalchemy import (
     DateTime,
     Table,
     ForeignKey,
+    event,
+    pool,
 )
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import declarative_base, relationship, sessionmaker
-from datetime import datetime
+from sqlalchemy.orm import declarative_base, relationship, sessionmaker, scoped_session
+from datetime import datetime, timezone
 import os
 import shutil
 import time
 import logging
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,20 +33,19 @@ TABLA_USUARIO_ROLES = Table(
     Column("ROL_ID", Integer, ForeignKey("ROLES.ID")),
 )
 
-
 class MODELO_USUARIO(BASE):
 
     __tablename__ = "USUARIOS"
 
     ID = Column(Integer, primary_key=True, autoincrement=True)
-    EMAIL = Column(String(255), unique=True, nullable=False, index=True)
-    NOMBRE_USUARIO = Column(String(100), unique=True, nullable=False)
-    CONTRASENA_HASH = Column(String(255), nullable=False)
-    HUELLA_DISPOSITIVO = Column(String(255), nullable=False)
-    FOTO_PERFIL = Column(String(500), nullable=True)  # Ruta de imagen
+    EMAIL = Column(String(100), unique=True, nullable=False, index=True)
+    NOMBRE_USUARIO = Column(String(50), unique=True, nullable=False)
+    CONTRASENA_HASH = Column(String(100), nullable=False)
+    HUELLA_DISPOSITIVO = Column(String(64), nullable=False)
+    FOTO_PERFIL = Column(String(300), nullable=True)
     ACTIVO = Column(Boolean, default=True)
     VERIFICADO = Column(Boolean, default=False)
-    TOKEN_RESET = Column(String(255), nullable=True)
+    TOKEN_RESET = Column(String(64), nullable=True)
     TOKEN_RESET_EXPIRA = Column(DateTime, nullable=True)
     FECHA_CREACION = Column(DateTime, default=datetime.utcnow)
     ULTIMA_CONEXION = Column(DateTime, nullable=True)
@@ -53,19 +57,20 @@ class MODELO_USUARIO(BASE):
         "MODELO_SESION", back_populates="USUARIO", cascade="all, delete-orphan"
     )
 
-
 class MODELO_ROL(BASE):
 
     __tablename__ = "ROLES"
 
     ID = Column(Integer, primary_key=True, autoincrement=True)
     NOMBRE = Column(String(50), unique=True, nullable=False)
-    DESCRIPCION = Column(String(255))
+    DESCRIPCION = Column(String(200), nullable=True)
+    PERMISOS = Column(String(2000), nullable=True)
+    ACTIVO = Column(Boolean, default=True)
+    FECHA_CREACION = Column(DateTime, default=datetime.utcnow)
 
     USUARIOS = relationship(
         "MODELO_USUARIO", secondary=TABLA_USUARIO_ROLES, back_populates="ROLES"
     )
-
 
 class MODELO_SESION(BASE):
 
@@ -73,25 +78,24 @@ class MODELO_SESION(BASE):
 
     ID = Column(Integer, primary_key=True, autoincrement=True)
     USUARIO_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=False)
-    REFRESH_TOKEN = Column(String(500), unique=True, nullable=False)
-    HUELLA_DISPOSITIVO = Column(String(255), nullable=False)
-    IP = Column(String(45))
-    NAVEGADOR = Column(String(255))
+    REFRESH_TOKEN = Column(String, unique=True, nullable=False)
+    HUELLA_DISPOSITIVO = Column(String(64), nullable=False)
+    IP = Column(String(45), nullable=True)
+    NAVEGADOR = Column(String(150), nullable=True)
     ACTIVA = Column(Boolean, default=True)
     FECHA_CREACION = Column(DateTime, default=datetime.utcnow)
     FECHA_EXPIRACION = Column(DateTime, nullable=False)
 
     USUARIO = relationship("MODELO_USUARIO", back_populates="SESIONES")
 
-
 class MODELO_PRODUCTO(BASE):
     __tablename__ = "PRODUCTOS"
 
     ID = Column(Integer, primary_key=True, autoincrement=True)
-    NOMBRE = Column(String(150), unique=True, nullable=False)
-    DESCRIPCION = Column(String(500))
-    PRECIO = Column(Integer, nullable=False, default=0)  # En Bs
-    IMAGEN = Column(String(500), nullable=True)  # Ruta o URL de imagen
+    NOMBRE = Column(String(100), unique=True, nullable=False)
+    DESCRIPCION = Column(String(300), nullable=True)
+    PRECIO = Column(Integer, nullable=False, default=0)
+    IMAGEN = Column(String(300), nullable=True)
     DISPONIBLE = Column(Boolean, default=True)
     FECHA_CREACION = Column(DateTime, default=datetime.utcnow)
 
@@ -102,7 +106,6 @@ class MODELO_PRODUCTO(BASE):
         "MODELO_EXTRA", secondary="PRODUCTO_EXTRA", back_populates="PRODUCTOS"
     )
 
-
 class MODELO_SUCURSAL(BASE):
     __tablename__ = "SUCURSALES"
 
@@ -110,14 +113,23 @@ class MODELO_SUCURSAL(BASE):
     NOMBRE = Column(String(100), unique=True, nullable=False)
     DIRECCION = Column(String(255))
     ACTIVA = Column(Boolean, default=True)
+    ESTADO = Column(String(50), default="ACTIVA")  # ACTIVA, MANTENIMIENTO, VACACIONES, CERRADA
+    TELEFONO = Column(String(20), nullable=True)
+    HORARIO = Column(String(100), nullable=True)
     FECHA_CREACION = Column(DateTime, default=datetime.utcnow)
+    FECHA_ULTIMA_MODIFICACION = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Eliminación lógica
+    ELIMINADA = Column(Boolean, default=False)
+    FECHA_ELIMINACION = Column(DateTime, nullable=True)
+    USUARIO_ELIMINO_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=True)
 
     PRODUCTOS = relationship(
         "MODELO_PRODUCTO", secondary="PRODUCTO_SUCURSAL", back_populates="SUCURSALES"
     )
     PEDIDOS = relationship("MODELO_PEDIDO", back_populates="SUCURSAL")
     CAJAS = relationship("MODELO_CAJA", back_populates="SUCURSAL")
-
+    USUARIO_ELIMINO = relationship("MODELO_USUARIO", foreign_keys=[USUARIO_ELIMINO_ID])
 
 TABLA_PRODUCTO_SUCURSAL = Table(
     "PRODUCTO_SUCURSAL",
@@ -126,21 +138,19 @@ TABLA_PRODUCTO_SUCURSAL = Table(
     Column("SUCURSAL_ID", Integer, ForeignKey("SUCURSALES.ID")),
 )
 
-
 class MODELO_EXTRA(BASE):
     __tablename__ = "EXTRAS"
 
     ID = Column(Integer, primary_key=True, autoincrement=True)
     NOMBRE = Column(String(100), nullable=False)
     DESCRIPCION = Column(String(255))
-    PRECIO_ADICIONAL = Column(Integer, default=0)  # En Bs
+    PRECIO_ADICIONAL = Column(Integer, default=0)
     ACTIVO = Column(Boolean, default=True)
     FECHA_CREACION = Column(DateTime, default=datetime.utcnow)
 
     PRODUCTOS = relationship(
         "MODELO_PRODUCTO", secondary="PRODUCTO_EXTRA", back_populates="EXTRAS"
     )
-
 
 TABLA_PRODUCTO_EXTRA = Table(
     "PRODUCTO_EXTRA",
@@ -149,20 +159,19 @@ TABLA_PRODUCTO_EXTRA = Table(
     Column("EXTRA_ID", Integer, ForeignKey("EXTRAS.ID")),
 )
 
-
 class MODELO_PEDIDO(BASE):
     __tablename__ = "PEDIDOS"
 
     ID = Column(Integer, primary_key=True, autoincrement=True)
     CLIENTE_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=False)
     SUCURSAL_ID = Column(Integer, ForeignKey("SUCURSALES.ID"), nullable=False)
-    TIPO = Column(String(20), default="delivery")  # 'delivery' o 'presencial'
+    TIPO = Column(String(15), default="delivery")
     ESTADO = Column(
-        String(50), default="pendiente"
-    )  # pendiente, confirmado, preparado, entregado
+        String(30), default="pendiente"
+    )
     MONTO_TOTAL = Column(Integer, nullable=False)
-    QR_PAGO = Column(String(1000), nullable=True)
-    NOTAS = Column(String(500), nullable=True)
+    QR_PAGO = Column(String(300), nullable=True)
+    NOTAS = Column(String(300), nullable=True)
     FECHA_CREACION = Column(DateTime, default=datetime.utcnow)
     FECHA_CONFIRMACION = Column(DateTime, nullable=True)
 
@@ -172,7 +181,6 @@ class MODELO_PEDIDO(BASE):
         "MODELO_DETALLE_PEDIDO", back_populates="PEDIDO", cascade="all, delete-orphan"
     )
 
-
 class MODELO_DETALLE_PEDIDO(BASE):
     __tablename__ = "DETALLE_PEDIDO"
 
@@ -181,11 +189,10 @@ class MODELO_DETALLE_PEDIDO(BASE):
     PRODUCTO_ID = Column(Integer, ForeignKey("PRODUCTOS.ID"), nullable=False)
     CANTIDAD = Column(Integer, default=1)
     PRECIO_UNITARIO = Column(Integer, nullable=False)
-    EXTRAS_SELECCIONADOS = Column(String(1000), nullable=True)  # JSON o lista de IDs
+    EXTRAS_SELECCIONADOS = Column(String(500), nullable=True)
 
     PEDIDO = relationship("MODELO_PEDIDO", back_populates="DETALLES")
     PRODUCTO = relationship("MODELO_PRODUCTO")
-
 
 class MODELO_ASISTENCIA(BASE):
     __tablename__ = "ASISTENCIAS"
@@ -194,10 +201,9 @@ class MODELO_ASISTENCIA(BASE):
     USUARIO_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=False)
     FECHA = Column(DateTime, default=datetime.utcnow)
     ASISTIO = Column(Boolean, default=True)
-    NOTAS = Column(String(255), nullable=True)
+    NOTAS = Column(String(200), nullable=True)
 
     USUARIO = relationship("MODELO_USUARIO")
-
 
 class MODELO_REPORTE_LIMPIEZA(BASE):
     __tablename__ = "REPORTES_LIMPIEZA"
@@ -206,12 +212,11 @@ class MODELO_REPORTE_LIMPIEZA(BASE):
     USUARIO_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=False)
     SUCURSAL_ID = Column(Integer, ForeignKey("SUCURSALES.ID"), nullable=False)
     FECHA = Column(DateTime, default=datetime.utcnow)
-    FOTO_LOCAL = Column(String(500), nullable=True)  # Ruta de imagen
-    NOTAS = Column(String(500), nullable=True)
+    FOTO_LOCAL = Column(String(300), nullable=True)
+    NOTAS = Column(String(300), nullable=True)
 
     USUARIO = relationship("MODELO_USUARIO")
     SUCURSAL = relationship("MODELO_SUCURSAL")
-
 
 class MODELO_CAJA(BASE):
     __tablename__ = "CAJAS"
@@ -229,42 +234,139 @@ class MODELO_CAJA(BASE):
     USUARIO = relationship("MODELO_USUARIO")
     SUCURSAL = relationship("MODELO_SUCURSAL", back_populates="CAJAS")
 
-
 class MODELO_OFERTA(BASE):
     __tablename__ = "OFERTAS"
 
     ID = Column(Integer, primary_key=True, autoincrement=True)
+    NOMBRE = Column(String(100), nullable=False)  # Nombre descriptivo de la oferta
+    TIPO = Column(String(50), default="DESCUENTO")  # DESCUENTO, 2x1, 3x2, COMBO, ESPECIAL
     PRODUCTO_ID = Column(Integer, ForeignKey("PRODUCTOS.ID"), nullable=False)
-    DESCUENTO_PORCENTAJE = Column(Integer, nullable=False)  # 0-100
+    DESCUENTO_PORCENTAJE = Column(Integer, nullable=False)
     FECHA_INICIO = Column(DateTime, default=datetime.utcnow)
-    FECHA_FIN = Column(DateTime, nullable=True)
+    FECHA_FIN = Column(DateTime, nullable=True)  # Fecha fin global (si aplica a todas las sucursales por igual)
     ACTIVA = Column(Boolean, default=True)
+    APLICAR_TODAS_SUCURSALES = Column(Boolean, default=True)  # Si aplica a todas o solo a específicas
+    ELIMINADO = Column(Boolean, default=False)  # Soft delete
 
     PRODUCTO = relationship("MODELO_PRODUCTO")
+    SUCURSALES = relationship("MODELO_OFERTA_SUCURSAL", back_populates="OFERTA", cascade="all, delete-orphan")
 
+# Tabla intermedia para ofertas por sucursal con fechas específicas
+class MODELO_OFERTA_SUCURSAL(BASE):
+    __tablename__ = "OFERTA_SUCURSAL"
+
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    OFERTA_ID = Column(Integer, ForeignKey("OFERTAS.ID"), nullable=False)
+    SUCURSAL_ID = Column(Integer, ForeignKey("SUCURSALES.ID"), nullable=False)
+    FECHA_FIN_ESPECIFICA = Column(DateTime, nullable=True)  # Fecha fin específica para esta sucursal
+    ACTIVA = Column(Boolean, default=True)
+
+    OFERTA = relationship("MODELO_OFERTA", back_populates="SUCURSALES")
+    SUCURSAL = relationship("MODELO_SUCURSAL")
+
+TABLA_INSUMO_PROVEEDOR = Table(
+    "INSUMO_PROVEEDOR",
+    BASE.metadata,
+    Column("INSUMO_ID", Integer, ForeignKey("INSUMOS.ID")),
+    Column("PROVEEDOR_ID", Integer, ForeignKey("PROVEEDORES.ID")),
+    Column("PRECIO_PROVEEDOR", Integer, nullable=False, default=0),  # Precio específico del proveedor (en centavos)
+    Column("TIEMPO_ENTREGA", Integer, nullable=True),  # días de entrega
+    Column("STOCK_DISPONIBLE", Integer, nullable=False, default=0),  # stock que tiene el proveedor
+    Column("CODIGO_INTERNO", String(50), nullable=True),  # código del insumo en el proveedor
+    Column("FECHA_ULTIMO_PEDIDO", DateTime, nullable=True),  # último pedido a este proveedor
+    Column("ACTIVO", Boolean, default=True),
+)
+
+class MODELO_PROVEEDOR(BASE):
+    __tablename__ = "PROVEEDORES"
+
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    NOMBRE = Column(String(120), unique=True, nullable=False)
+    TELEFONO = Column(String(20))
+    EMAIL = Column(String(120))
+    DIRECCION = Column(String(200))
+    UBICACION = Column(String(200))
+    ACTIVO = Column(Boolean, default=True)
+    FECHA_CREACION = Column(DateTime, default=datetime.utcnow)
+
+    INSUMOS = relationship(
+        "MODELO_INSUMO", secondary=TABLA_INSUMO_PROVEEDOR, back_populates="PROVEEDORES"
+    )
+
+class MODELO_CAJA_MOVIMIENTO(BASE):
+    __tablename__ = "CAJA_MOVIMIENTOS"
+
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    USUARIO_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=False)
+    SUCURSAL_ID = Column(Integer, ForeignKey("SUCURSALES.ID"), nullable=True)
+    TIPO = Column(String(20), default="ingreso")
+    CATEGORIA = Column(String(60))
+    MONTO = Column(Integer, default=0)
+    DESCRIPCION = Column(String(200))
+    FECHA = Column(DateTime, default=datetime.utcnow)
+
+    USUARIO = relationship("MODELO_USUARIO")
+    SUCURSAL = relationship("MODELO_SUCURSAL")
+
+class MODELO_AUDITORIA(BASE):
+    __tablename__ = "AUDITORIA"
+
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    USUARIO_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=False)
+    ACCION = Column(String(120), nullable=False)
+    ENTIDAD = Column(String(80))
+    ENTIDAD_ID = Column(Integer)
+    DETALLE = Column(String(300))
+    FECHA = Column(DateTime, default=datetime.utcnow)
+
+    USUARIO = relationship("MODELO_USUARIO")
+
+class MODELO_RESENA_ATENCION(BASE):
+    __tablename__ = "RESENAS_ATENCION"
+
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    USUARIO_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=False)
+    CALIFICACION = Column(Integer, default=5)
+    COMENTARIO = Column(String(300))
+    FECHA = Column(DateTime, default=datetime.utcnow)
+
+    USUARIO = relationship("MODELO_USUARIO")
 
 class MODELO_HORARIO(BASE):
     __tablename__ = "HORARIOS"
 
     ID = Column(Integer, primary_key=True, autoincrement=True)
     USUARIO_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=False)
-    DIA_SEMANA = Column(String(10), nullable=False)  # 'lunes', 'martes', etc.
-    HORA_INICIO = Column(String(5), nullable=False)  # '08:00'
-    HORA_FIN = Column(String(5), nullable=False)  # '17:00'
+    DIA_SEMANA = Column(String(10), nullable=False)
+    HORA_INICIO = Column(String(5), nullable=False)
+    HORA_FIN = Column(String(5), nullable=False)
     ACTIVO = Column(Boolean, default=True)
 
     USUARIO = relationship("MODELO_USUARIO")
 
+class MODELO_PLANTILLA(BASE):
+    __tablename__ = "PLANTILLAS"
+
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    NOMBRE = Column(String(100), nullable=False)
+    DESCRIPCION = Column(String(300), nullable=True)
+    HORA_INICIO = Column(String(5), nullable=False)
+    HORA_FIN = Column(String(5), nullable=False)
+    DIAS = Column(String(200), nullable=False)  # JSON string con lista de días
+    CREADO_POR = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=False)
+    FECHA_CREACION = Column(DateTime, default=datetime.utcnow)
+    ACTIVO = Column(Boolean, default=True)
+
+    USUARIO = relationship("MODELO_USUARIO")
 
 def OBTENER_RUTA_BD():
-    if os.name == "nt":  # Windows
+    if os.name == "nt":
         appdata = os.getenv("APPDATA") or os.path.expanduser("~")
         return os.path.join(appdata, "AppSegura", "app_segura.db")
-    elif os.name == "posix":  # Linux/Mac
+    elif os.name == "posix":
         return os.path.join(os.path.expanduser("~"), ".app_segura", "app_segura.db")
-    else:  # Web/Móvil
+    else:
         return os.path.abspath("app_segura.db")
-
 
 RUTA_BD = OBTENER_RUTA_BD()
 dir_name = os.path.dirname(RUTA_BD)
@@ -274,193 +376,165 @@ if dir_name:
     except Exception as e:
         logger.warning("No se pudo crear el directorio de la BD %s: %s", dir_name, e)
 
-MOTOR = create_engine(
-    f"sqlite:///{RUTA_BD}", echo=False, connect_args={"check_same_thread": False}
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://conychips_user:ConyCh1ps2026!@localhost:5432/conychips_db"
 )
-SESION_FACTORY = sessionmaker(bind=MOTOR)
 
+MOTOR = create_engine(
+    DATABASE_URL,
+    echo=False,
+    pool_size=20,
+    max_overflow=40,
+    pool_pre_ping=True,
+    pool_recycle=3600,
+    poolclass=pool.QueuePool,
+    connect_args={
+        "connect_timeout": 10,
+        "options": "-c timezone=utc"
+    }
+)
 
-async def INICIALIZAR_BASE_DATOS():
+@event.listens_for(MOTOR, "connect")
+def RECIBIR_CONEXION(dbapi_conn, connection_record):
+    connection_record.info['pid'] = os.getpid()
+
+@event.listens_for(MOTOR, "checkout")
+def VERIFICAR_CONEXION(dbapi_conn, connection_record, connection_proxy):
+    pid = os.getpid()
+    if connection_record.info.get('pid') != pid:
+        connection_record.dbapi_connection = connection_proxy.dbapi_connection = None
+        raise Exception(
+            "Conexión creada en otro proceso, invalidando."
+        )
+
+SESION_FACTORY = scoped_session(
+    sessionmaker(
+        bind=MOTOR,
+        autocommit=False,
+        autoflush=False,
+        expire_on_commit=False
+    )
+)
+
+def INICIALIZAR_BASE_DATOS():
+    BASE.metadata.create_all(MOTOR)
+    
+    logger.info("Base de datos PostgreSQL inicializada - tablas creadas")
 
     try:
         from sqlalchemy import text
 
-        with MOTOR.connect() as conn:
-            result = conn.execute(text("PRAGMA table_info(USUARIOS)"))
-            columns = [row[1] for row in result.fetchall()]
-
-            if "FOTO_PERFIL" not in columns:
-                conn.execute(
-                    text("ALTER TABLE USUARIOS ADD COLUMN FOTO_PERFIL VARCHAR(500)")
-                )
-                logger.info("Columna FOTO_PERFIL añadida a USUARIOS")
-            if "ACTIVO" not in columns:
-                conn.execute(
-                    text("ALTER TABLE USUARIOS ADD COLUMN ACTIVO BOOLEAN DEFAULT 1")
-                )
-                logger.info("Columna ACTIVO añadida a USUARIOS")
-            if "VERIFICADO" not in columns:
-                conn.execute(
-                    text("ALTER TABLE USUARIOS ADD COLUMN VERIFICADO BOOLEAN DEFAULT 0")
-                )
-                logger.info("Columna VERIFICADO añadida a USUARIOS")
-            if "TOKEN_RESET" not in columns:
-                conn.execute(
-                    text("ALTER TABLE USUARIOS ADD COLUMN TOKEN_RESET VARCHAR(255)")
-                )
-                logger.info("Columna TOKEN_RESET añadida a USUARIOS")
-            if "TOKEN_RESET_EXPIRA" not in columns:
-                conn.execute(
-                    text("ALTER TABLE USUARIOS ADD COLUMN TOKEN_RESET_EXPIRA DATETIME")
-                )
-                logger.info("Columna TOKEN_RESET_EXPIRA añadida a USUARIOS")
-            if "ULTIMA_CONEXION" not in columns:
-                conn.execute(
-                    text("ALTER TABLE USUARIOS ADD COLUMN ULTIMA_CONEXION DATETIME")
-                )
-                logger.info("Columna ULTIMA_CONEXION añadida a USUARIOS")
-
-            result = conn.execute(text("PRAGMA table_info(PRODUCTOS)"))
-            columns = [row[1] for row in result.fetchall()]
-            if "IMAGEN" not in columns:
-                conn.execute(
-                    text("ALTER TABLE PRODUCTOS ADD COLUMN IMAGEN VARCHAR(500)")
-                )
-                logger.info("Columna IMAGEN añadida a PRODUCTOS")
-            if "TIPO" not in columns:
-                conn.execute(
-                    text(
-                        "ALTER TABLE PRODUCTOS ADD COLUMN TIPO VARCHAR(50) DEFAULT 'gaseosa'"
-                    )
-                )
-                logger.info("Columna TIPO añadida a PRODUCTOS")
-
-            result = conn.execute(text("PRAGMA table_info(PEDIDOS)"))
-            columns = [row[1] for row in result.fetchall()]
-
-            if "SUCURSAL_ID" not in columns:
-                conn.execute(
-                    text(
-                        "ALTER TABLE PEDIDOS ADD COLUMN SUCURSAL_ID INTEGER REFERENCES SUCURSALES(ID)"
-                    )
-                )
-                logger.info("Columna SUCURSAL_ID añadida a PEDIDOS")
-            if "TIPO" not in columns:
-                conn.execute(
-                    text(
-                        "ALTER TABLE PEDIDOS ADD COLUMN TIPO VARCHAR(20) DEFAULT 'delivery'"
-                    )
-                )
-                logger.info("Columna TIPO añadida a PEDIDOS")
-            if "MONTO_TOTAL" not in columns:
-                conn.execute(text("ALTER TABLE PEDIDOS ADD COLUMN MONTO_TOTAL INTEGER"))
-                logger.info("Columna MONTO_TOTAL añadida a PEDIDOS")
-            if "QR_PAGO" not in columns:
-                conn.execute(
-                    text("ALTER TABLE PEDIDOS ADD COLUMN QR_PAGO VARCHAR(1000)")
-                )
-                logger.info("Columna QR_PAGO añadida a PEDIDOS")
-            if "NOTAS" not in columns:
-                conn.execute(text("ALTER TABLE PEDIDOS ADD COLUMN NOTAS VARCHAR(500)"))
-                logger.info("Columna NOTAS añadida a PEDIDOS")
-            if "FECHA_CONFIRMACION" not in columns:
-                conn.execute(
-                    text("ALTER TABLE PEDIDOS ADD COLUMN FECHA_CONFIRMACION DATETIME")
-                )
-                logger.info("Columna FECHA_CONFIRMACION añadida a PEDIDOS")
-
-            conn.commit()
     except Exception as e:
-        logger.exception("Error en migración: %s", e)
-
-    BASE.metadata.create_all(MOTOR)
-    try:
-        if os.path.exists(RUTA_BD):
-            respaldo = f"{RUTA_BD}.backup.{int(time.time())}"
-            shutil.copy2(RUTA_BD, respaldo)
-            logger.info("Respaldo de BD creado: %s", respaldo)
-    except Exception as e:
-        logger.warning("Fallo al crear respaldo de BD: %s", e)
+        logger.exception("Error en migración de columnas: %s", e)
 
     with SESION_FACTORY() as sesion:
         try:
-            usuarios = sesion.query(MODELO_USUARIO).all()
-            if usuarios:
-                for u in usuarios:
-                    sesion.delete(u)
-                sesion.commit()
-                logger.info("Usuarios eliminados: %d", len(usuarios))
-            else:
-                logger.info("No había usuarios para eliminar.")
-        except Exception as e:
-            sesion.rollback()
-            logger.exception("Error al eliminar usuarios: %s", e)
-        from core.Constantes import ROLES
+            import json
+            from core.Constantes import ROLES
 
-        ROLES_DEFECTO = [
-            MODELO_ROL(
-                NOMBRE=ROLES.SUPER_ADMIN, DESCRIPCION="Control total del sistema"
-            ),
-            MODELO_ROL(NOMBRE=ROLES.ADMIN, DESCRIPCION="Administrador del sistema"),
-            MODELO_ROL(
-                NOMBRE=ROLES.ATENCION, DESCRIPCION="Personal de atención al cliente"
-            ),
-            MODELO_ROL(NOMBRE=ROLES.COCINERO, DESCRIPCION="Personal de cocina"),
-            MODELO_ROL(NOMBRE=ROLES.LIMPIEZA, DESCRIPCION="Personal de limpieza"),
-            MODELO_ROL(
-                NOMBRE=ROLES.CLIENTE, DESCRIPCION="Cliente / usuario del servicio"
-            ),
-        ]
+            roles_defecto = [
+                ROLES.INVITADO,
+                ROLES.COCINERO,
+                ROLES.CLIENTE,
+                ROLES.ATENCION,
+                ROLES.ADMIN,
+                ROLES.LIMPIEZA,
+                ROLES.SUPERADMIN,
+            ]
 
-        for rol in ROLES_DEFECTO:
-            existe = sesion.query(MODELO_ROL).filter_by(NOMBRE=rol.NOMBRE).first()
-            if not existe:
-                sesion.add(rol)
+            for nombre in roles_defecto:
+                existe = sesion.query(MODELO_ROL).filter_by(NOMBRE=nombre).first()
+                if not existe:
+                    permisos = ["*"] if nombre == ROLES.SUPERADMIN else []
+                    rol = MODELO_ROL(
+                        NOMBRE=nombre,
+                        DESCRIPCION=nombre,
+                        PERMISOS=json.dumps(permisos),
+                        ACTIVO=True,
+                        FECHA_CREACION=datetime.now(timezone.utc),
+                    )
+                    sesion.add(rol)
 
-        sesion.commit()
+            rol_antiguo = sesion.query(MODELO_ROL).filter_by(NOMBRE="super_admin").first()
+            rol_super = sesion.query(MODELO_ROL).filter_by(NOMBRE=ROLES.SUPERADMIN).first()
+            if rol_antiguo and not rol_super:
+                rol_antiguo.NOMBRE = ROLES.SUPERADMIN
+                rol_antiguo.DESCRIPCION = ROLES.SUPERADMIN
+                rol_antiguo.PERMISOS = json.dumps(["*"])
 
-        try:
+            sesion.commit()
+
             import bcrypt
 
-            DOMAIN = "conychips.com"
+            email_super = "superadmin@conychips.com"
+            password_super = "SuperAdmin123."
 
-            DEFAULT_PASSWORDS = {
-                ROLES.SUPER_ADMIN: "Super123.",
-                ROLES.ADMIN: "Admin123.",
-                ROLES.ATENCION: "Atencion123.",
-                ROLES.COCINERO: "Cocinero123.",
-                ROLES.LIMPIEZA: "Limpieza123.",
-                ROLES.CLIENTE: "Cliente123.",
-            }
+            existe_super = sesion.query(MODELO_USUARIO).filter_by(EMAIL=email_super).first()
 
-            def crear_usuario_si_no_existe_short(nombre, rol_nombre):
-                email = f"{nombre}@{DOMAIN}"
-                existe_u = sesion.query(MODELO_USUARIO).filter_by(EMAIL=email).first()
-                if existe_u:
-                    return
-                password = DEFAULT_PASSWORDS.get(rol_nombre, "PasswordWorking...123.")
+            if not existe_super:
                 salt = bcrypt.gensalt(rounds=12)
-                hash_pw = bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
-                usuario = MODELO_USUARIO(
-                    EMAIL=email,
-                    NOMBRE_USUARIO=nombre,
+                hash_pw = bcrypt.hashpw(password_super.encode("utf-8"), salt).decode("utf-8")
+
+                super_admin_usuario = MODELO_USUARIO(
+                    EMAIL=email_super,
+                    NOMBRE_USUARIO="superadmin",
                     CONTRASENA_HASH=hash_pw,
-                    HUELLA_DISPOSITIVO="seed-device",
+                    HUELLA_DISPOSITIVO="seed-device-super-admin",
+                    ACTIVO=True,
+                    VERIFICADO=True,
+                    FECHA_CREACION=datetime.now(timezone.utc),
                 )
-                rol_obj = sesion.query(MODELO_ROL).filter_by(NOMBRE=rol_nombre).first()
-                if rol_obj:
-                    usuario.ROLES.append(rol_obj)
-                sesion.add(usuario)
+
+                rol_super = sesion.query(MODELO_ROL).filter_by(NOMBRE=ROLES.SUPERADMIN).first()
+                if rol_super:
+                    super_admin_usuario.ROLES.append(rol_super)
+
+                sesion.add(super_admin_usuario)
                 sesion.commit()
 
-            crear_usuario_si_no_existe_short("super", ROLES.SUPER_ADMIN)
-            crear_usuario_si_no_existe_short("admin", ROLES.ADMIN)
-            crear_usuario_si_no_existe_short("atencion", ROLES.ATENCION)
-            crear_usuario_si_no_existe_short("cocinero", ROLES.COCINERO)
-            crear_usuario_si_no_existe_short("limpieza", ROLES.LIMPIEZA)
-            crear_usuario_si_no_existe_short("cliente", ROLES.CLIENTE)
+            # Insertar configuraciones por defecto
+            configs_defecto = [
+                {
+                    "CLAVE": "vouchers.tiempo_bloqueo_minutos",
+                    "VALOR": "5",
+                    "TIPO": "int",
+                    "DESCRIPCION": "Tiempo en minutos antes de que un voucher se bloquee automáticamente",
+                    "CATEGORIA": "vouchers"
+                },
+                {
+                    "CLAVE": "pedidos.tiempo_preparacion_minutos",
+                    "VALOR": "30",
+                    "TIPO": "int",
+                    "DESCRIPCION": "Tiempo estimado de preparación de pedidos en minutos",
+                    "CATEGORIA": "pedidos"
+                },
+                {
+                    "CLAVE": "sistema.modo_debug",
+                    "VALOR": "false",
+                    "TIPO": "bool",
+                    "DESCRIPCION": "Activar modo debug del sistema",
+                    "CATEGORIA": "sistema"
+                }
+            ]
+            
+            for config in configs_defecto:
+                existe = sesion.query(MODELO_CONFIGURACION_SISTEMA).filter_by(CLAVE=config["CLAVE"]).first()
+                if not existe:
+                    nueva_config = MODELO_CONFIGURACION_SISTEMA(**config)
+                    sesion.add(nueva_config)
+            
+            sesion.commit()
+
+            if not existe_super:
+                logger.info("Usuario Super Admin creado: %s", email_super)
+                logger.info("Contraseña Super Admin: %s", password_super)
+            else:
+                logger.info("Usuario Super Admin ya existe")
+
         except Exception as e:
-            logger.exception("Error creando usuarios seed: %s", e)
+            sesion.rollback()
+            logger.exception("Error creando roles y super admin: %s", e)
 
         try:
             productos_defecto = [
@@ -546,7 +620,229 @@ async def INICIALIZAR_BASE_DATOS():
 
     logger.info("Base de datos inicializada correctamente")
 
+class MODELO_VOUCHER(BASE):
+    __tablename__ = "VOUCHERS"
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    PEDIDO_ID = Column(Integer, ForeignKey("PEDIDOS.ID"), nullable=False)
+    USUARIO_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=False)
+    IMAGEN_URL = Column(String(500), nullable=False)
+    MONTO = Column(Integer, nullable=False)
+    METODO_PAGO = Column(String(50), nullable=False)
+    VALIDADO = Column(Boolean, default=False)
+    RECHAZADO = Column(Boolean, default=False)
+    MOTIVO_RECHAZO = Column(String(500), nullable=True)
+    VALIDADO_POR = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=True)
+    FECHA_SUBIDA = Column(DateTime, default=datetime.utcnow)
+    FECHA_VALIDACION = Column(DateTime, nullable=True)
+
+class MODELO_REPORTE_LIMPIEZA_FOTO(BASE):
+    __tablename__ = "REPORTES_LIMPIEZA_FOTOS"
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    REPORTE_ID = Column(Integer, ForeignKey("REPORTES_LIMPIEZA.ID"), nullable=False)
+    IMAGEN_URL = Column(String(500), nullable=False)
+    DESCRIPCION = Column(String(300), nullable=True)
+    FECHA_SUBIDA = Column(DateTime, default=datetime.utcnow)
+
+class MODELO_UBICACION_MOTORIZADO(BASE):
+    __tablename__ = "UBICACIONES_MOTORIZADO"
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    USUARIO_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=False)
+    PEDIDO_ID = Column(Integer, ForeignKey("PEDIDOS.ID"), nullable=True)
+    LATITUD = Column(String(50), nullable=False)
+    LONGITUD = Column(String(50), nullable=False)
+    ESTADO = Column(String(50), nullable=False)
+    FECHA = Column(DateTime, default=datetime.utcnow)
+
+class MODELO_MENSAJE_CHAT(BASE):
+    __tablename__ = "MENSAJES_CHAT"
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    PEDIDO_ID = Column(Integer, ForeignKey("PEDIDOS.ID"), nullable=False)
+    USUARIO_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=False)
+    MENSAJE = Column(String(1000), nullable=False)
+    TIPO = Column(String(20), default="texto")
+    LEIDO = Column(Boolean, default=False)
+    ESTADO = Column(String(20), default="enviado")  # enviando, enviado, entregado, leido, error
+    HASH = Column(String(64), nullable=True)  # SHA256 hash del mensaje
+    FECHA_LECTURA = Column(DateTime, nullable=True)  # Cuándo fue leído
+    FECHA = Column(DateTime, default=datetime.utcnow)
+
+class MODELO_NOTIFICACION(BASE):
+    __tablename__ = "NOTIFICACIONES"
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    USUARIO_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=False)
+    TITULO = Column(String(100), nullable=False)
+    MENSAJE = Column(String(500), nullable=False)
+    TIPO = Column(String(50), nullable=False)
+    LEIDA = Column(Boolean, default=False)
+    DATOS_EXTRA = Column(String(1000), nullable=True)
+    FECHA = Column(DateTime, default=datetime.utcnow)
+
+class MODELO_CALIFICACION(BASE):
+    __tablename__ = "CALIFICACIONES"
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    PEDIDO_ID = Column(Integer, ForeignKey("PEDIDOS.ID"), nullable=False)
+    USUARIO_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=False)
+    CALIFICACION_COMIDA = Column(Integer, nullable=False)
+    CALIFICACION_SERVICIO = Column(Integer, nullable=False)
+    CALIFICACION_ENTREGA = Column(Integer, nullable=False)
+    COMENTARIO = Column(String(500), nullable=True)
+    FECHA = Column(DateTime, default=datetime.utcnow)
+
+class MODELO_REFILL_SOLICITUD(BASE):
+    __tablename__ = "REFILL_SOLICITUDES"
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    INSUMO_ID = Column(Integer, ForeignKey("INSUMOS.ID"), nullable=False)
+    USUARIO_SOLICITA = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=False)
+    CANTIDAD_SOLICITADA = Column(Integer, nullable=False)
+    ESTADO = Column(String(50), default="pendiente")
+    APROBADO_POR = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=True)
+    FECHA_SOLICITUD = Column(DateTime, default=datetime.utcnow)
+    FECHA_APROBACION = Column(DateTime, nullable=True)
+
+class MODELO_ALERTA_COCINA(BASE):
+    """Alertas enviadas desde atención a cocina para pedidos urgentes"""
+    __tablename__ = "ALERTAS_COCINA"
+    
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    PEDIDO_ID = Column(Integer, ForeignKey("PEDIDOS.ID"), nullable=False)
+    USUARIO_ENVIA = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=False)
+    SUCURSAL_ID = Column(Integer, ForeignKey("SUCURSALES.ID"), nullable=True)
+    MENSAJE = Column(String(500), nullable=True)
+    PRIORIDAD = Column(String(20), default="normal")  # normal, alta, urgente
+    LEIDA = Column(Boolean, default=False)
+    FECHA_ENVIO = Column(DateTime, default=datetime.utcnow)
+    FECHA_LECTURA = Column(DateTime, nullable=True)
+    
+    PEDIDO = relationship("MODELO_PEDIDO")
+    USUARIO = relationship("MODELO_USUARIO", foreign_keys=[USUARIO_ENVIA])
+    SUCURSAL = relationship("MODELO_SUCURSAL")
+
+class MODELO_EVENTO_REALTIME(BASE):
+    """Registro de eventos en tiempo real para auditoría y replay"""
+    __tablename__ = "EVENTOS_REALTIME"
+    
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    TIPO = Column(String(50), nullable=False)  # voucher_nuevo, pedido_nuevo, alerta_cocina, refill_solicitud
+    SUBTIPO = Column(String(50), nullable=True)  # whatsapp, presencial, delivery, etc
+    PAYLOAD = Column(String(2000), nullable=False)  # JSON del evento
+    USUARIO_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=True)
+    SUCURSAL_ID = Column(Integer, ForeignKey("SUCURSALES.ID"), nullable=True)
+    ENTIDAD_TIPO = Column(String(50), nullable=True)  # PEDIDO, VOUCHER, etc
+    ENTIDAD_ID = Column(Integer, nullable=True)
+    FECHA = Column(DateTime, default=datetime.utcnow)
+    
+    USUARIO = relationship("MODELO_USUARIO")
+    SUCURSAL = relationship("MODELO_SUCURSAL")
+
+class MODELO_CONFIGURACION_SISTEMA(BASE):
+    """Configuraciones globales del sistema (tiempos, límites, etc)"""
+    __tablename__ = "CONFIGURACION_SISTEMA"
+    
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    CLAVE = Column(String(100), unique=True, nullable=False)
+    VALOR = Column(String(500), nullable=False)
+    TIPO = Column(String(20), nullable=False)  # int, float, bool, str
+    DESCRIPCION = Column(String(300), nullable=True)
+    CATEGORIA = Column(String(50), nullable=True)  # vouchers, pedidos, sistema, etc
+    FECHA_MODIFICACION = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    MODIFICADO_POR = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=True)
+
+class MODELO_LOG_CONFIGURACION(BASE):
+    """Historial de cambios en configuraciones del sistema"""
+    __tablename__ = "LOG_CONFIGURACION"
+    
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    CONFIGURACION_ID = Column(Integer, ForeignKey("CONFIGURACION_SISTEMA.ID"), nullable=False)
+    CLAVE = Column(String(100), nullable=False)
+    VALOR_ANTERIOR = Column(String(500), nullable=True)
+    VALOR_NUEVO = Column(String(500), nullable=False)
+    USUARIO_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=True)
+    FECHA = Column(DateTime, default=datetime.utcnow)
+    
+    USUARIO = relationship("MODELO_USUARIO")
+
+# ==================== MODELOS DE INSUMOS ====================
+
+class MODELO_INSUMO(BASE):
+    """Insumos (ingredientes) que se compran"""
+    __tablename__ = "INSUMOS"
+    
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    NOMBRE = Column(String(100), unique=True, nullable=False)
+    DESCRIPCION = Column(String(300), nullable=True)
+    UNIDAD = Column(String(20), nullable=False)  # kg, litro, arroba, unidad, etc
+    PRECIO_UNITARIO = Column(Integer, nullable=False)  # en centavos
+    STOCK_ACTUAL = Column(Integer, nullable=False, default=0)  # cantidad en base de la unidad
+    STOCK_MINIMO = Column(Integer, nullable=False, default=0)  # alerta de stock bajo
+    PROVEEDOR = Column(String(100), nullable=True)
+    TIEMPO_PREP = Column(Integer, default=0, nullable=True)  # tiempo de preparación en minutos
+    NOTAS = Column(String(500), nullable=True)  # notas adicionales del insumo
+    ACTIVO = Column(Boolean, default=True)
+    FECHA_CREACION = Column(DateTime, default=datetime.utcnow)
+    FECHA_MODIFICACION = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Nuevos campos para compras programadas
+    FECHA_PROXIMA_COMPRA = Column(DateTime, nullable=True)  # Cuándo comprar siguiente
+    RECORDATORIO_ACTIVO = Column(Boolean, default=False)  # Si el recordatorio está habilitado
+    FRECUENCIA_COMPRA = Column(String(20), nullable=True)  # diaria, semanal, mensual, etc
+    
+    FORMULAS = relationship("MODELO_FORMULA", back_populates="INSUMO", cascade="all, delete-orphan")
+    MOVIMIENTOS = relationship("MODELO_MOVIMIENTO_INSUMO", back_populates="INSUMO", cascade="all, delete-orphan")
+    PROVEEDORES = relationship(
+        "MODELO_PROVEEDOR", secondary=TABLA_INSUMO_PROVEEDOR, back_populates="INSUMOS"
+    )
+
+class MODELO_FORMULA(BASE):
+    """Fórmulas/Recetas: relación insumo-producto (cuánto insumo por producto)"""
+    __tablename__ = "FORMULAS"
+    
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    PRODUCTO_ID = Column(Integer, ForeignKey("PRODUCTOS.ID"), nullable=False)
+    INSUMO_ID = Column(Integer, ForeignKey("INSUMOS.ID"), nullable=False)
+    CANTIDAD = Column(Integer, nullable=False)  # cantidad de insumo por producto
+    UNIDAD = Column(String(20), nullable=False)  # misma unidad del insumo
+    TIEMPO_PREP = Column(Integer, default=0, nullable=True)  # tiempo de preparación en minutos
+    NOTAS = Column(String(200), nullable=True)
+    ACTIVA = Column(Boolean, default=True)
+    FECHA_CREACION = Column(DateTime, default=datetime.utcnow)
+    
+    PRODUCTO = relationship("MODELO_PRODUCTO")
+    INSUMO = relationship("MODELO_INSUMO", back_populates="FORMULAS")
+
+class MODELO_MOVIMIENTO_INSUMO(BASE):
+    """Registro de movimientos de insumos (entrada, salida, ajuste)"""
+    __tablename__ = "MOVIMIENTOS_INSUMO"
+    
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    INSUMO_ID = Column(Integer, ForeignKey("INSUMOS.ID"), nullable=False)
+    TIPO = Column(String(20), nullable=False)  # ENTRADA, SALIDA, AJUSTE, PRODUCCION
+    CANTIDAD = Column(Integer, nullable=False)  # positivo o negativo
+    STOCK_ANTERIOR = Column(Integer, nullable=False)
+    STOCK_NUEVO = Column(Integer, nullable=False)
+    OBSERVACION = Column(String(300), nullable=True)
+    USUARIO_ID = Column(Integer, ForeignKey("USUARIOS.ID"), nullable=True)
+    FECHA = Column(DateTime, default=datetime.utcnow)
+    
+    INSUMO = relationship("MODELO_INSUMO", back_populates="MOVIMIENTOS")
+    USUARIO = relationship("MODELO_USUARIO")
+
+class MODELO_ALERTA_INSUMO(BASE):
+    """Alertas de stock bajo en insumos"""
+    __tablename__ = "ALERTAS_INSUMO"
+    
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    INSUMO_ID = Column(Integer, ForeignKey("INSUMOS.ID"), nullable=False)
+    TIPO = Column(String(20), nullable=False)  # stock_bajo, compra_vencida, etc
+    MENSAJE = Column(String(300), nullable=False)
+    LEIDA = Column(Boolean, default=False)
+    RESUELTA = Column(Boolean, default=False)  # Si fue resuelta
+    FECHA_CREACION = Column(DateTime, default=datetime.utcnow)
+    FECHA_RESOLUCION = Column(DateTime, nullable=True)
+    
+    INSUMO = relationship("MODELO_INSUMO")
 
 def OBTENER_SESION():
-
     return SESION_FACTORY()
+
+def CERRAR_SESION():
+    SESION_FACTORY.remove()

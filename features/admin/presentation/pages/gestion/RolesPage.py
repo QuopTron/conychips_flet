@@ -1,0 +1,514 @@
+import flet as ft
+from typing import List, Dict, Any
+from core.base_datos.ConfiguracionBD import MODELO_ROL, OBTENER_SESION
+from core.Constantes import ROLES, COLORES, TAMANOS, ICONOS
+from features.admin.presentation.widgets.LayoutBase import LayoutBase
+from features.admin.presentation.widgets.ComponentesGlobales import (
+    FormularioCRUD, 
+    Notificador,
+    GestorCRUD,
+    DialogoConfirmacion,
+    BotonesNavegacion
+)
+from core.ui.safe_actions import safe_update
+
+class RolesPage(LayoutBase):
+    """
+    Página moderna para gestión de roles y permisos.
+    Hereda de LayoutBase para tener el header global con filtro de sucursales.
+    """
+    
+    # Todas las vistas/acciones del sistema organizadas por categorías
+    PERMISOS_SISTEMA = {
+        "Gestión de Usuarios": [
+            ("VER_USUARIOS", "Ver Usuarios"),
+            ("CREAR_USUARIOS", "Crear Usuarios"),
+            ("EDITAR_USUARIOS", "Editar Usuarios"),
+            ("ELIMINAR_USUARIOS", "Eliminar Usuarios"),
+        ],
+        "Gestión de Productos": [
+            ("VER_PRODUCTOS", "Ver Productos"),
+            ("GESTIONAR_PRODUCTOS", "Gestionar Productos"),
+            ("VER_EXTRAS", "Ver Extras"),
+            ("GESTIONAR_EXTRAS", "Gestionar Extras"),
+        ],
+        "Gestión de Pedidos": [
+            ("VER_PEDIDOS", "Ver Pedidos"),
+            ("GESTIONAR_PEDIDOS", "Gestionar Pedidos"),
+            ("CREAR_PEDIDOS", "Crear Pedidos"),
+            ("CANCELAR_PEDIDOS", "Cancelar Pedidos"),
+        ],
+        "Gestión Financiera": [
+            ("VER_CAJA", "Ver Caja"),
+            ("GESTIONAR_CAJA", "Gestionar Caja"),
+            ("VER_REPORTES", "Ver Reportes"),
+            ("VER_VENTAS", "Ver Ventas"),
+        ],
+        "Gestión de Inventario": [
+            ("VER_INSUMOS", "Ver Insumos"),
+            ("GESTIONAR_INSUMOS", "Gestionar Insumos"),
+            ("VER_PROVEEDORES", "Ver Proveedores"),
+            ("GESTIONAR_PROVEEDORES", "Gestionar Proveedores"),
+        ],
+        "Gestión de Sucursales": [
+            ("VER_SUCURSALES", "Ver Sucursales"),
+            ("GESTIONAR_SUCURSALES", "Gestionar Sucursales"),
+            ("VER_HORARIOS", "Ver Horarios"),
+            ("GESTIONAR_HORARIOS", "Gestionar Horarios"),
+        ],
+        "Sistema": [
+            ("VER_AUDITORIA", "Ver Auditoría"),
+            ("VER_CONFIGURACION", "Ver Configuración"),
+            ("GESTIONAR_ROLES", "Gestionar Roles"),
+            ("ACCESO_TOTAL", "Acceso Total (SuperAdmin)"),
+        ],
+    }
+    
+    def __init__(self, PAGINA: ft.Page, USUARIO):
+        self._roles_cache = []
+        self._checkboxes_permisos = []
+        self._checkbox_todos = None
+        
+        # Inicializar LayoutBase
+        super().__init__(
+            pagina=PAGINA,
+            usuario=USUARIO,
+            titulo_vista="🛡️ Roles y Permisos del Sistema",
+            mostrar_boton_volver=True,
+            index_navegacion=0,
+            on_volver_dashboard=self._ir_dashboard,
+            on_cerrar_sesion=self._cerrar_sesion
+        )
+        
+        # Construir interfaz
+        contenido = self._construir_interfaz()
+        
+        # Llamar a construir() del LayoutBase con el contenido
+        self.construir(contenido)
+        
+        # Cargar roles
+        self._cargar_roles()
+    
+    def _construir_interfaz(self):
+        """Construye la interfaz de gestión de roles"""
+        # Header con botón de agregar
+        header = ft.Container(
+            content=ft.ResponsiveRow([
+                ft.Container(
+                    ft.Row([
+                        ft.Icon(ft.icons.Icons.ADMIN_PANEL_SETTINGS, size=24, color=COLORES.PRIMARIO),
+                        ft.Text(
+                            "Gestión de Roles y Permisos",
+                            size=20,
+                            weight=ft.FontWeight.BOLD
+                        ),
+                    ], spacing=10),
+                    col={"xs": 12, "md": 6}
+                ),
+                ft.Container(
+                    ft.Row([
+                        ft.ElevatedButton(
+                            "➕ Nuevo Rol",
+                            icon=ft.icons.Icons.ADD_CIRCLE,
+                            on_click=self._abrir_formulario_nuevo,
+                            bgcolor=COLORES.EXITO,
+                            color=ft.Colors.WHITE
+                        ),
+                    ], spacing=8, alignment=ft.MainAxisAlignment.END),
+                    col={"xs": 12, "md": 6}
+                ),
+            ], spacing=6, run_spacing=6),
+            bgcolor=ft.Colors.BLUE_50,
+            border_radius=8,
+            padding=12,
+            border=ft.border.all(1, ft.Colors.BLUE_200)
+        )
+        
+        # Lista de roles
+        self._lista_roles = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO, expand=True)
+        
+        # Retornar el contenido completo
+        return ft.Column([
+            header,
+            ft.Container(height=10),
+            self._lista_roles
+        ], spacing=0, expand=True)
+    
+    def _cargar_roles(self):
+        """Carga los roles desde la base de datos"""
+        sesion = OBTENER_SESION()
+        try:
+            roles = sesion.query(MODELO_ROL).all()
+            self._roles_cache = roles
+            self._actualizar_lista_roles()
+        except Exception as e:
+            Notificador.ERROR(self._pagina, f"Error al cargar roles: {str(e)}")
+        finally:
+            sesion.close()
+    
+    def _actualizar_lista_roles(self):
+        """Actualiza la lista visual de roles"""
+        self._lista_roles.controls.clear()
+        
+        if not self._roles_cache:
+            self._lista_roles.controls.append(
+                ft.Container(
+                    content=ft.Text(
+                        "No hay roles registrados",
+                        size=16,
+                        color=COLORES.TEXTO_SECUNDARIO
+                    ),
+                    alignment=ft.alignment.center,
+                    padding=40
+                )
+            )
+        else:
+            for rol in self._roles_cache:
+                self._lista_roles.controls.append(self._crear_card_rol(rol))
+        
+        safe_update(self._pagina)
+    
+    def _crear_card_rol(self, rol):
+        """Crea una tarjeta visual para cada rol"""
+        # Color del badge según el rol
+        color_badge = COLORES.PRIMARIO
+        if rol.NOMBRE == "SUPERADMIN":
+            color_badge = ft.Colors.PURPLE
+        elif rol.NOMBRE == "ADMIN":
+            color_badge = ft.Colors.BLUE
+        
+        # Contar permisos
+        permisos = [p.strip() for p in rol.PERMISOS.split(",") if p.strip()] if rol.PERMISOS else []
+        total_permisos = sum(len(p) for p in self.PERMISOS_SISTEMA.values())
+        porcentaje = (len(permisos) / total_permisos * 100) if total_permisos > 0 else 0
+        
+        color_indicador = COLORES.EXITO if porcentaje >= 70 else COLORES.ADVERTENCIA if porcentaje >= 40 else COLORES.PELIGRO
+        
+        # Funciones para eventos (evitar problemas con lambdas)
+        def editar_click(e):
+            self._abrir_formulario(rol)
+        
+        def eliminar_click(e):
+            self._confirmar_eliminar(rol)
+        
+        return ft.Container(
+            content=ft.Column([
+                # Encabezado del rol
+                ft.Row([
+                    ft.Container(
+                        content=ft.Text(
+                            rol.NOMBRE,
+                            size=16,
+                            weight=ft.FontWeight.BOLD,
+                            color=ft.Colors.WHITE
+                        ),
+                        bgcolor=color_badge,
+                        border_radius=6,
+                        padding=ft.padding.symmetric(horizontal=12, vertical=6)
+                    ),
+                    ft.Container(expand=True),
+                    # Botones de acción
+                    ft.IconButton(
+                        icon=ft.icons.Icons.EDIT,
+                        tooltip="Editar rol",
+                        icon_color=COLORES.INFO,
+                        on_click=editar_click
+                    ),
+                    ft.IconButton(
+                        icon=ft.icons.Icons.DELETE,
+                        tooltip="Eliminar rol",
+                        icon_color=COLORES.PELIGRO,
+                        on_click=eliminar_click
+                    ),
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                
+                # Descripción
+                ft.Text(
+                    rol.DESCRIPCION or "Sin descripción",
+                    size=14,
+                    color=COLORES.TEXTO_SECUNDARIO,
+                    italic=not rol.DESCRIPCION
+                ),
+                
+                ft.Divider(height=1, color=COLORES.BORDE),
+                
+                # Indicador de permisos
+                ft.Row([
+                    ft.Icon(ft.icons.Icons.VERIFIED_USER, size=20, color=color_indicador),
+                    ft.Text(
+                        f"{len(permisos)} de {total_permisos} permisos activos",
+                        size=13,
+                        weight=ft.FontWeight.BOLD,
+                        color=color_indicador
+                    ),
+                    ft.Container(
+                        content=ft.ProgressBar(
+                            value=porcentaje / 100,
+                            color=color_indicador,
+                            bgcolor=ft.Colors.GREY_200,
+                            height=8
+                        ),
+                        expand=True,
+                        padding=ft.padding.only(left=10)
+                    ),
+                    ft.Text(
+                        f"{porcentaje:.0f}%",
+                        size=13,
+                        weight=ft.FontWeight.BOLD,
+                        color=color_indicador
+                    )
+                ], spacing=8)
+            ], spacing=8),
+            bgcolor=ft.Colors.WHITE,
+            border_radius=8,
+            padding=16,
+            border=ft.border.all(1, COLORES.BORDE),
+            shadow=ft.BoxShadow(
+                spread_radius=1,
+                blur_radius=3,
+                color=ft.Colors.with_opacity(0.1, ft.Colors.BLACK),
+                offset=ft.Offset(0, 2)
+            )
+        )
+    
+    def _abrir_formulario_nuevo(self, e):
+        """Abre el formulario para crear un nuevo rol"""
+        print("🔵 Abriendo formulario de nuevo rol")
+        self._abrir_formulario(None)
+    
+    def _abrir_formulario(self, rol=None):
+        """Abre el formulario de rol (crear o editar)"""
+        es_edicion = rol is not None
+        
+        # Campos básicos
+        campo_nombre = ft.TextField(
+            label="Nombre del Rol",
+            value=rol.NOMBRE if rol else "",
+            hint_text="Ejemplo: SUPERVISOR, EMPLEADO",
+            prefix_icon=ft.icons.Icons.BADGE,
+            read_only=es_edicion and rol.NOMBRE in ["SUPERADMIN", "ADMIN"]  # No editar roles del sistema
+        )
+        
+        campo_descripcion = ft.TextField(
+            label="Descripción",
+            value=rol.DESCRIPCION if rol else "",
+            hint_text="Describe las responsabilidades de este rol",
+            multiline=True,
+            max_lines=3,
+            prefix_icon=ft.icons.Icons.DESCRIPTION
+        )
+        
+        # Permisos actuales
+        permisos_actuales = []
+        if rol and rol.PERMISOS:
+            permisos_actuales = [p.strip() for p in rol.PERMISOS.split(",") if p.strip()]
+        
+        # Determinar si es SUPERADMIN o ADMIN
+        es_rol_admin = rol and rol.NOMBRE in ["SUPERADMIN", "ADMIN"]
+        
+        # Checkboxes de permisos por categoría
+        self._checkboxes_permisos = []
+        campos_permisos = []
+        
+        # Checkbox para seleccionar/deseleccionar todos
+        def toggle_todos(e):
+            nuevo_valor = e.control.value
+            for cb in self._checkboxes_permisos:
+                cb.value = nuevo_valor
+            safe_update(self._pagina)
+        
+        self._checkbox_todos = ft.Checkbox(
+            label="✓ Seleccionar / Deseleccionar Todos los Permisos",
+            value=es_rol_admin or len(permisos_actuales) == sum(len(p) for p in self.PERMISOS_SISTEMA.values()),
+            on_change=toggle_todos
+        )
+        
+        campos_permisos.append(
+            ft.Container(
+                content=self._checkbox_todos,
+                bgcolor=ft.Colors.BLUE_50,
+                border_radius=8,
+                padding=12,
+                border=ft.border.all(2, COLORES.PRIMARIO)
+            )
+        )
+        
+        # Crear checkboxes por categoría
+        for categoria, permisos in self.PERMISOS_SISTEMA.items():
+            # Título de categoría
+            campos_permisos.append(
+                ft.Container(
+                    content=ft.Text(
+                        categoria,
+                        size=15,
+                        weight=ft.FontWeight.BOLD,
+                        color=COLORES.PRIMARIO
+                    ),
+                    padding=ft.padding.only(top=12, bottom=6),
+                    border=ft.border.only(bottom=ft.BorderSide(2, COLORES.PRIMARIO))
+                )
+            )
+            
+            # Checkboxes de permisos
+            for permiso_key, permiso_label in permisos:
+                esta_activo = permiso_key in permisos_actuales or es_rol_admin
+                
+                checkbox = ft.Checkbox(
+                    label=permiso_label,
+                    value=esta_activo,
+                    data=permiso_key,
+                )
+                self._checkboxes_permisos.append(checkbox)
+                
+                campos_permisos.append(
+                    ft.Container(
+                        content=checkbox,
+                        padding=ft.padding.only(left=20, top=4, bottom=4)
+                    )
+                )
+        
+        # Contenedor de permisos con scroll
+        contenedor_permisos = ft.Container(
+            content=ft.Column(
+                controls=[
+                    ft.Text(
+                        "Permisos y Accesos del Sistema:",
+                        size=16,
+                        weight=ft.FontWeight.BOLD
+                    ),
+                    ft.Text(
+                        "Selecciona las vistas y acciones permitidas para este rol",
+                        size=12,
+                        color=COLORES.TEXTO_SECUNDARIO
+                    ),
+                    ft.Container(height=10),
+                    *campos_permisos
+                ],
+                spacing=4,
+                scroll=ft.ScrollMode.ADAPTIVE
+            ),
+            height=350,
+            border=ft.border.all(1, COLORES.BORDE),
+            border_radius=8,
+            padding=15,
+            bgcolor=ft.Colors.GREY_50
+        )
+        
+        # Función para guardar
+        def guardar(e):
+            # Validar nombre
+            if not campo_nombre.value.strip():
+                Notificador.ERROR(self._pagina, "El nombre del rol es obligatorio")
+                return
+            
+            # Recopilar permisos seleccionados
+            permisos_seleccionados = []
+            for cb in self._checkboxes_permisos:
+                if cb.value and cb.data:
+                    permisos_seleccionados.append(cb.data)
+            
+            datos = {
+                "NOMBRE": campo_nombre.value.strip().upper(),
+                "DESCRIPCION": campo_descripcion.value.strip(),
+                "PERMISOS": ",".join(permisos_seleccionados)
+            }
+            
+            if es_edicion:
+                exito, mensaje = GestorCRUD.ACTUALIZAR(MODELO_ROL, rol.ID, datos)
+            else:
+                exito, mensaje = GestorCRUD.CREAR(MODELO_ROL, datos)
+            
+            self._cerrar_dialogo()
+            
+            if exito:
+                Notificador.EXITO(self._pagina, mensaje)
+                self._cargar_roles()
+            else:
+                Notificador.ERROR(self._pagina, mensaje)
+        
+        # Crear diálogo
+        dialogo = ft.AlertDialog(
+            modal=True,
+            title=ft.Text(
+                f"{'Editar' if es_edicion else 'Nuevo'} Rol",
+                size=20,
+                weight=ft.FontWeight.BOLD
+            ),
+            content=ft.Container(
+                content=ft.Column([
+                    campo_nombre,
+                    campo_descripcion,
+                    ft.Container(height=10),
+                    contenedor_permisos
+                ], spacing=10, scroll=ft.ScrollMode.ADAPTIVE),
+                width=550,
+                height=500
+            ),
+            actions=[
+                ft.TextButton("Cancelar", on_click=lambda e: self._cerrar_dialogo()),
+                ft.ElevatedButton(
+                    "Guardar",
+                    icon=ft.icons.Icons.SAVE,
+                    on_click=guardar,
+                    bgcolor=COLORES.EXITO,
+                    color=ft.Colors.WHITE
+                )
+            ],
+            actions_alignment=ft.MainAxisAlignment.END
+        )
+        
+        self._pagina.overlay.append(dialogo)
+        dialogo.open = True
+        self._pagina.update()
+    
+    def _confirmar_eliminar(self, rol):
+        """Confirma la eliminación de un rol"""
+        # No permitir eliminar roles del sistema
+        if rol.NOMBRE in ["SUPERADMIN", "ADMIN"]:
+            Notificador.ERROR(self._pagina, "No se pueden eliminar los roles del sistema")
+            return
+        
+        def eliminar(e):
+            exito, mensaje = GestorCRUD.ELIMINAR(MODELO_ROL, rol.ID)
+            
+            if exito:
+                Notificador.EXITO(self._pagina, mensaje)
+                self._cargar_roles()
+            else:
+                Notificador.ERROR(self._pagina, mensaje)
+        
+        DialogoConfirmacion.MOSTRAR(
+            page=self._pagina,
+            titulo="⚠️ Confirmar Eliminación",
+            mensaje=f"¿Eliminar el rol '{rol.NOMBRE}'?\n\nEsta acción no se puede deshacer y puede afectar a usuarios que tengan este rol asignado.",
+            on_confirmar=eliminar,
+            tipo="danger"
+        )
+    
+    def _cerrar_dialogo(self):
+        """Cierra el diálogo actual"""
+        # Cerrar y remover todos los overlays de tipo AlertDialog
+        overlays_a_remover = []
+        for overlay in self._pagina.overlay:
+            if isinstance(overlay, ft.AlertDialog):
+                overlay.open = False
+                overlays_a_remover.append(overlay)
+        
+        for overlay in overlays_a_remover:
+            self._pagina.overlay.remove(overlay)
+        
+        self._pagina.update()
+    
+    def _ir_dashboard(self):
+        """Vuelve al dashboard"""
+        from features.admin.presentation.pages.PaginaAdmin import PaginaAdmin
+        self._pagina.controls.clear()
+        self._pagina.add(PaginaAdmin(self._pagina, self._usuario))
+        safe_update(self._pagina)
+    
+    def _cerrar_sesion(self):
+        """Cierra la sesión"""
+        from features.autenticacion.presentation.pages.PaginaLogin import PaginaLogin
+        self._pagina.controls.clear()
+        self._pagina.add(PaginaLogin(self._pagina))
+        safe_update(self._pagina)

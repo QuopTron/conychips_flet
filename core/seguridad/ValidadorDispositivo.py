@@ -1,7 +1,6 @@
 from typing import Optional
 from core.seguridad.GeneradorHuella import GeneradorHuella
 
-
 class ValidadorDispositivo:
 
     @staticmethod
@@ -10,7 +9,7 @@ class ValidadorDispositivo:
         HUELLA_ACTUAL = GeneradorHuella.OBTENER_HUELLA()
 
         if HUELLA_ACTUAL != HUELLA_ESPERADA:
-            print("🚨 ALERTA: Intento de acceso desde dispositivo no autorizado")
+            print(" ALERTA: Intento de acceso desde dispositivo no autorizado")
             print(f"   Esperada: {HUELLA_ESPERADA[:16]}...")
             print(f"   Actual: {HUELLA_ACTUAL[:16]}...")
             return False

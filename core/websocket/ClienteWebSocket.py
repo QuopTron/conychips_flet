@@ -1,10 +1,9 @@
 import asyncio
 import websockets
 import json
-from typing import Optional, Callable
-from datetime import datetime
+import os
+from typing import Optional, Callable, List
 from core.Constantes import WS_INTENTOS_RECONEXION, WS_TIMEOUT
-
 
 class ClienteWebSocket:
 
@@ -18,11 +17,14 @@ class ClienteWebSocket:
         self._CALLBACK_MENSAJE: Optional[Callable] = None
         self._CALLBACK_ERROR: Optional[Callable] = None
         self._TAREA_ESCUCHA: Optional[asyncio.Task] = None
+        self._COLA_PENDIENTE: List[dict] = []
+        self._RUTA_CACHE = self._OBTENER_RUTA_CACHE()
+        self._CARGAR_CACHE()
 
     async def CONECTAR(self) -> bool:
 
         try:
-            print(f"🔌 Conectando a WebSocket: {self._URL}")
+            print(f" Conectando a WebSocket: {self._URL}")
 
             HEADERS_EXTRA = {"Authorization": f"Bearer {self._TOKEN}"}
             try:
@@ -50,17 +52,18 @@ class ClienteWebSocket:
             self._CONECTADO = True
             self._INTENTOS_RECONEXION = 0
 
-            print("✅ WebSocket conectado exitosamente")
+            print(" WebSocket conectado exitosamente")
 
             self._TAREA_ESCUCHA = asyncio.create_task(self._ESCUCHAR_MENSAJES())
+            await self._ENVIAR_PENDIENTES()
 
             return True
 
         except asyncio.TimeoutError:
-            print("❌ Timeout al conectar WebSocket")
+            print(" Timeout al conectar WebSocket")
             return False
         except Exception as ERROR:
-            print(f"❌ Error al conectar WebSocket: {ERROR}")
+            print(f" Error al conectar WebSocket: {ERROR}")
             return False
 
     async def _ESCUCHAR_MENSAJES(self):
@@ -74,7 +77,7 @@ class ClienteWebSocket:
 
                     MENSAJE = json.loads(MENSAJE_RAW)
 
-                    print(f"📨 Mensaje recibido: {MENSAJE.get('tipo', 'desconocido')}")
+                    print(f" Mensaje recibido: {MENSAJE.get('tipo', 'desconocido')}")
 
                     if self._CALLBACK_MENSAJE:
                         await self._CALLBACK_MENSAJE(MENSAJE)
@@ -82,7 +85,7 @@ class ClienteWebSocket:
                 except asyncio.TimeoutError:
                     continue
                 except websockets.exceptions.ConnectionClosed:
-                    print("⚠️ Conexión WebSocket cerrada")
+                    print(" Conexión WebSocket cerrada")
                     await self._INTENTAR_RECONECTAR()
                     break
                 except json.JSONDecodeError:
@@ -116,7 +119,8 @@ class ClienteWebSocket:
     async def ENVIAR(self, MENSAJE: dict) -> bool:
 
         if not self._CONECTADO or not self._WEBSOCKET:
-            print("No hay conexión WebSocket activa")
+            self._COLA_PENDIENTE.append(MENSAJE)
+            self._GUARDAR_CACHE()
             return False
 
         try:
@@ -129,6 +133,40 @@ class ClienteWebSocket:
             print(f"Error al enviar mensaje: {ERROR}")
             return False
 
+    async def _ENVIAR_PENDIENTES(self):
+        if not self._COLA_PENDIENTE:
+            return
+
+        pendientes = list(self._COLA_PENDIENTE)
+        self._COLA_PENDIENTE.clear()
+        self._GUARDAR_CACHE()
+
+        for mensaje in pendientes:
+            await self.ENVIAR(mensaje)
+
+    def _OBTENER_RUTA_CACHE(self) -> str:
+        base = os.path.expanduser("~/.app_segura")
+        os.makedirs(base, exist_ok=True)
+        return os.path.join(base, "ws_cache.json")
+
+    def _CARGAR_CACHE(self):
+        if not os.path.exists(self._RUTA_CACHE):
+            return
+        try:
+            with open(self._RUTA_CACHE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list):
+                    self._COLA_PENDIENTE.extend(data)
+        except Exception:
+            self._COLA_PENDIENTE = []
+
+    def _GUARDAR_CACHE(self):
+        try:
+            with open(self._RUTA_CACHE, "w", encoding="utf-8") as f:
+                json.dump(self._COLA_PENDIENTE, f)
+        except Exception:
+            pass
+
     def REGISTRAR_CALLBACK_MENSAJE(self, CALLBACK: Callable):
 
         self._CALLBACK_MENSAJE = CALLBACK
@@ -139,7 +177,7 @@ class ClienteWebSocket:
 
     async def DESCONECTAR(self):
 
-        print("🔌 Desconectando WebSocket...")
+        print(" Desconectando WebSocket...")
 
         self._CONECTADO = False
 

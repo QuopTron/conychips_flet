@@ -4,7 +4,6 @@ from features.autenticacion.domain.RepositorioAutenticacion import (
 )
 from core.Constantes import PERMISOS_POR_ROL
 
-
 class VerificarPermisos:
 
     def __init__(self, REPOSITORIO: RepositorioAutenticacion):
@@ -67,4 +66,4 @@ class VerificarPermisos:
 
         ROLES_USUARIO = [ROL.NOMBRE for ROL in USUARIO.ROLES]
 
-        return ROLES.ADMIN in ROLES_USUARIO or ROLES.SUPER_ADMIN in ROLES_USUARIO
+        return ROLES.ADMIN in ROLES_USUARIO or ROLES.SUPERADMIN in ROLES_USUARIO

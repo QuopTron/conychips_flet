@@ -6,7 +6,6 @@ from core.base_datos.ConfiguracionBD import (
 )
 from datetime import datetime
 
-
 class PaginaHistorialPedidos(ft.Column):
     def __init__(self, PAGINA: ft.Page, USUARIO_ID: int):
         super().__init__()
@@ -63,7 +62,7 @@ class PaginaHistorialPedidos(ft.Column):
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 ),
                 padding=12,
-                border=ft.border.all(1, ft.Colors.GREY_200),
+                border=ft.Border.all(1, ft.Colors.GREY_200),
                 border_radius=8,
             )
             self._LISTA.controls.append(tarjeta)

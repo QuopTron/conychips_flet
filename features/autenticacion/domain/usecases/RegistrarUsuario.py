@@ -4,8 +4,6 @@ from features.autenticacion.domain.RepositorioAutenticacion import (
     RepositorioAutenticacion,
 )
 from core.seguridad.GeneradorHuella import GeneradorHuella
-from core.Constantes import ROLES
-
 
 class RegistrarUsuario:
 
@@ -15,13 +13,13 @@ class RegistrarUsuario:
 
     async def EJECUTAR(self, EMAIL: str, NOMBRE_USUARIO: str, CONTRASENA: str) -> Dict:
 
-        print(f"📝 Registrando nuevo usuario: {EMAIL}")
+        print(f" Registrando nuevo usuario: {EMAIL}")
 
         try:
             USUARIO_EXISTENTE = await self._REPOSITORIO.OBTENER_POR_EMAIL(EMAIL)
 
             if USUARIO_EXISTENTE:
-                print(f"❌ Email ya registrado: {EMAIL}")
+                print(f" Email ya registrado: {EMAIL}")
                 return {
                     "EXITO": False,
                     "ERROR": "Este email ya está registrado",
@@ -33,7 +31,7 @@ class RegistrarUsuario:
             )
 
             if USUARIO_EXISTENTE:
-                print(f"❌ Nombre de usuario ya existe: {NOMBRE_USUARIO}")
+                print(f" Nombre de usuario ya existe: {NOMBRE_USUARIO}")
                 return {
                     "EXITO": False,
                     "ERROR": "Este nombre de usuario ya está en uso",
@@ -52,10 +50,12 @@ class RegistrarUsuario:
                 HUELLA_DISPOSITIVO=HUELLA_DISPOSITIVO,
             )
 
+            from core.Constantes import ROLES
+
             await self._REPOSITORIO.ASIGNAR_ROL(NUEVO_USUARIO.ID, ROLES.CLIENTE)
 
             print(
-                f"✅ Usuario registrado exitosamente: {EMAIL} (ID: {NUEVO_USUARIO.ID})"
+                f" Usuario registrado exitosamente: {EMAIL} (ID: {NUEVO_USUARIO.ID})"
             )
 
             return {
@@ -66,7 +66,7 @@ class RegistrarUsuario:
             }
 
         except Exception as ERROR:
-            print(f"❌ Error al registrar usuario: {ERROR}")
+            print(f" Error al registrar usuario: {ERROR}")
             return {
                 "EXITO": False,
                 "ERROR": "Error interno del servidor",
@@ -75,4 +75,4 @@ class RegistrarUsuario:
 
     async def _ENVIAR_EMAIL_VERIFICACION(self, EMAIL: str):
 
-        print(f"📧 Email de verificación enviado a: {EMAIL}")
+        print(f" Email de verificación enviado a: {EMAIL}")

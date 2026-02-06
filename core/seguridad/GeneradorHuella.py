@@ -2,7 +2,6 @@ import hashlib
 import platform
 import uuid
 
-
 class GeneradorHuella:
 
     @staticmethod

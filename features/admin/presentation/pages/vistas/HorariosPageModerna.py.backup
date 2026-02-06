@@ -1,0 +1,1729 @@
+"""
+HorariosPageModerna - Gestión avanzada de horarios de usuarios
+Incluye: Grupos de horarios, asignación masiva, validación de cruces por rol, filtros avanzados
+"""
+import flet as ft
+from typing import Optional, List, Dict
+from datetime import datetime
+import json
+
+from core.base_datos.ConfiguracionBD import (
+    MODELO_HORARIO, MODELO_USUARIO, MODELO_ROL, MODELO_PLANTILLA, OBTENER_SESION
+)
+from core.ui.safe_actions import safe_update
+from features.admin.presentation.widgets.LayoutBase import LayoutBase
+from core.Constantes import COLORES, ROLES
+from core.decoradores.DecoradorVistas import REQUIERE_ROL
+
+
+# Días de la semana con colores y abreviaturas
+DIAS_SEMANA = [
+    ("LUNES", "Lun", "🟢", ft.Colors.GREEN_600),
+    ("MARTES", "Mar", "🔵", ft.Colors.BLUE_600),
+    ("MIERCOLES", "Mié", "🟣", ft.Colors.PURPLE_600),
+    ("JUEVES", "Jue", "🟠", ft.Colors.ORANGE_600),
+    ("VIERNES", "Vie", "🔴", ft.Colors.RED_600),
+    ("SABADO", "Sáb", "🟡", ft.Colors.AMBER_600),
+    ("DOMINGO", "Dom", "⚪", ft.Colors.GREY_600),
+]
+
+DIAS_MAP = {d[0]: (d[1], d[2], d[3]) for d in DIAS_SEMANA}
+
+# Horarios predefinidos comunes (plantillas)
+HORARIOS_PREDEFINIDOS = [
+    ("Turno Mañana", "08:00", "14:00"),
+    ("Turno Tarde", "14:00", "20:00"),
+    ("Turno Noche", "20:00", "02:00"),
+    ("Jornada Completa", "08:00", "17:00"),
+    ("Media Jornada AM", "08:00", "12:00"),
+    ("Media Jornada PM", "13:00", "17:00"),
+]
+
+# Colores por rol
+ROL_COLORS = {
+    "SUPERADMIN": ft.Colors.PURPLE_600,
+    "ADMIN": ft.Colors.BLUE_600,
+    "COCINERO": ft.Colors.RED_600,
+    "MOTORIZADO": ft.Colors.CYAN_600,
+    "ATENCION": ft.Colors.GREEN_600,
+    "GESTORA_CALIDAD": ft.Colors.ORANGE_600,
+}
+
+
+@REQUIERE_ROL(ROLES.ADMIN)
+class HorariosPageModerna(LayoutBase):
+    """Página moderna para gestión de horarios con grupos y validaciones"""
+
+    def __init__(self, pagina: ft.Page, usuario):
+        # Caches
+        self._horarios_cache: List[Dict] = []
+        self._usuarios_cache: List[Dict] = []
+        self._roles_cache: List[Dict] = []
+        
+        # Filtros
+        self._filtro_dia = "TODOS"
+        self._filtro_rol = "TODOS"
+        self._filtro_busqueda = ""
+        self._filtro_estado = "TODOS"
+        
+        # UI Components
+        self._tabla_horarios: Optional[ft.DataTable] = None
+        self._contenedor_horarios: Optional[ft.Column] = None
+        self._campo_busqueda: Optional[ft.TextField] = None
+        self._dropdown_rol: Optional[ft.Dropdown] = None
+        self._chips_dia: List[ft.Container] = []
+        self._chips_estado: List[ft.Container] = []
+        
+        # Inicializar LayoutBase
+        super().__init__(
+            pagina=pagina,
+            usuario=usuario,
+            titulo_vista="📅 Gestión de Horarios",
+            mostrar_boton_volver=True,
+            index_navegacion=0,
+            on_volver_dashboard=self._volver_dashboard,
+            on_cerrar_sesion=self._cerrar_sesion
+        )
+        
+        self.usuario = usuario
+        self.pagina = pagina
+        self._pagina = pagina
+        
+        # Construir interfaz
+        contenido = self._construir_contenido()
+        self.construir(contenido)
+        
+        # Cargar datos
+        self._cargar_roles()
+        self._cargar_usuarios()
+        self._cargar_horarios()
+    
+    # ==================== HELPERS PARA OVERLAYS ====================
+    
+    def _cerrar_overlay(self, overlay, callback=None):
+        """Cierra overlay de forma segura sin dejar pantalla blanca"""
+        try:
+            overlay.open = False
+            try:
+                self._pagina.update()
+            except RuntimeError:
+                pass
+            if callback:
+                callback()
+        except Exception as e:
+            print(f"[ERROR] _cerrar_overlay: {e}")
+    
+    def _mostrar_overlay_seguro(self, overlay):
+        """Muestra overlay de forma segura"""
+        try:
+            self._pagina.overlay.append(overlay)
+            overlay.open = True
+            try:
+                self._pagina.update()
+            except RuntimeError:
+                pass
+        except Exception as e:
+            print(f"[ERROR] _mostrar_overlay_seguro: {e}")
+    
+    def _construir_contenido(self) -> ft.Container:
+        """Construye el contenido principal"""
+        
+        # Campo de búsqueda
+        self._campo_busqueda = ft.TextField(
+            hint_text="🔍 Buscar usuario...",
+            width=280,
+            border_radius=10,
+            height=42,
+            content_padding=ft.padding.symmetric(horizontal=12, vertical=8),
+        )
+        self._campo_busqueda.on_change = self._on_buscar
+        
+        # Chips de filtro por día
+        self._chips_dia = [self._crear_chip_dia("TODOS", "Todos", "📊", ft.Colors.GREY_600, True)]
+        for dia, abrev, emoji, color in DIAS_SEMANA:
+            self._chips_dia.append(self._crear_chip_dia(dia, abrev, emoji, color, False))
+        
+        # Dropdown de filtro por rol
+        self._dropdown_rol = ft.Dropdown(
+            label="Rol",
+            width=160,
+            border_radius=10,
+            value="TODOS",
+            options=[ft.dropdown.Option(key="TODOS", text="Todos")]
+        )
+        self._dropdown_rol.on_change = self._on_filtrar_rol
+        
+        # Chips de estado
+        self._chips_estado = [
+            self._crear_chip_estado("TODOS", "📋 Todos", True),
+            self._crear_chip_estado("ACTIVOS", "✅ Activos", False),
+            self._crear_chip_estado("INACTIVOS", "❌ Inactivos", False),
+        ]
+        
+        # Botones de acción principales
+        btn_crear = ft.ElevatedButton(
+            content=ft.Row([
+                ft.Icon(ft.Icons.ADD, size=18, color=ft.Colors.WHITE),
+                ft.Text("Individual", size=12, weight=ft.FontWeight.W_600)
+            ], spacing=4),
+            bgcolor=ft.Colors.BLUE_700,
+            color=ft.Colors.WHITE,
+            on_click=self._mostrar_overlay_crear,
+            style=ft.ButtonStyle(padding=ft.padding.symmetric(horizontal=12, vertical=8))
+        )
+        
+        btn_asignar_grupo = ft.ElevatedButton(
+            content=ft.Row([
+                ft.Icon(ft.Icons.GROUP_ADD, size=18, color=ft.Colors.WHITE),
+                ft.Text("Por Rol", size=12, weight=ft.FontWeight.W_600)
+            ], spacing=4),
+            bgcolor=ft.Colors.PURPLE_600,
+            color=ft.Colors.WHITE,
+            on_click=self._mostrar_overlay_grupo,
+            style=ft.ButtonStyle(padding=ft.padding.symmetric(horizontal=12, vertical=8))
+        )
+        
+        btn_plantilla = ft.ElevatedButton(
+            content=ft.Row([
+                ft.Icon(ft.Icons.COPY_ALL, size=18, color=ft.Colors.WHITE),
+                ft.Text("Plantilla", size=12, weight=ft.FontWeight.W_600)
+            ], spacing=4),
+            bgcolor=ft.Colors.TEAL_600,
+            color=ft.Colors.WHITE,
+            on_click=self._mostrar_overlay_plantilla,
+            style=ft.ButtonStyle(padding=ft.padding.symmetric(horizontal=12, vertical=8))
+        )
+        
+        btn_crear_plantilla = ft.ElevatedButton(
+            content=ft.Row([
+                ft.Icon(ft.Icons.ADD_BOX, size=18, color=ft.Colors.WHITE),
+                ft.Text("Crear Plantilla", size=12, weight=ft.FontWeight.W_600)
+            ], spacing=4),
+            bgcolor=ft.Colors.AMBER_600,
+            color=ft.Colors.WHITE,
+            on_click=self._mostrar_overlay_crear_plantilla,
+            style=ft.ButtonStyle(padding=ft.padding.symmetric(horizontal=12, vertical=8))
+        )
+        
+        # Header
+        header = ft.Container(
+            content=ft.Row([
+                ft.Row([
+                    ft.Icon(ft.Icons.SCHEDULE, size=28, color=ft.Colors.BLUE_700),
+                    ft.Column([
+                        ft.Text("Gestión de Horarios", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_900),
+                        ft.Text("Asigna horarios sin cruces por rol/usuario", size=10, color=ft.Colors.GREY_600),
+                    ], spacing=0)
+                ], spacing=8),
+                ft.Row([btn_plantilla, btn_crear_plantilla, btn_asignar_grupo, btn_crear], spacing=6)
+            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+            padding=ft.padding.only(bottom=10)
+        )
+        
+        # Filtros
+        filtros = ft.Container(
+            content=ft.Column([
+                ft.Row([
+                    self._campo_busqueda,
+                    self._dropdown_rol,
+                    ft.Row(self._chips_estado, spacing=4),
+                ], spacing=10, wrap=True),
+                ft.Row([
+                    ft.Text("Día:", size=11, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_700),
+                    ft.Row(self._chips_dia, spacing=3, scroll=ft.ScrollMode.AUTO),
+                ], spacing=6),
+            ], spacing=8),
+            padding=ft.padding.only(bottom=8)
+        )
+        
+        # DataTable
+        self._tabla_horarios = ft.DataTable(
+            columns=[
+                ft.DataColumn(label=ft.Text("Usuario", weight=ft.FontWeight.BOLD, size=11)),
+                ft.DataColumn(label=ft.Text("Rol", weight=ft.FontWeight.BOLD, size=11)),
+                ft.DataColumn(label=ft.Text("Día", weight=ft.FontWeight.BOLD, size=11)),
+                ft.DataColumn(label=ft.Text("Entrada", weight=ft.FontWeight.BOLD, size=11)),
+                ft.DataColumn(label=ft.Text("Salida", weight=ft.FontWeight.BOLD, size=11)),
+                ft.DataColumn(label=ft.Text("Duración", weight=ft.FontWeight.BOLD, size=11)),
+                ft.DataColumn(label=ft.Text("Estado", weight=ft.FontWeight.BOLD, size=11)),
+                ft.DataColumn(label=ft.Text("Acciones", weight=ft.FontWeight.BOLD, size=11)),
+            ],
+            rows=[],
+            border=ft.border.all(1, ft.Colors.GREY_300),
+            border_radius=8,
+            horizontal_lines=ft.border.BorderSide(1, ft.Colors.GREY_200),
+            heading_row_color={ft.ControlState.DEFAULT: ft.Colors.BLUE_50},
+            data_row_max_height=float("inf"),
+            column_spacing=12,
+        )
+        
+        self._contenedor_horarios = ft.Column(
+            controls=[self._tabla_horarios],
+            scroll=ft.ScrollMode.ADAPTIVE,
+            expand=True
+        )
+        
+        return ft.Container(
+            content=ft.Column([header, filtros, self._contenedor_horarios], spacing=0, expand=True),
+            expand=True,
+            padding=14
+        )
+    
+    # ==================== CHIPS DE FILTRO ====================
+    
+    def _crear_chip_dia(self, valor: str, texto: str, emoji: str, color, seleccionado: bool) -> ft.Container:
+        chip = ft.Container(
+            content=ft.Text(
+                f"{emoji} {texto}",
+                size=9,
+                weight=ft.FontWeight.W_600 if seleccionado else ft.FontWeight.W_400,
+                color=ft.Colors.WHITE if seleccionado else ft.Colors.GREY_700
+            ),
+            padding=ft.padding.symmetric(horizontal=6, vertical=4),
+            border_radius=12,
+            bgcolor=color if seleccionado else ft.Colors.GREY_100,
+            data={"valor": valor, "color": color}
+        )
+        chip.on_click = lambda e, v=valor, c=color: self._aplicar_filtro_dia(v, c)
+        return chip
+    
+    def _crear_chip_estado(self, valor: str, texto: str, seleccionado: bool) -> ft.Container:
+        chip = ft.Container(
+            content=ft.Text(
+                texto, size=9,
+                weight=ft.FontWeight.W_600 if seleccionado else ft.FontWeight.W_400,
+                color=ft.Colors.WHITE if seleccionado else ft.Colors.GREY_700
+            ),
+            padding=ft.padding.symmetric(horizontal=6, vertical=4),
+            border_radius=12,
+            bgcolor=ft.Colors.BLUE_700 if seleccionado else ft.Colors.GREY_100,
+            data={"valor": valor}
+        )
+        chip.on_click = lambda e, v=valor: self._aplicar_filtro_estado(v)
+        return chip
+    
+    def _aplicar_filtro_dia(self, dia: str, color):
+        self._filtro_dia = dia
+        for i, chip in enumerate(self._chips_dia):
+            if i == 0:
+                sel = dia == "TODOS"
+                chip.bgcolor = ft.Colors.GREY_600 if sel else ft.Colors.GREY_100
+                chip.content.color = ft.Colors.WHITE if sel else ft.Colors.GREY_700
+            else:
+                d = DIAS_SEMANA[i-1]
+                sel = dia == d[0]
+                chip.bgcolor = d[3] if sel else ft.Colors.GREY_100
+                chip.content.color = ft.Colors.WHITE if sel else ft.Colors.GREY_700
+            chip.update()
+        self._cargar_horarios()
+    
+    def _aplicar_filtro_estado(self, estado: str):
+        self._filtro_estado = estado
+        estados = ["TODOS", "ACTIVOS", "INACTIVOS"]
+        for i, chip in enumerate(self._chips_estado):
+            sel = estado == estados[i]
+            chip.bgcolor = ft.Colors.BLUE_700 if sel else ft.Colors.GREY_100
+            chip.content.color = ft.Colors.WHITE if sel else ft.Colors.GREY_700
+            chip.update()
+        self._cargar_horarios()
+    
+    def _on_buscar(self, e):
+        self._filtro_busqueda = e.control.value.lower().strip()
+        self._cargar_horarios()
+    
+    def _on_filtrar_rol(self, e):
+        self._filtro_rol = e.control.value
+        self._cargar_horarios()
+    
+    # ==================== CARGA DE DATOS ====================
+    
+    def _cargar_roles(self):
+        try:
+            with OBTENER_SESION() as sesion:
+                roles = sesion.query(MODELO_ROL).filter_by(ACTIVO=True).all()
+                self._roles_cache = [{"ID": r.ID, "NOMBRE": r.NOMBRE} for r in roles]
+            
+            self._dropdown_rol.options = [ft.dropdown.Option(key="TODOS", text="Todos")]
+            for r in self._roles_cache:
+                self._dropdown_rol.options.append(ft.dropdown.Option(key=str(r["ID"]), text=r["NOMBRE"]))
+            safe_update(self._pagina)
+        except Exception as e:
+            print(f"[ERROR] _cargar_roles: {e}")
+    
+    def _cargar_usuarios(self):
+        try:
+            with OBTENER_SESION() as sesion:
+                usuarios = sesion.query(MODELO_USUARIO).filter_by(ACTIVO=True).all()
+                self._usuarios_cache = []
+                for u in usuarios:
+                    rol_nombre = u.ROLES[0].NOMBRE if u.ROLES else "SIN ROL"
+                    rol_id = u.ROLES[0].ID if u.ROLES else None
+                    self._usuarios_cache.append({
+                        "ID": u.ID,
+                        "NOMBRE": u.NOMBRE_USUARIO,
+                        "EMAIL": u.EMAIL,
+                        "ROL": rol_nombre,
+                        "ROL_ID": rol_id
+                    })
+        except Exception as e:
+            print(f"[ERROR] _cargar_usuarios: {e}")
+    
+    def _cargar_horarios(self):
+        try:
+            with OBTENER_SESION() as sesion:
+                query = sesion.query(MODELO_HORARIO)
+                
+                if self._filtro_dia != "TODOS":
+                    query = query.filter(MODELO_HORARIO.DIA_SEMANA == self._filtro_dia)
+                
+                if self._filtro_estado == "ACTIVOS":
+                    query = query.filter(MODELO_HORARIO.ACTIVO == True)
+                elif self._filtro_estado == "INACTIVOS":
+                    query = query.filter(MODELO_HORARIO.ACTIVO == False)
+                
+                horarios = query.order_by(MODELO_HORARIO.DIA_SEMANA, MODELO_HORARIO.HORA_INICIO).all()
+                
+                self._horarios_cache = []
+                for h in horarios:
+                    usuario = sesion.query(MODELO_USUARIO).filter_by(ID=h.USUARIO_ID).first()
+                    if not usuario:
+                        continue
+                    
+                    rol_nombre = usuario.ROLES[0].NOMBRE if usuario.ROLES else "SIN ROL"
+                    rol_id = usuario.ROLES[0].ID if usuario.ROLES else None
+                    
+                    # Filtrar por rol
+                    if self._filtro_rol != "TODOS" and str(rol_id) != self._filtro_rol:
+                        continue
+                    
+                    # Filtrar por búsqueda
+                    if self._filtro_busqueda:
+                        if self._filtro_busqueda not in usuario.NOMBRE_USUARIO.lower():
+                            continue
+                    
+                    self._horarios_cache.append({
+                        "ID": h.ID,
+                        "USUARIO_ID": h.USUARIO_ID,
+                        "USUARIO_NOMBRE": usuario.NOMBRE_USUARIO,
+                        "ROL": rol_nombre,
+                        "ROL_ID": rol_id,
+                        "DIA_SEMANA": h.DIA_SEMANA,
+                        "HORA_INICIO": h.HORA_INICIO,
+                        "HORA_FIN": h.HORA_FIN,
+                        "ACTIVO": h.ACTIVO
+                    })
+            
+            self._actualizar_tabla()
+        except Exception as e:
+            print(f"[ERROR] _cargar_horarios: {e}")
+    
+    def _calcular_duracion(self, inicio: str, fin: str) -> str:
+        try:
+            h1 = datetime.strptime(inicio, "%H:%M")
+            h2 = datetime.strptime(fin, "%H:%M")
+            if h2 < h1:
+                diff = (24 * 60) - (h1.hour * 60 + h1.minute) + (h2.hour * 60 + h2.minute)
+            else:
+                diff = (h2.hour * 60 + h2.minute) - (h1.hour * 60 + h1.minute)
+            return f"{diff // 60}h {diff % 60}m"
+        except:
+            return "N/A"
+    
+    def _actualizar_tabla(self):
+        if not self._tabla_horarios:
+            return
+        
+        self._tabla_horarios.rows.clear()
+        
+        if not self._horarios_cache:
+            self._tabla_horarios.rows.append(ft.DataRow(cells=[
+                ft.DataCell(ft.Text("")),
+                ft.DataCell(ft.Text("")),
+                ft.DataCell(ft.Text("")),
+                ft.DataCell(ft.Container(
+                    content=ft.Column([
+                        ft.Icon(ft.Icons.SCHEDULE, size=32, color=ft.Colors.GREY_400),
+                        ft.Text("Sin horarios", weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_600, size=12),
+                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=4),
+                )),
+                ft.DataCell(ft.Text("")),
+                ft.DataCell(ft.Text("")),
+                ft.DataCell(ft.Text("")),
+                ft.DataCell(ft.Text("")),
+            ]))
+        else:
+            for h in self._horarios_cache:
+                self._tabla_horarios.rows.append(self._crear_fila_horario(h))
+        
+        safe_update(self._pagina)
+    
+    def _crear_fila_horario(self, h: Dict) -> ft.DataRow:
+        dia_info = DIAS_MAP.get(h["DIA_SEMANA"], ("?", "❓", ft.Colors.GREY_600))
+        abrev, emoji, color = dia_info
+        rol_color = ROL_COLORS.get(h["ROL"], ft.Colors.GREY_600)
+        
+        rol_badge = ft.Container(
+            content=ft.Text(h["ROL"], size=8, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+            padding=ft.Padding(4, 2, 4, 2),
+            border_radius=6,
+            bgcolor=rol_color
+        )
+        
+        dia_badge = ft.Container(
+            content=ft.Text(f"{emoji} {abrev}", size=9, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+            padding=ft.Padding(5, 2, 5, 2),
+            border_radius=6,
+            bgcolor=color
+        )
+        
+        estado_icon = ft.Icon(
+            ft.Icons.CHECK_CIRCLE if h["ACTIVO"] else ft.Icons.CANCEL,
+            size=18,
+            color=ft.Colors.GREEN_600 if h["ACTIVO"] else ft.Colors.RED_400
+        )
+        
+        duracion = self._calcular_duracion(h["HORA_INICIO"], h["HORA_FIN"])
+        
+        acciones = ft.Row([
+            ft.IconButton(icon=ft.Icons.EDIT, tooltip="Editar", icon_color=ft.Colors.ORANGE_600, icon_size=16,
+                         on_click=lambda e, horario=h: self._mostrar_overlay_editar(horario)),
+            ft.IconButton(icon=ft.Icons.TOGGLE_ON if h["ACTIVO"] else ft.Icons.TOGGLE_OFF,
+                         tooltip="Toggle estado",
+                         icon_color=ft.Colors.GREEN_600 if h["ACTIVO"] else ft.Colors.GREY_400, icon_size=16,
+                         on_click=lambda e, horario=h: self._toggle_estado(horario)),
+            ft.IconButton(icon=ft.Icons.DELETE, tooltip="Eliminar", icon_color=ft.Colors.RED_600, icon_size=16,
+                         on_click=lambda e, horario=h: self._mostrar_overlay_eliminar(horario)),
+        ], spacing=0)
+        
+        row_color = None if h["ACTIVO"] else {ft.ControlState.DEFAULT: ft.Colors.GREY_100}
+        
+        return ft.DataRow(cells=[
+            ft.DataCell(ft.Text(h["USUARIO_NOMBRE"], weight=ft.FontWeight.BOLD, size=10)),
+            ft.DataCell(rol_badge),
+            ft.DataCell(dia_badge),
+            ft.DataCell(ft.Text(h["HORA_INICIO"], size=11, weight=ft.FontWeight.W_600, color=ft.Colors.GREEN_700)),
+            ft.DataCell(ft.Text(h["HORA_FIN"], size=11, weight=ft.FontWeight.W_600, color=ft.Colors.RED_700)),
+            ft.DataCell(ft.Text(duracion, size=10, color=ft.Colors.BLUE_700)),
+            ft.DataCell(estado_icon),
+            ft.DataCell(acciones),
+        ], color=row_color)
+    
+    # ==================== VALIDACIÓN DE CRUCES ====================
+    
+    def _verificar_cruce_usuario(self, usuario_id: int, dia: str, hora_inicio: str, hora_fin: str, excluir_id: int = None) -> Optional[str]:
+        """Verifica si hay cruce de horarios para UN usuario específico"""
+        try:
+            h_inicio = datetime.strptime(hora_inicio, "%H:%M")
+            h_fin = datetime.strptime(hora_fin, "%H:%M")
+            
+            with OBTENER_SESION() as sesion:
+                query = sesion.query(MODELO_HORARIO).filter(
+                    MODELO_HORARIO.USUARIO_ID == usuario_id,
+                    MODELO_HORARIO.DIA_SEMANA == dia,
+                    MODELO_HORARIO.ACTIVO == True
+                )
+                
+                if excluir_id:
+                    query = query.filter(MODELO_HORARIO.ID != excluir_id)
+                
+                horarios = query.all()
+                
+                for h in horarios:
+                    h_ini = datetime.strptime(h.HORA_INICIO, "%H:%M")
+                    h_f = datetime.strptime(h.HORA_FIN, "%H:%M")
+                    
+                    if not (h_fin <= h_ini or h_inicio >= h_f):
+                        usuario = sesion.query(MODELO_USUARIO).filter_by(ID=usuario_id).first()
+                        return f"⚠️ {usuario.NOMBRE_USUARIO if usuario else 'Usuario'} ya tiene horario {h.HORA_INICIO}-{h.HORA_FIN}"
+            
+            return None
+        except Exception as e:
+            return f"Error: {str(e)}"
+    
+    def _verificar_cruce_rol(self, rol_id: int, dia: str, hora_inicio: str, hora_fin: str) -> List[str]:
+        """Verifica cruces para TODOS los usuarios de un rol - retorna lista de conflictos"""
+        conflictos = []
+        try:
+            h_inicio = datetime.strptime(hora_inicio, "%H:%M")
+            h_fin = datetime.strptime(hora_fin, "%H:%M")
+            
+            with OBTENER_SESION() as sesion:
+                # Obtener usuarios del rol
+                usuarios = sesion.query(MODELO_USUARIO).filter(
+                    MODELO_USUARIO.ACTIVO == True,
+                    MODELO_USUARIO.ROLES.any(MODELO_ROL.ID == rol_id)
+                ).all()
+                
+                for usuario in usuarios:
+                    horarios = sesion.query(MODELO_HORARIO).filter(
+                        MODELO_HORARIO.USUARIO_ID == usuario.ID,
+                        MODELO_HORARIO.DIA_SEMANA == dia,
+                        MODELO_HORARIO.ACTIVO == True
+                    ).all()
+                    
+                    for h in horarios:
+                        h_ini = datetime.strptime(h.HORA_INICIO, "%H:%M")
+                        h_f = datetime.strptime(h.HORA_FIN, "%H:%M")
+                        
+                        if not (h_fin <= h_ini or h_inicio >= h_f):
+                            conflictos.append(f"{usuario.NOMBRE_USUARIO}: {h.HORA_INICIO}-{h.HORA_FIN}")
+        except Exception as e:
+            conflictos.append(f"Error: {str(e)}")
+        
+        return conflictos
+    
+    # ==================== OVERLAY CREAR INDIVIDUAL ====================
+    
+    def _mostrar_overlay_crear(self, e):
+        """Overlay para crear horario individual"""
+        
+        # Recargar usuarios antes de mostrar overlay
+        self._cargar_usuarios()
+        
+        if not self._usuarios_cache:
+            self._mostrar_snackbar("⚠️ No hay usuarios disponibles", ft.Colors.ORANGE_600)
+            return
+        
+        dd_usuario = ft.Dropdown(
+            label="Usuario *",
+            hint_text="Selecciona usuario",
+            width=400,
+            border_radius=10,
+            options=[
+                ft.dropdown.Option(key=str(u["ID"]), text=f"{u['NOMBRE']} ({u['ROL']})")
+                for u in self._usuarios_cache
+            ]
+        )
+        
+        dd_dia = ft.Dropdown(
+            label="Día *",
+            width=400,
+            border_radius=10,
+            value="LUNES",
+            options=[ft.dropdown.Option(key=d[0], text=f"{d[2]} {d[0].capitalize()}") for d in DIAS_SEMANA]
+        )
+        
+        campo_inicio = ft.TextField(label="Hora Inicio *", value="08:00", width=120, border_radius=10)
+        campo_fin = ft.TextField(label="Hora Fin *", value="17:00", width=120, border_radius=10)
+        
+        dd_plantilla = ft.Dropdown(
+            label="Plantilla",
+            hint_text="Opcional",
+            width=150,
+            border_radius=10,
+            options=[ft.dropdown.Option(key=str(i), text=p[0]) for i, p in enumerate(HORARIOS_PREDEFINIDOS)]
+        )
+        
+        def aplicar_plantilla(ev):
+            if dd_plantilla.value:
+                idx = int(dd_plantilla.value)
+                campo_inicio.value = HORARIOS_PREDEFINIDOS[idx][1]
+                campo_fin.value = HORARIOS_PREDEFINIDOS[idx][2]
+                campo_inicio.update()
+                campo_fin.update()
+        
+        dd_plantilla.on_change = aplicar_plantilla
+        
+        txt_warning = ft.Text("", color=ft.Colors.ORANGE_700, size=10)
+        txt_error = ft.Text("", color=ft.Colors.RED_700, size=10)
+        
+        def validar_tiempo_real(ev):
+            if dd_usuario.value and dd_dia.value and campo_inicio.value and campo_fin.value:
+                cruce = self._verificar_cruce_usuario(
+                    int(dd_usuario.value), dd_dia.value, campo_inicio.value, campo_fin.value
+                )
+                txt_warning.value = cruce or ""
+                txt_warning.update()
+        
+        dd_usuario.on_change = validar_tiempo_real
+        dd_dia.on_change = validar_tiempo_real
+        campo_inicio.on_change = validar_tiempo_real
+        campo_fin.on_change = validar_tiempo_real
+        
+        def guardar(ev):
+            if not dd_usuario.value:
+                txt_error.value = "⚠️ Selecciona un usuario"
+                txt_error.update()
+                return
+            
+            try:
+                datetime.strptime(campo_inicio.value, "%H:%M")
+                datetime.strptime(campo_fin.value, "%H:%M")
+            except:
+                txt_error.value = "⚠️ Formato hora inválido (HH:MM)"
+                txt_error.update()
+                return
+            
+            cruce = self._verificar_cruce_usuario(int(dd_usuario.value), dd_dia.value, campo_inicio.value, campo_fin.value)
+            if cruce:
+                txt_error.value = cruce
+                txt_error.update()
+                return
+            
+            try:
+                with OBTENER_SESION() as sesion:
+                    nuevo = MODELO_HORARIO(
+                        USUARIO_ID=int(dd_usuario.value),
+                        DIA_SEMANA=dd_dia.value,
+                        HORA_INICIO=campo_inicio.value,
+                        HORA_FIN=campo_fin.value,
+                        ACTIVO=True
+                    )
+                    sesion.add(nuevo)
+                    sesion.commit()
+                
+                overlay.open = False
+                self._pagina.update()
+                self._mostrar_snackbar("✅ Horario creado", ft.Colors.GREEN_600)
+                self._cargar_horarios()
+            except Exception as ex:
+                txt_error.value = f"❌ Error: {str(ex)}"
+                txt_error.update()
+        
+        overlay = ft.AlertDialog(
+            modal=True,
+            title=ft.Row([
+                ft.Icon(ft.Icons.ADD_ALARM, color=ft.Colors.BLUE_700, size=24),
+                ft.Text("Nuevo Horario Individual", size=16, weight=ft.FontWeight.BOLD)
+            ], spacing=8),
+            content=ft.Container(
+                content=ft.Column([
+                    dd_usuario,
+                    dd_dia,
+                    ft.Row([campo_inicio, campo_fin, dd_plantilla], spacing=8),
+                    txt_warning,
+                    txt_error,
+                ], tight=True, spacing=12),
+                width=440,
+                height=220
+            ),
+            actions=[
+                ft.TextButton(
+                    content=ft.Row([ft.Icon(ft.Icons.CLOSE, size=16), ft.Text("Cancelar")], spacing=4),
+                    on_click=lambda ev: setattr(overlay, 'open', False) or self._pagina.update()
+                ),
+                ft.ElevatedButton(
+                    content=ft.Row([ft.Icon(ft.Icons.SAVE, size=16), ft.Text("Guardar")], spacing=4),
+                    on_click=guardar,
+                    bgcolor=ft.Colors.BLUE_700,
+                    color=ft.Colors.WHITE,
+                ),
+            ]
+        )
+        
+        self._pagina.overlay.append(overlay)
+        overlay.open = True
+        self._pagina.update()
+    
+    # ==================== OVERLAY ASIGNAR POR GRUPO/ÁREA ====================
+    
+    def _mostrar_overlay_grupo(self, e):
+        """Overlay para buscar usuarios por nombre con slider de roles para filtrar rápido"""
+        
+        # Recargar usuarios antes de mostrar overlay
+        self._cargar_usuarios()
+        
+        if not self._usuarios_cache:
+            self._mostrar_snackbar("⚠️ No hay usuarios disponibles", ft.Colors.ORANGE_600)
+            return
+        
+        # Cargar roles únicos
+        roles_unicos = list(set(u["ROL"] for u in self._usuarios_cache))
+        roles_unicos.sort()
+        
+        # Campo de búsqueda por nombre
+        campo_busqueda = ft.TextField(
+            label="🔍 Buscar usuario por nombre",
+            prefix_icon=ft.Icons.SEARCH,
+            hint_text="Escribe para filtrar...",
+            width=440,
+            border_radius=10,
+            height=45
+        )
+        
+        # Slider de roles como filtro rápido
+        filtro_roles = {"roles_seleccionados": set(roles_unicos)}
+        
+        chips_roles = []
+        for rol in roles_unicos:
+            color = ROL_COLORS.get(rol, ft.Colors.GREY_600)
+            chip = ft.Chip(
+                label=rol,
+                bgcolor=color,
+                color=ft.Colors.WHITE,
+                on_click=lambda ev, r=rol: toggle_rol(r),
+            )
+            chips_roles.append(chip)
+        
+        def toggle_rol(rol: str):
+            """Toggle de rol en filtro"""
+            if rol in filtro_roles["roles_seleccionados"]:
+                filtro_roles["roles_seleccionados"].discard(rol)
+            else:
+                filtro_roles["roles_seleccionados"].add(rol)
+            # Usar safe_update para evitar errores si no está en página
+            try:
+                actualizar_usuarios()
+            except RuntimeError:
+                pass  # Ignorar si no está agregado a la página aún
+        
+        # Contenedor de usuarios
+        container_usuarios = ft.Column(spacing=6, scroll=ft.ScrollMode.AUTO)
+        checkboxes_usuarios: Dict[int, ft.Checkbox] = {}
+        
+        def actualizar_usuarios(busqueda=""):
+            """Actualiza lista de usuarios según búsqueda y roles seleccionados"""
+            container_usuarios.controls.clear()
+            checkboxes_usuarios.clear()
+            
+            # Filtrar usuarios
+            usuarios_filtrados = [
+                u for u in self._usuarios_cache
+                if u["ROL"] in filtro_roles["roles_seleccionados"] and
+                   (not busqueda or busqueda.lower() in u["NOMBRE"].lower())
+            ]
+            
+            if not usuarios_filtrados:
+                container_usuarios.controls.append(
+                    ft.Container(
+                        content=ft.Column([
+                            ft.Icon(ft.Icons.PERSON_OFF, size=40, color=ft.Colors.GREY_400),
+                            ft.Text("No hay usuarios", color=ft.Colors.GREY_600, size=12)
+                        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=4),
+                        padding=20,
+                        alignment=ft.alignment.Alignment.CENTER
+                    )
+                )
+            else:
+                for usuario in usuarios_filtrados:
+                    cb = ft.Checkbox(label=f"👤 {usuario['NOMBRE']}", value=False, data=usuario["ID"])
+                    checkboxes_usuarios[usuario["ID"]] = cb
+                    
+                    rol_color = ROL_COLORS.get(usuario["ROL"], ft.Colors.GREY_600)
+                    
+                    row = ft.Row([
+                        cb,
+                        ft.Container(
+                            content=ft.Text(usuario["ROL"], size=9, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                            bgcolor=rol_color,
+                            padding=ft.Padding(6, 2, 6, 2),
+                            border_radius=12
+                        )
+                    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, spacing=8)
+                    
+                    container = ft.Container(
+                        content=row,
+                        padding=8,
+                        border=ft.border.all(1, ft.Colors.GREY_300),
+                        border_radius=6,
+                        bgcolor=ft.Colors.GREY_50
+                    )
+                    container_usuarios.controls.append(container)
+            
+            # Solo actualizar si está en página
+            try:
+                container_usuarios.update()
+            except RuntimeError:
+                pass
+        
+        actualizar_usuarios()
+        
+        def on_buscar_cambio(ev):
+            actualizar_usuarios(campo_busqueda.value)
+        
+        campo_busqueda.on_change = on_buscar_cambio
+        
+        # Días a asignar
+        dias_checks = {}
+        for d in DIAS_SEMANA:
+            dias_checks[d[0]] = ft.Checkbox(label=f"{d[2]} {d[1]}", value=d[0] not in ["SABADO", "DOMINGO"])
+        
+        # Horarios
+        campo_inicio = ft.TextField(label="Hora Inicio", value="08:00", width=110, border_radius=10)
+        campo_fin = ft.TextField(label="Hora Fin", value="17:00", width=110, border_radius=10)
+        
+        chk_sobrescribir = ft.Checkbox(label="⚠️ Sobrescribir existentes", value=False)
+        
+        txt_resumen = ft.Text("", size=10, color=ft.Colors.BLUE_700)
+        txt_error = ft.Text("", size=10, color=ft.Colors.RED_700)
+        
+        def actualizar_resumen(ev=None):
+            """Actualiza el resumen de usuarios seleccionados"""
+            seleccionados = [uid for uid, cb in checkboxes_usuarios.items() if cb.value]
+            if seleccionados:
+                txt_resumen.value = f"✓ {len(seleccionados)} usuario(s) seleccionado(s)"
+                txt_resumen.color = ft.Colors.GREEN_700
+            else:
+                txt_resumen.value = "📌 Selecciona usuarios para asignar horario"
+                txt_resumen.color = ft.Colors.GREY_600
+            try:
+                txt_resumen.update()
+            except RuntimeError:
+                pass
+        
+        # Agregar listeners a checkboxes
+        for cb in checkboxes_usuarios.values():
+            cb.on_change = actualizar_resumen
+        
+        actualizar_resumen()
+        
+        def asignar(ev):
+            usuarios_seleccionados = [uid for uid, cb in checkboxes_usuarios.items() if cb.value]
+            
+            if not usuarios_seleccionados:
+                txt_error.value = "⚠️ Selecciona al menos un usuario"
+                try:
+                    txt_error.update()
+                except RuntimeError:
+                    pass
+                return
+            
+            dias_sel = [dia for dia, cb in dias_checks.items() if cb.value]
+            if not dias_sel:
+                txt_error.value = "⚠️ Selecciona al menos un día"
+                try:
+                    txt_error.update()
+                except RuntimeError:
+                    pass
+                return
+            
+            try:
+                datetime.strptime(campo_inicio.value, "%H:%M")
+                datetime.strptime(campo_fin.value, "%H:%M")
+            except:
+                txt_error.value = "⚠️ Formato hora inválido (HH:MM)"
+                try:
+                    txt_error.update()
+                except RuntimeError:
+                    pass
+                return
+            
+            creados = 0
+            omitidos = 0
+            errores_cruces = []
+            
+            with OBTENER_SESION() as sesion:
+                for uid in usuarios_seleccionados:
+                    for dia in dias_sel:
+                        # Verificar si ya existe
+                        existe = sesion.query(MODELO_HORARIO).filter_by(
+                            USUARIO_ID=uid, DIA_SEMANA=dia
+                        ).first()
+                        
+                        if existe:
+                            if chk_sobrescribir.value:
+                                existe.HORA_INICIO = campo_inicio.value
+                                existe.HORA_FIN = campo_fin.value
+                                existe.ACTIVO = True
+                                creados += 1
+                            else:
+                                omitidos += 1
+                            continue
+                        
+                        # Verificar cruce
+                        cruce = self._verificar_cruce_usuario(uid, dia, campo_inicio.value, campo_fin.value)
+                        if cruce:
+                            usuario_obj = [u for u in self._usuarios_cache if u["ID"] == uid]
+                            if usuario_obj:
+                                errores_cruces.append(f"{usuario_obj[0]['NOMBRE']} ({dia})")
+                            continue
+                        
+                        nuevo = MODELO_HORARIO(
+                            USUARIO_ID=uid,
+                            DIA_SEMANA=dia,
+                            HORA_INICIO=campo_inicio.value,
+                            HORA_FIN=campo_fin.value,
+                            ACTIVO=True
+                        )
+                        sesion.add(nuevo)
+                        creados += 1
+                
+                sesion.commit()
+            
+            overlay.open = False
+            self._pagina.update()
+            
+            msg = f"✅ {creados} horario(s) asignado(s)"
+            if omitidos:
+                msg += f" | ⏭️ {omitidos} omitidos"
+            if errores_cruces:
+                msg += f" | ⚠️ {len(errores_cruces)} conflictos"
+            
+            self._mostrar_snackbar(msg, ft.Colors.GREEN_600)
+            self._cargar_horarios()
+        
+        overlay = ft.AlertDialog(
+            modal=True,
+            title=ft.Row([
+                ft.Icon(ft.Icons.GROUPS, color=ft.Colors.PURPLE_600, size=24),
+                ft.Text("Buscar Usuario para Asignar Horario", size=16, weight=ft.FontWeight.BOLD)
+            ], spacing=8),
+            content=ft.Container(
+                content=ft.Column([
+                    ft.Text("🔍 Búsqueda por nombre:", size=11, weight=ft.FontWeight.BOLD),
+                    campo_busqueda,
+                    ft.Text("⚡ Filtrar rápido por rol:", size=11, weight=ft.FontWeight.BOLD),
+                    ft.Row(chips_roles, wrap=True, spacing=4),
+                    ft.Divider(height=8),
+                    ft.Text("👥 Usuarios disponibles:", size=11, weight=ft.FontWeight.BOLD),
+                    container_usuarios,
+                    ft.Divider(height=8),
+                    ft.Row([
+                        ft.Column([
+                            ft.Text("📅 Días:", size=11, weight=ft.FontWeight.BOLD),
+                            ft.Row([dias_checks[d[0]] for d in DIAS_SEMANA], wrap=True, spacing=3),
+                        ]),
+                    ], spacing=6),
+                    ft.Row([campo_inicio, campo_fin], spacing=8),
+                    chk_sobrescribir,
+                    txt_resumen,
+                    txt_error,
+                ], tight=True, spacing=8, scroll=ft.ScrollMode.ADAPTIVE),
+                width=480,
+                height=480
+            ),
+            actions=[
+                ft.TextButton(
+                    content=ft.Row([ft.Icon(ft.Icons.CLOSE, size=16), ft.Text("Cancelar")], spacing=4),
+                    on_click=lambda ev: setattr(overlay, 'open', False) or self._pagina.update()
+                ),
+                ft.ElevatedButton(
+                    content=ft.Row([ft.Icon(ft.Icons.CHECK, size=16), ft.Text("Asignar")], spacing=4),
+                    on_click=asignar,
+                    bgcolor=ft.Colors.PURPLE_600,
+                    color=ft.Colors.WHITE,
+                ),
+            ]
+        )
+        
+        self._pagina.overlay.append(overlay)
+        overlay.open = True
+        self._pagina.update()
+    
+    # ==================== OVERLAY PLANTILLA ====================
+    
+    def _mostrar_overlay_plantilla(self, e):
+        """Overlay simple para aplicar plantillas a usuarios"""
+        
+        self._cargar_usuarios()
+        if not self._usuarios_cache:
+            self._mostrar_snackbar("⚠️ No hay usuarios", ft.Colors.ORANGE_600)
+            return
+        
+        # Selector de usuario
+        dd_usuario = ft.Dropdown(
+            label="Selecciona Usuario",
+            width=360,
+            border_radius=10,
+            options=[ft.dropdown.Option(key=str(u["ID"]), text=f"{u['NOMBRE']} ({u['ROL']})") for u in self._usuarios_cache]
+        )
+        
+        # Cargar plantillas personalizadas
+        plantillas_personalizadas = []
+        try:
+            with OBTENER_SESION() as sesion:
+                plantillas_personalizadas = sesion.query(MODELO_PLANTILLA).filter_by(ACTIVO=True).all()
+        except Exception as ex:
+            print(f"Error cargando plantillas: {ex}")
+        
+        # Contenedor para mostrar plantillas
+        contenedor_plantillas = ft.Column(spacing=8)
+        
+        def actualizar_plantillas_display():
+            contenedor_plantillas.controls.clear()
+            
+            # Mostrar plantillas predefinidas
+            txt_predefinidas = ft.Text("📦 Plantillas Predefinidas", size=11, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_700)
+            contenedor_plantillas.controls.append(txt_predefinidas)
+            
+            for i, (nombre, inicio, fin) in enumerate(HORARIOS_PREDEFINIDOS):
+                item = ft.Container(
+                    content=ft.Row([
+                        ft.Text(f"• {nombre} ({inicio}-{fin})", size=10, expand=True),
+                        ft.Icon(ft.Icons.EDIT, size=14, color=ft.Colors.GREY_600),
+                    ], spacing=8),
+                    padding=8,
+                    border_radius=6,
+                    border=ft.border.all(1, ft.Colors.GREY_300),
+                    data={"idx": i, "tipo": "predefinida"},
+                    on_click=lambda ev: seleccionar_plantilla(ev)
+                )
+                contenedor_plantillas.controls.append(item)
+            
+            # Mostrar plantillas personalizadas si existen
+            if plantillas_personalizadas:
+                txt_personalizadas = ft.Text("⭐ Plantillas Personalizadas", size=11, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_700)
+                contenedor_plantillas.controls.append(txt_personalizadas)
+                
+                for plantilla in plantillas_personalizadas:
+                    item = ft.Container(
+                        content=ft.Row([
+                            ft.Text(f"• {plantilla.NOMBRE} ({plantilla.HORA_INICIO}-{plantilla.HORA_FIN})", size=10, expand=True),
+                            ft.IconButton(
+                                icon=ft.Icons.EDIT,
+                                icon_size=14,
+                                tooltip="Ver detalles",
+                                on_click=lambda ev, pid=plantilla.ID: self._mostrar_overlay_logs_plantilla(pid)
+                            ),
+                        ], spacing=8, alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                        padding=8,
+                        border_radius=6,
+                        border=ft.border.all(1, ft.Colors.BLUE_200),
+                        bgcolor=ft.Colors.BLUE_50,
+                        data={"idx": plantilla.ID, "tipo": "personalizada", "obj": plantilla},
+                        on_click=lambda ev: seleccionar_plantilla(ev)
+                    )
+                    contenedor_plantillas.controls.append(item)
+        
+        # State para plantilla seleccionada
+        plantilla_sel = {"idx": None, "tipo": None, "obj": None}
+        
+        def seleccionar_plantilla(ev):
+            plantilla_sel["idx"] = ev.control.data["idx"]
+            plantilla_sel["tipo"] = ev.control.data["tipo"]
+            plantilla_sel["obj"] = ev.control.data.get("obj")
+            txt_error.value = ""
+            txt_error.update() if txt_error.visible else None
+        
+        # Checkboxes de días
+        dias_checks = {
+            d[0]: ft.Checkbox(label=f"{d[2]} {d[1]}", value=d[0] not in ["SABADO", "DOMINGO"]) 
+            for d in DIAS_SEMANA
+        }
+        
+        txt_error = ft.Text("", color=ft.Colors.RED_700, size=10)
+        
+        def aplicar(ev):
+            if not dd_usuario.value:
+                txt_error.value = "⚠️ Selecciona usuario"
+                try:
+                    txt_error.update()
+                except RuntimeError:
+                    pass
+                return
+            
+            if plantilla_sel["idx"] is None:
+                txt_error.value = "⚠️ Selecciona una plantilla"
+                try:
+                    txt_error.update()
+                except RuntimeError:
+                    pass
+                return
+            
+            dias_sel = [dia for dia, cb in dias_checks.items() if cb.value]
+            if not dias_sel:
+                txt_error.value = "⚠️ Selecciona días"
+                try:
+                    txt_error.update()
+                except RuntimeError:
+                    pass
+                return
+            
+            usuario_id = int(dd_usuario.value)
+            creados = 0
+            
+            try:
+                with OBTENER_SESION() as sesion:
+                    if plantilla_sel["tipo"] == "predefinida":
+                        plantilla = HORARIOS_PREDEFINIDOS[plantilla_sel["idx"]]
+                        hora_inicio, hora_fin = plantilla[1], plantilla[2]
+                        dias_plantilla = dias_sel  # Usa los días seleccionados
+                    else:
+                        # Plantilla personalizada
+                        dias_plantilla = json.loads(plantilla_sel["obj"].DIAS) if plantilla_sel["obj"].DIAS else []
+                        hora_inicio = plantilla_sel["obj"].HORA_INICIO
+                        hora_fin = plantilla_sel["obj"].HORA_FIN
+                        # Intersectar con días seleccionados
+                        dias_plantilla = [d for d in dias_plantilla if d in dias_sel]
+                    
+                    for dia in dias_plantilla:
+                        existe = sesion.query(MODELO_HORARIO).filter_by(
+                            USUARIO_ID=usuario_id, DIA_SEMANA=dia
+                        ).first()
+                        
+                        if not existe:
+                            nuevo = MODELO_HORARIO(
+                                USUARIO_ID=usuario_id,
+                                DIA_SEMANA=dia,
+                                HORA_INICIO=hora_inicio,
+                                HORA_FIN=hora_fin,
+                                ACTIVO=True
+                            )
+                            sesion.add(nuevo)
+                            creados += 1
+                    
+                    sesion.commit()
+                
+                try:
+                    setattr(overlay, 'open', False)
+                    self._pagina.update()
+                except RuntimeError:
+                    pass
+                
+                self._mostrar_snackbar(f"✅ Plantilla aplicada ({creados} horarios)", ft.Colors.GREEN_600)
+                self._cargar_horarios()
+            except Exception as ex:
+                txt_error.value = f"❌ Error: {str(ex)}"
+                txt_error.update()
+        
+        # Actualizar display de plantillas
+        actualizar_plantillas_display()
+        
+        overlay = ft.AlertDialog(
+            modal=True,
+            title=ft.Row([
+                ft.Icon(ft.Icons.COPY_ALL, color=ft.Colors.TEAL_600, size=24),
+                ft.Text("Aplicar Plantilla de Horarios", size=16, weight=ft.FontWeight.BOLD)
+            ], spacing=10),
+            content=ft.Container(
+                content=ft.Column([
+                    # SECCIÓN: USUARIO
+                    ft.Container(
+                        content=ft.Column([
+                            ft.Text("👤 Selecciona Usuario", size=11, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_700),
+                            dd_usuario,
+                        ], spacing=8),
+                        padding=12,
+                        bgcolor=ft.Colors.BLUE_50,
+                        border_radius=8,
+                    ),
+                    
+                    # SECCIÓN: PLANTILLAS
+                    ft.Container(
+                        content=ft.Column([
+                            ft.Text("📦 Plantillas Disponibles", size=11, weight=ft.FontWeight.BOLD, color=ft.Colors.PURPLE_700),
+                            ft.Container(
+                                content=contenedor_plantillas,
+                                border=ft.border.all(1, ft.Colors.GREY_300),
+                                border_radius=6,
+                                padding=8,
+                            ),
+                        ], spacing=8),
+                        padding=12,
+                        bgcolor=ft.Colors.PURPLE_50,
+                        border_radius=8,
+                    ),
+                    
+                    # SECCIÓN: DÍAS
+                    ft.Container(
+                        content=ft.Column([
+                            ft.Text("📅 Aplica a estos Días", size=11, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_700),
+                            ft.GridView(
+                                controls=[dias_checks[d[0]] for d in DIAS_SEMANA],
+                                runs_count=3,
+                                spacing=6,
+                                run_spacing=6,
+                                height=120,
+                            ),
+                        ], spacing=8),
+                        padding=12,
+                        bgcolor=ft.Colors.GREEN_50,
+                        border_radius=8,
+                    ),
+                    
+                    # ERRORES
+                    ft.Container(
+                        content=txt_error,
+                        padding=8,
+                    ) if txt_error.value else ft.Container(height=0),
+                    
+                ], scroll=ft.ScrollMode.AUTO, spacing=10),
+                width=500,
+                height=600,
+                padding=15
+            ),
+            actions=[
+                ft.TextButton("Cancelar", on_click=lambda ev: setattr(overlay, 'open', False) or self._pagina.update()),
+                ft.ElevatedButton(
+                    content=ft.Row([ft.Icon(ft.Icons.CHECK, size=16), ft.Text("Aplicar")], spacing=6),
+                    on_click=aplicar,
+                    bgcolor=ft.Colors.TEAL_600,
+                    color=ft.Colors.WHITE,
+                )
+            ]
+        )
+        
+        self._pagina.overlay.append(overlay)
+        overlay.open = True
+        try:
+            self._pagina.update()
+        except RuntimeError:
+            pass
+    
+    # ==================== OVERLAY EDITAR ====================
+    
+    def _mostrar_overlay_editar(self, horario: Dict):
+        dd_dia = ft.Dropdown(
+            label="Día",
+            width=350,
+            border_radius=10,
+            value=horario["DIA_SEMANA"],
+            options=[ft.dropdown.Option(key=d[0], text=f"{d[2]} {d[0].capitalize()}") for d in DIAS_SEMANA]
+        )
+        
+        campo_inicio = ft.TextField(label="Hora Inicio", value=horario["HORA_INICIO"], width=140, border_radius=10)
+        campo_fin = ft.TextField(label="Hora Fin", value=horario["HORA_FIN"], width=140, border_radius=10)
+        sw_activo = ft.Switch(label="Activo", value=horario["ACTIVO"])
+        txt_error = ft.Text("", color=ft.Colors.RED_700, size=10)
+        
+        def guardar(ev):
+            cruce = self._verificar_cruce_usuario(
+                horario["USUARIO_ID"], dd_dia.value, campo_inicio.value, campo_fin.value, horario["ID"]
+            )
+            if cruce:
+                txt_error.value = cruce
+                txt_error.update()
+                return
+            
+            try:
+                with OBTENER_SESION() as sesion:
+                    h = sesion.query(MODELO_HORARIO).filter_by(ID=horario["ID"]).first()
+                    if h:
+                        h.DIA_SEMANA = dd_dia.value
+                        h.HORA_INICIO = campo_inicio.value
+                        h.HORA_FIN = campo_fin.value
+                        h.ACTIVO = sw_activo.value
+                        sesion.commit()
+                
+                overlay.open = False
+                self._pagina.update()
+                self._mostrar_snackbar("✅ Horario actualizado", ft.Colors.GREEN_600)
+                self._cargar_horarios()
+            except Exception as ex:
+                txt_error.value = f"❌ {str(ex)}"
+                txt_error.update()
+        
+        overlay = ft.AlertDialog(
+            modal=True,
+            title=ft.Row([
+                ft.Icon(ft.Icons.EDIT, color=ft.Colors.ORANGE_600, size=24),
+                ft.Text("Editar Horario", size=16, weight=ft.FontWeight.BOLD)
+            ], spacing=8),
+            content=ft.Container(
+                content=ft.Column([
+                    ft.Container(
+                        content=ft.Row([
+                            ft.Icon(ft.Icons.PERSON, size=14, color=ft.Colors.BLUE_600),
+                            ft.Text(f"{horario['USUARIO_NOMBRE']} ({horario['ROL']})", weight=ft.FontWeight.BOLD, size=11)
+                        ], spacing=4),
+                        padding=8,
+                        bgcolor=ft.Colors.BLUE_50,
+                        border_radius=6
+                    ),
+                    dd_dia,
+                    ft.Row([campo_inicio, campo_fin], spacing=12),
+                    sw_activo,
+                    txt_error,
+                ], tight=True, spacing=10),
+                width=390,
+                height=200
+            ),
+            actions=[
+                ft.TextButton(
+                    content=ft.Row([ft.Icon(ft.Icons.CLOSE, size=16), ft.Text("Cancelar")], spacing=4),
+                    on_click=lambda ev: setattr(overlay, 'open', False) or self._pagina.update()
+                ),
+                ft.ElevatedButton(
+                    content=ft.Row([ft.Icon(ft.Icons.SAVE, size=16), ft.Text("Guardar")], spacing=4),
+                    on_click=guardar,
+                    bgcolor=ft.Colors.ORANGE_600,
+                    color=ft.Colors.WHITE,
+                ),
+            ]
+        )
+        
+        self._pagina.overlay.append(overlay)
+        overlay.open = True
+        self._pagina.update()
+    
+    # ==================== OVERLAY ELIMINAR ====================
+    
+    def _mostrar_overlay_eliminar(self, horario: Dict):
+        def eliminar(ev):
+            try:
+                with OBTENER_SESION() as sesion:
+                    h = sesion.query(MODELO_HORARIO).filter_by(ID=horario["ID"]).first()
+                    if h:
+                        sesion.delete(h)
+                        sesion.commit()
+                
+                overlay.open = False
+                self._pagina.update()
+                self._mostrar_snackbar("✅ Horario eliminado", ft.Colors.GREEN_600)
+                self._cargar_horarios()
+            except Exception as ex:
+                self._mostrar_snackbar(f"❌ Error: {str(ex)}", ft.Colors.RED_600)
+        
+        overlay = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("⚠️ Confirmar Eliminación", size=15),
+            content=ft.Column([
+                ft.Text(f"¿Eliminar horario de {horario['USUARIO_NOMBRE']}?", size=12),
+                ft.Container(
+                    content=ft.Text(f"{horario['DIA_SEMANA']}: {horario['HORA_INICIO']} - {horario['HORA_FIN']}", size=11),
+                    padding=8,
+                    bgcolor=ft.Colors.ORANGE_50,
+                    border_radius=6
+                ),
+            ], spacing=8, tight=True),
+            actions=[
+                ft.TextButton(
+                    content=ft.Row([ft.Icon(ft.Icons.CLOSE, size=16), ft.Text("Cancelar")], spacing=4),
+                    on_click=lambda ev: setattr(overlay, 'open', False) or self._pagina.update()
+                ),
+                ft.ElevatedButton(
+                    content=ft.Row([ft.Icon(ft.Icons.DELETE, size=16), ft.Text("Eliminar")], spacing=4),
+                    on_click=eliminar,
+                    bgcolor=ft.Colors.RED_600,
+                    color=ft.Colors.WHITE,
+                ),
+            ]
+        )
+        
+        self._pagina.overlay.append(overlay)
+        overlay.open = True
+        self._pagina.update()
+    
+    # ==================== ACCIONES ====================
+    
+    def _toggle_estado(self, horario: Dict):
+        try:
+            with OBTENER_SESION() as sesion:
+                h = sesion.query(MODELO_HORARIO).filter_by(ID=horario["ID"]).first()
+                if h:
+                    h.ACTIVO = not h.ACTIVO
+                    sesion.commit()
+            
+            estado = "activado" if not horario["ACTIVO"] else "desactivado"
+            self._mostrar_snackbar(f"✅ Horario {estado}", ft.Colors.GREEN_600)
+            self._cargar_horarios()
+        except Exception as e:
+            self._mostrar_snackbar(f"❌ Error: {str(e)}", ft.Colors.RED_600)
+    
+    # ==================== CREAR PLANTILLA ====================
+    
+    def _mostrar_overlay_crear_plantilla(self, e):
+        """Overlay user-friendly para crear nuevas plantillas con timepickers"""
+        
+        # Campos
+        campo_nombre = ft.TextField(
+            label="Nombre de Plantilla *",
+            hint_text="Ej: Turno Personalizado",
+            width=380,
+            border_radius=10
+        )
+        
+        campo_descripcion = ft.TextField(
+            label="Descripción",
+            hint_text="Describe esta plantilla",
+            width=380,
+            border_radius=10,
+            multiline=True,
+            min_lines=2,
+            max_lines=3
+        )
+        
+        # Timepickers
+        tp_inicio = ft.TimePicker()
+        tp_fin = ft.TimePicker()
+        
+        # Labels para mostrar horas seleccionadas
+        lbl_hora_inicio = ft.Text("Hora Inicio: --:--", size=11, weight=ft.FontWeight.W_500)
+        lbl_hora_fin = ft.Text("Hora Fin: --:--", size=11, weight=ft.FontWeight.W_500)
+        
+        btn_hora_inicio = ft.ElevatedButton(
+            content=ft.Row([
+                ft.Icon(ft.Icons.ACCESS_TIME, size=16),
+                lbl_hora_inicio
+            ], spacing=6),
+            width=200,
+            on_click=lambda _: setattr(tp_inicio, 'open', True) or self._pagina.update()
+        )
+        
+        btn_hora_fin = ft.ElevatedButton(
+            content=ft.Row([
+                ft.Icon(ft.Icons.ACCESS_TIME, size=16),
+                lbl_hora_fin
+            ], spacing=6),
+            width=200,
+            on_click=lambda _: setattr(tp_fin, 'open', True) or self._pagina.update()
+        )
+        
+        # State para almacenar horas
+        horas_sel = {"inicio": None, "fin": None}
+        
+        def on_hora_inicio_change(e):
+            if tp_inicio.value:
+                horas_sel["inicio"] = tp_inicio.value.strftime("%H:%M")
+                lbl_hora_inicio.value = f"Inicio: {horas_sel['inicio']}"
+                btn_hora_inicio.update()
+        
+        def on_hora_fin_change(e):
+            if tp_fin.value:
+                horas_sel["fin"] = tp_fin.value.strftime("%H:%M")
+                lbl_hora_fin.value = f"Fin: {horas_sel['fin']}"
+                btn_hora_fin.update()
+        
+        tp_inicio.on_change = on_hora_inicio_change
+        tp_fin.on_change = on_hora_fin_change
+        
+        # Checkboxes de días
+        dias_sel = {}
+        checks_dias = []
+        
+        for dia, abrev, emoji, color in DIAS_SEMANA:
+            check = ft.Checkbox(label=f"{emoji} {abrev} ({dia})")
+            checks_dias.append((dia, check))
+            dias_sel[dia] = False
+        
+        def on_check_dia(dia):
+            def handler(e):
+                dias_sel[dia] = e.control.value
+            return handler
+        
+        for dia, check in checks_dias:
+            check.on_change = on_check_dia(dia)
+        
+        txt_error = ft.Text("", color=ft.Colors.RED_700, size=11, weight=ft.FontWeight.W_500)
+        
+        def guardar(ev):
+            # Validaciones
+            if not campo_nombre.value or not campo_nombre.value.strip():
+                txt_error.value = "⚠️ Nombre es obligatorio"
+                txt_error.update()
+                return
+            
+            if not horas_sel["inicio"] or not horas_sel["fin"]:
+                txt_error.value = "⚠️ Debes seleccionar hora inicio y fin"
+                txt_error.update()
+                return
+            
+            dias_elegidos = [d for d, sel in dias_sel.items() if sel]
+            if not dias_elegidos:
+                txt_error.value = "⚠️ Debes seleccionar al menos un día"
+                txt_error.update()
+                return
+            
+            try:
+                with OBTENER_SESION() as sesion:
+                    nueva_plantilla = MODELO_PLANTILLA(
+                        NOMBRE=campo_nombre.value.strip(),
+                        DESCRIPCION=campo_descripcion.value or None,
+                        HORA_INICIO=horas_sel["inicio"],
+                        HORA_FIN=horas_sel["fin"],
+                        DIAS=json.dumps(dias_elegidos),
+                        CREADO_POR=self.usuario.ID,
+                        ACTIVO=True
+                    )
+                    sesion.add(nueva_plantilla)
+                    sesion.commit()
+                
+                overlay.open = False
+                try:
+                    self._pagina.update()
+                except RuntimeError:
+                    pass
+                
+                self._mostrar_snackbar(f"✅ Plantilla '{campo_nombre.value}' creada", ft.Colors.GREEN_600)
+                
+            except Exception as ex:
+                txt_error.value = f"❌ Error: {str(ex)}"
+                txt_error.update()
+        
+        overlay = ft.AlertDialog(
+            modal=True,
+            title=ft.Row([
+                ft.Icon(ft.Icons.ADD_BOX, color=ft.Colors.AMBER_600, size=24),
+                ft.Text("Crear Nueva Plantilla", size=16, weight=ft.FontWeight.BOLD)
+            ], spacing=8),
+            content=ft.Container(
+                content=ft.Column([
+                    # SECIÓN: NOMBRE Y DESCRIPCIÓN
+                    ft.Container(
+                        content=ft.Column([
+                            campo_nombre,
+                            campo_descripcion,
+                        ], spacing=10),
+                        padding=12,
+                        bgcolor=ft.Colors.BLUE_50,
+                        border_radius=8,
+                    ),
+                    
+                    # SECCIÓN: HORARIO
+                    ft.Container(
+                        content=ft.Column([
+                            ft.Text("⏰ Selecciona Horario", size=12, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_700),
+                            ft.Row([btn_hora_inicio, btn_hora_fin], spacing=8, wrap=True),
+                        ], spacing=8),
+                        padding=12,
+                        bgcolor=ft.Colors.AMBER_50,
+                        border_radius=8,
+                    ),
+                    
+                    # SECCIÓN: DÍAS
+                    ft.Container(
+                        content=ft.Column([
+                            ft.Text("📅 Selecciona Días", size=12, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_700),
+                            ft.GridView(
+                                controls=[check for _, check in checks_dias],
+                                runs_count=3,
+                                spacing=8,
+                                run_spacing=8,
+                                height=140,
+                            ),
+                        ], spacing=8),
+                        padding=12,
+                        bgcolor=ft.Colors.GREEN_50,
+                        border_radius=8,
+                    ),
+                    
+                    # ERRORES
+                    ft.Container(
+                        content=txt_error,
+                        padding=8,
+                    ) if txt_error.value else ft.Container(height=0),
+                    
+                ], scroll=ft.ScrollMode.AUTO, spacing=10),
+                width=480,
+                height=520,
+                padding=12
+            ),
+            actions=[
+                ft.TextButton(
+                    content=ft.Row([ft.Icon(ft.Icons.CLOSE, size=16), ft.Text("Cancelar")], spacing=4),
+                    on_click=lambda ev: setattr(overlay, 'open', False) or self._pagina.update()
+                ),
+                ft.ElevatedButton(
+                    content=ft.Row([ft.Icon(ft.Icons.CHECK, size=16), ft.Text("Guardar")], spacing=4),
+                    on_click=guardar,
+                    bgcolor=ft.Colors.AMBER_600,
+                    color=ft.Colors.WHITE,
+                ),
+            ]
+        )
+        
+        self._pagina.overlay.append(tp_inicio)
+        self._pagina.overlay.append(tp_fin)
+        self._pagina.overlay.append(overlay)
+        overlay.open = True
+        try:
+            self._pagina.update()
+        except RuntimeError:
+            pass
+    
+    # ==================== VER LOGS PLANTILLA ====================
+    
+    def _mostrar_overlay_logs_plantilla(self, plantilla_id: int):
+        """Overlay pequeño para ver logs/detalles de una plantilla"""
+        
+        try:
+            with OBTENER_SESION() as sesion:
+                plantilla = sesion.query(MODELO_PLANTILLA).filter_by(ID=plantilla_id).first()
+                if not plantilla:
+                    self._mostrar_snackbar("❌ Plantilla no encontrada", ft.Colors.RED_600)
+                    return
+                
+                dias_plantilla = json.loads(plantilla.DIAS) if plantilla.DIAS else []
+                usuario_creador = sesion.query(MODELO_USUARIO).filter_by(ID=plantilla.CREADO_POR).first()
+                
+                # Mostrar detalles
+                detalles = ft.Column([
+                    ft.Row([
+                        ft.Icon(ft.Icons.INFO, color=ft.Colors.BLUE_600, size=24),
+                        ft.Text(f"Plantilla: {plantilla.NOMBRE}", size=14, weight=ft.FontWeight.BOLD)
+                    ], spacing=8),
+                    ft.Divider(height=10),
+                    
+                    ft.Text("📝 Descripción", size=11, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_700),
+                    ft.Text(plantilla.DESCRIPCION or "Sin descripción", size=10, color=ft.Colors.GREY_600),
+                    
+                    ft.Text("⏰ Horario", size=11, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_700),
+                    ft.Row([
+                        ft.Text(f"Inicio: {plantilla.HORA_INICIO}", size=10),
+                        ft.Text(f"Fin: {plantilla.HORA_FIN}", size=10),
+                    ], spacing=20),
+                    
+                    ft.Text("📅 Días", size=11, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_700),
+                    ft.Wrap(
+                        controls=[
+                            ft.Chip(
+                                label=ft.Text(dia.capitalize(), size=9),
+                                bgcolor=ft.Colors.BLUE_100,
+                                color=ft.Colors.BLUE_700
+                            )
+                            for dia in dias_plantilla
+                        ]
+                    ),
+                    
+                    ft.Text("👤 Creado por", size=11, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_700),
+                    ft.Text(
+                        f"{usuario_creador.NOMBRE_USUARIO if usuario_creador else 'Sistema'}",
+                        size=10,
+                        color=ft.Colors.GREY_600
+                    ),
+                    
+                    ft.Text("📅 Fecha Creación", size=11, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_700),
+                    ft.Text(
+                        plantilla.FECHA_CREACION.strftime("%d/%m/%Y %H:%M") if plantilla.FECHA_CREACION else "-",
+                        size=10,
+                        color=ft.Colors.GREY_600
+                    ),
+                    
+                    ft.Text("Estado", size=11, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_700),
+                    ft.Row([
+                        ft.Icon(ft.Icons.CHECK_CIRCLE if plantilla.ACTIVO else ft.Icons.CANCEL, 
+                               color=ft.Colors.GREEN_600 if plantilla.ACTIVO else ft.Colors.RED_600, size=16),
+                        ft.Text("Activo" if plantilla.ACTIVO else "Inactivo", size=10)
+                    ], spacing=6),
+                ], spacing=10)
+                
+        except Exception as e:
+            detalles = ft.Column([
+                ft.Text(f"❌ Error cargando detalles: {str(e)}", color=ft.Colors.RED_600)
+            ])
+        
+        overlay = ft.AlertDialog(
+            modal=True,
+            title=ft.Row([
+                ft.Icon(ft.Icons.DESCRIPTION, color=ft.Colors.GREY_700, size=22),
+                ft.Text("Detalles de Plantilla", size=14, weight=ft.FontWeight.BOLD)
+            ], spacing=8),
+            content=ft.Container(
+                content=detalles,
+                width=420,
+                padding=12
+            ),
+            actions=[
+                ft.TextButton(
+                    text="Cerrar",
+                    on_click=lambda ev: setattr(overlay, 'open', False) or self._pagina.update()
+                )
+            ]
+        )
+        
+        self._pagina.overlay.append(overlay)
+        overlay.open = True
+        try:
+            self._pagina.update()
+        except RuntimeError:
+            pass
+    
+    def _mostrar_snackbar(self, mensaje: str, color):
+        snack = ft.SnackBar(content=ft.Text(mensaje, color=ft.Colors.WHITE), bgcolor=color, duration=2500)
+        self._pagina.overlay.append(snack)
+        snack.open = True
+        self._pagina.update()
+    
+    # ==================== NAVEGACIÓN ====================
+    
+    def _volver_dashboard(self):
+        from features.admin.presentation.pages.PaginaAdmin import PaginaAdmin
+        self._pagina.controls.clear()
+        self._pagina.add(PaginaAdmin(self._pagina, self.usuario))
+        safe_update(self._pagina)
+    
+    def _cerrar_sesion(self):
+        from features.autenticacion.presentation.pages.PaginaLogin import PaginaLogin
+        self._pagina.controls.clear()
+        self._pagina.add(PaginaLogin(self._pagina))
+        safe_update(self._pagina)

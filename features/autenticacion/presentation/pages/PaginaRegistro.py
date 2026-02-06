@@ -8,10 +8,18 @@ from features.autenticacion.presentation.bloc.AutenticacionEvento import (
     EventoRegistrarse,
 )
 from features.autenticacion.presentation.bloc.AutenticacionEstado import *
+from core.Constantes import (
+    COLORES,
+    TAMANOS,
+    ICONOS,
+    ERRORES_AUTENTICACION,
+    ERRORES_VALIDACION,
+    MENSAJES_EXITO,
+    MENSAJES_CONFIRMACION,
+)
 import re
 import asyncio
 from typing import Optional
-
 
 class PaginaRegistro(ft.Column):
 
@@ -38,30 +46,29 @@ class PaginaRegistro(ft.Column):
         HEADER = ft.Container(
             content=ft.Column(
                 controls=[
-                    ft.Icon(
-                        ft.Icons.PERSON_ADD_ROUNDED, size=70, color=ft.Colors.PURPLE_600
+                    ft.Icon(ft.icons.Icons.PERSON_ADD_ROUNDED, size=70, color=COLORES.SECUNDARIO
                     ),
                     ft.Text(
                         value="Crear Cuenta",
                         size=28,
                         weight=ft.FontWeight.BOLD,
-                        color=ft.Colors.PURPLE_600,
+                        color=COLORES.SECUNDARIO,
                     ),
                     ft.Text(
                         value="Completa el formulario para registrarte",
-                        size=14,
-                        color=ft.Colors.GREY_600,
+                        size=TAMANOS.TEXTO_MD,
+                        color=COLORES.TEXTO_SECUNDARIO,
                     ),
                 ],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 spacing=8,
             ),
-            margin=ft.margin.only(bottom=25),
+            margin=ft.Margin.only(bottom=25),
         )
 
         self._CAMPO_EMAIL = CampoTextoSeguro(
             ETIQUETA="Email",
-            ICONO=ft.Icons.EMAIL_OUTLINED,
+            ICONO=ICONOS.EMAIL,
             TIPO_TECLADO=ft.KeyboardType.EMAIL,
             VALIDADOR=self._VALIDAR_EMAIL,
             ANCHO=400,
@@ -69,7 +76,7 @@ class PaginaRegistro(ft.Column):
 
         self._CAMPO_NOMBRE_USUARIO = CampoTextoSeguro(
             ETIQUETA="Nombre de Usuario",
-            ICONO=ft.Icons.PERSON_OUTLINED,
+            ICONO=ICONOS.USUARIO,
             VALIDADOR=self._VALIDAR_NOMBRE_USUARIO,
             TEXTO_AYUDA="Solo letras, números y guiones bajos",
             ANCHO=400,
@@ -77,7 +84,7 @@ class PaginaRegistro(ft.Column):
 
         self._CAMPO_CONTRASENA = CampoTextoSeguro(
             ETIQUETA="Contraseña",
-            ICONO=ft.Icons.LOCK_OUTLINED,
+            ICONO=ICONOS.CONTRASENA,
             ES_CONTRASENA=True,
             VALIDADOR=self._VALIDAR_CONTRASENA,
             ANCHO=400,
@@ -85,7 +92,7 @@ class PaginaRegistro(ft.Column):
 
         self._CAMPO_CONFIRMAR_CONTRASENA = CampoTextoSeguro(
             ETIQUETA="Confirmar Contraseña",
-            ICONO=ft.Icons.LOCK_OUTLINED,
+            ICONO=ICONOS.CONTRASENA,
             ES_CONTRASENA=True,
             VALIDADOR=self._VALIDAR_CONFIRMAR_CONTRASENA,
             ANCHO=400,
@@ -95,14 +102,13 @@ class PaginaRegistro(ft.Column):
             content=ft.Column(
                 controls=[
                     ft.Text(
-                        "Requisitos de contraseña:", size=12, weight=ft.FontWeight.W_500
+                        "Requisitos de contraseña:", size=TAMANOS.TEXTO_SM, weight=ft.FontWeight.W_500
                     ),
                     ft.Row(
                         [
-                            ft.Icon(
-                                ft.Icons.CHECK_CIRCLE,
-                                size=16,
-                                color=ft.Colors.GREEN_600,
+                            ft.Icon(ICONOS.EXITO,
+                                size=TAMANOS.ICONO_XS,
+                                color=COLORES.EXITO,
                             ),
                             ft.Text("Mínimo 8 caracteres", size=11),
                         ],
@@ -110,10 +116,9 @@ class PaginaRegistro(ft.Column):
                     ),
                     ft.Row(
                         [
-                            ft.Icon(
-                                ft.Icons.CHECK_CIRCLE,
-                                size=16,
-                                color=ft.Colors.GREEN_600,
+                            ft.Icon(ICONOS.EXITO,
+                                size=TAMANOS.ICONO_XS,
+                                color=COLORES.EXITO,
                             ),
                             ft.Text("Al menos una mayúscula", size=11),
                         ],
@@ -121,10 +126,9 @@ class PaginaRegistro(ft.Column):
                     ),
                     ft.Row(
                         [
-                            ft.Icon(
-                                ft.Icons.CHECK_CIRCLE,
-                                size=16,
-                                color=ft.Colors.GREEN_600,
+                            ft.Icon(ICONOS.EXITO,
+                                size=TAMANOS.ICONO_XS,
+                                color=COLORES.EXITO,
                             ),
                             ft.Text("Al menos un número", size=11),
                         ],
@@ -132,10 +136,9 @@ class PaginaRegistro(ft.Column):
                     ),
                     ft.Row(
                         [
-                            ft.Icon(
-                                ft.Icons.CHECK_CIRCLE,
-                                size=16,
-                                color=ft.Colors.GREEN_600,
+                            ft.Icon(ICONOS.EXITO,
+                                size=TAMANOS.ICONO_XS,
+                                color=COLORES.EXITO,
                             ),
                             ft.Text("Al menos un carácter especial", size=11),
                         ],
@@ -144,7 +147,7 @@ class PaginaRegistro(ft.Column):
                 ],
                 spacing=3,
             ),
-            padding=10,
+            padding=TAMANOS.PADDING_MD,
             bgcolor=ft.Colors.GREY_100,
             border_radius=8,
             width=400,
@@ -156,25 +159,25 @@ class PaginaRegistro(ft.Column):
 
         self._TEXTO_ERROR = ft.Text(
             value="",
-            color=ft.Colors.RED_400,
-            size=14,
+            color=COLORES.PELIGRO_CLARO,
+            size=TAMANOS.TEXTO_MD,
             visible=False,
             text_align=ft.TextAlign.CENTER,
         )
 
         self._BOTON_REGISTRAR = BotonPrimario(
             TEXTO="Crear Cuenta",
-            ICONO=ft.Icons.CHECK_ROUNDED,
+            ICONO=ft.icons.Icons.CHECK_ROUNDED,
             AL_HACER_CLIC=self._MANEJAR_REGISTRO,
             ANCHO=400,
             ALTURA=55,
-            COLOR_FONDO=ft.Colors.PURPLE_600,
+            COLOR_FONDO=COLORES.SECUNDARIO,
         )
 
         LINK_LOGIN = ft.TextButton(
             "¿Ya tienes cuenta? Inicia sesión",
             on_click=self._VOLVER_LOGIN,
-            style=ft.ButtonStyle(color=ft.Colors.PURPLE_600),
+            style=ft.ButtonStyle(color=COLORES.SECUNDARIO),
         )
 
         FORMULARIO = ft.Container(
@@ -197,7 +200,7 @@ class PaginaRegistro(ft.Column):
                 scroll=ft.ScrollMode.AUTO,
             ),
             padding=40,
-            bgcolor=ft.Colors.WHITE,
+            bgcolor=COLORES.FONDO_BLANCO,
             border_radius=15,
             shadow=ft.BoxShadow(
                 spread_radius=1,
@@ -218,7 +221,7 @@ class PaginaRegistro(ft.Column):
             gradient=ft.LinearGradient(
                 begin=ft.Alignment(-1, -1),
                 end=ft.Alignment(1, 1),
-                colors=[ft.Colors.PURPLE_50, ft.Colors.PINK_50],
+                colors=[COLORES.SECUNDARIO_CLARO, ft.Colors.PINK_50],
             ),
             expand=True,
             alignment=ft.Alignment(0, 0),
@@ -339,7 +342,7 @@ class PaginaRegistro(ft.Column):
 
         if self._TEXTO_ERROR:
             self._TEXTO_ERROR.value = f"{MENSAJE}"
-            self._TEXTO_ERROR.color = ft.Colors.RED_400
+            self._TEXTO_ERROR.color = COLORES.PELIGRO_CLARO
             self._TEXTO_ERROR.visible = True
             if getattr(self, "page", None):
                 self.update()
@@ -355,7 +358,7 @@ class PaginaRegistro(ft.Column):
 
         if self._TEXTO_ERROR:
             self._TEXTO_ERROR.value = f"{MENSAJE}"
-            self._TEXTO_ERROR.color = ft.Colors.GREEN_600
+            self._TEXTO_ERROR.color = COLORES.EXITO
             self._TEXTO_ERROR.visible = True
             if getattr(self, "page", None):
                 self.update()

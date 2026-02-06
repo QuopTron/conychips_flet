@@ -2,15 +2,46 @@ import flet as ft
 import os
 import sys
 import traceback
-import asyncio
 from features.autenticacion.presentation.pages.PaginaLogin import PaginaLogin
 from core.base_datos.ConfiguracionBD import INICIALIZAR_BASE_DATOS
+from config.ConfiguracionApp import CONFIGURACION_APP
+
+# In development, optionally start a local WebSocket server so the client can connect
+if CONFIGURACION_APP.ES_DESARROLLO():
+    try:
+        # Start local WS broker in development (non-blocking)
+        import threading
+        from tools.ws_client_example import start_ws_client_in_thread
+        import subprocess
+        import socket
+
+        # Check if port 8765 is already in use
+        def is_port_in_use(port):
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                return s.connect_ex(('localhost', port)) == 0
+
+        # Start broker process only if not already running
+        def _start_broker():
+            if not is_port_in_use(8765):
+                subprocess.Popen(
+                    ['python3', os.path.join(os.path.dirname(__file__), 'tools', 'ws_server.py')],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+                print("✓ WebSocket server started on port 8765")
+            else:
+                print("✓ WebSocket server already running on port 8765")
+
+        threading.Thread(target=_start_broker, daemon=True).start()
+        # Start client listener thread
+        start_ws_client_in_thread()
+    except Exception as e:
+        print(f"⚠️ WebSocket setup skipped: {e}")
 
 os.environ["NO_AT_BRIDGE"] = "1"
 
-
 def main(page: ft.Page):
-
+    
     page.title = "Cony Chips"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.padding = 0
@@ -21,30 +52,30 @@ def main(page: ft.Page):
     page.window.resizable = True
 
     try:
-        asyncio.create_task(INICIALIZAR_BASE_DATOS())
-        print("Inicializando base de datos en background...")
+        INICIALIZAR_BASE_DATOS()
+        print("✓ Base de datos PostgreSQL inicializada")
     except Exception as e:
-        print(f"Error iniciando BD: {e}")
+        print(f"✗ Error iniciando BD: {e}")
+        traceback.print_exc()
 
     try:
-        print("Cargando página de Login")
+        print("Cargando página de Login...")
 
         login = PaginaLogin(page)
         page.controls = [login]
         page.update()
 
-        print("Login cargado correctamente")
+        print("✓ Login cargado correctamente")
 
     except Exception as e:
-        print(f"Error crítico cargando login:")
+        print(f"✗ Error crítico cargando login:")
         traceback.print_exc()
 
         page.controls = [
             ft.Container(
                 content=ft.Column(
                     [
-                        ft.Icon(
-                            ft.Icons.ERROR_OUTLINED, size=80, color=ft.Colors.RED_400
+                        ft.Icon(ft.icons.Icons.ERROR_OUTLINED, size=80, color=ft.Colors.RED_400
                         ),
                         ft.Text(
                             "Error de Inicialización",
@@ -68,7 +99,7 @@ def main(page: ft.Page):
                             on_click=lambda e: print(
                                 f"\n{'='*60}\n{traceback.format_exc()}\n{'='*60}\n"
                             ),
-                            icon=ft.Icons.BUG_REPORT,
+                            icon=ft.icons.Icons.BUG_REPORT,
                         ),
                     ],
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
@@ -81,12 +112,16 @@ def main(page: ft.Page):
         ]
         page.update()
 
-
 if __name__ == "__main__":
     print(f"\n{'='*60}")
-    print(f"Flet versión: {ft.__version__}")
-    print(f"Python versión: {sys.version}")
-    print(f"Iniciando aplicación Cony Chips CLI...")
+    print(f"Flet version: {ft.__version__}")
+    print(f"Python version: {sys.version}")
+    print(f"Iniciando aplicación Cony Chips...")
     print(f"{'='*60}\n")
 
-    ft.run(main)
+    try:
+        ft.run(main)
+    except Exception as e:
+        print(f"\n✗ Error al ejecutar la aplicación:")
+        print(f"{e}")
+        traceback.print_exc()

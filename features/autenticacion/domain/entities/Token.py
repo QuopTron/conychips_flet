@@ -1,7 +1,6 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
-
 
 @dataclass
 class Token:
@@ -9,7 +8,7 @@ class Token:
     ACCESS_TOKEN: str
     REFRESH_TOKEN: str
     TIPO_TOKEN: str = "Bearer"
-    EXPIRA_EN: int = 900  # 15 minutos en segundos
+    EXPIRA_EN: int = 900
     FECHA_CREACION: Optional[datetime] = None
     USUARIO_ID: Optional[int] = None
 
@@ -18,7 +17,7 @@ class Token:
         if not self.FECHA_CREACION:
             return True
 
-        AHORA = datetime.utcnow()
+        AHORA = datetime.now(timezone.utc)
         DIFERENCIA = (AHORA - self.FECHA_CREACION).total_seconds()
 
         return DIFERENCIA >= self.EXPIRA_EN
@@ -28,7 +27,7 @@ class Token:
         if not self.FECHA_CREACION:
             return 0
 
-        AHORA = datetime.utcnow()
+        AHORA = datetime.now(timezone.utc)
         DIFERENCIA = (AHORA - self.FECHA_CREACION).total_seconds()
         RESTANTE = self.EXPIRA_EN - DIFERENCIA
 

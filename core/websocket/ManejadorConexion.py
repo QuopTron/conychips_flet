@@ -1,7 +1,6 @@
 from typing import Dict, Optional
 from core.websocket.ClienteWebSocket import ClienteWebSocket
 
-
 class ManejadorConexion:
 
     _INSTANCIA: Optional["ManejadorConexion"] = None
@@ -20,14 +19,14 @@ class ManejadorConexion:
     def CONFIGURAR_SERVIDOR(self, URL: str):
 
         self._URL_SERVIDOR = URL
-        print(f"🔧 Servidor WebSocket configurado: {URL}")
+        print(f" Servidor WebSocket configurado: {URL}")
 
     async def CREAR_CONEXION(
         self, USUARIO_ID: int, TOKEN: str
     ) -> Optional[ClienteWebSocket]:
 
         if not self._URL_SERVIDOR:
-            print("❌ Servidor WebSocket no configurado")
+            print(" Servidor WebSocket no configurado")
             return None
 
         CLAVE_CONEXION = f"usuario_{USUARIO_ID}"
@@ -39,7 +38,7 @@ class ManejadorConexion:
 
         if await CLIENTE.CONECTAR():
             self._CONEXIONES[CLAVE_CONEXION] = CLIENTE
-            print(f"✅ Conexión creada para usuario {USUARIO_ID}")
+            print(f" Conexión creada para usuario {USUARIO_ID}")
             return CLIENTE
 
         return None
@@ -56,17 +55,17 @@ class ManejadorConexion:
         if CLAVE_CONEXION in self._CONEXIONES:
             await self._CONEXIONES[CLAVE_CONEXION].DESCONECTAR()
             del self._CONEXIONES[CLAVE_CONEXION]
-            print(f"✅ Conexión cerrada para usuario {USUARIO_ID}")
+            print(f" Conexión cerrada para usuario {USUARIO_ID}")
 
     async def CERRAR_TODAS(self):
 
-        print("🔌 Cerrando todas las conexiones WebSocket...")
+        print(" Cerrando todas las conexiones WebSocket...")
 
         for CLIENTE in self._CONEXIONES.values():
             await CLIENTE.DESCONECTAR()
 
         self._CONEXIONES.clear()
-        print("✅ Todas las conexiones cerradas")
+        print(" Todas las conexiones cerradas")
 
     def CANTIDAD_CONEXIONES(self) -> int:
 
@@ -74,8 +73,11 @@ class ManejadorConexion:
 
     async def BROADCAST(self, MENSAJE: dict):
 
+        # Send to all connections without awaiting each send to avoid blocking
         for CLIENTE in list(self._CONEXIONES.values()):
             try:
-                await CLIENTE.ENVIAR(MENSAJE)
+                # schedule send as a fire-and-forget task
+                asyncio.create_task(CLIENTE.ENVIAR(MENSAJE))
             except Exception:
+                # If scheduling fails, skip this client
                 continue

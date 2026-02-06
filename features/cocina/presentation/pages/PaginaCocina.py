@@ -4,8 +4,7 @@ from core.base_datos.ConfiguracionBD import (
     MODELO_PEDIDO,
     MODELO_SUCURSAL,
 )
-from datetime import datetime
-
+from datetime import datetime, timezone
 
 class PaginaCocina(ft.Column):
     def __init__(self, PAGINA: ft.Page, USUARIO_ID: int):
@@ -69,7 +68,7 @@ class PaginaCocina(ft.Column):
         if not self._SUCURSAL_SELECCIONADA:
             return
         sesion = OBTENER_SESION()
-        hoy = datetime.utcnow().date()
+        hoy = datetime.now(timezone.utc).date()
         pedidos = (
             sesion.query(MODELO_PEDIDO)
             .filter(
@@ -120,7 +119,7 @@ class PaginaCocina(ft.Column):
                 ft.Container(
                     content=fila,
                     padding=10,
-                    border=ft.border.all(1, ft.Colors.GREY_200),
+                    border=ft.Border.all(1, ft.Colors.GREY_200),
                     border_radius=8,
                 )
             )

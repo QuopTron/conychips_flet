@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 from typing import Optional, List
 from datetime import datetime
 
-
 class RepositorioAutenticacion(ABC):
 
     @abstractmethod
@@ -65,5 +64,30 @@ class RepositorioAutenticacion(ABC):
 
     @abstractmethod
     async def OBTENER_SESIONES_ACTIVAS(self, USUARIO_ID: int) -> List:
+
+        pass
+
+    @abstractmethod
+    async def ACTUALIZAR_TOKEN_RESET(self, USUARIO_ID: int, TOKEN: str, EXPIRA: datetime):
+
+        pass
+
+    @abstractmethod
+    async def OBTENER_USUARIO_POR_TOKEN_RESET(self, TOKEN: str):
+
+        pass
+
+    @abstractmethod
+    async def ACTUALIZAR_CONTRASENA(self, USUARIO_ID: int, NUEVA_CONTRASENA_HASH: str):
+
+        pass
+
+    @abstractmethod
+    async def LIMPIAR_TOKEN_RESET(self, USUARIO_ID: int):
+
+        pass
+
+    @abstractmethod
+    async def VERIFICAR_EMAIL(self, USUARIO_ID: int):
 
         pass

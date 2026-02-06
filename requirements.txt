@@ -1,10 +1,26 @@
-# Dependencias del Proyecto
-flet
-cryptography
-PyJWT
-websockets
-SQLAlchemy
-bcrypt
-python-dotenv
-aiohttp
-pydantic
+# Dependencias del Proyecto - Versiones Optimizadas y Compatibles
+
+# UI Framework
+flet==0.80.3
+
+# Seguridad y Encriptación
+cryptography==46.0.3
+PyJWT==2.10.1
+bcrypt==5.0.0
+
+# Base de Datos
+SQLAlchemy==2.0.46
+psycopg2-binary==2.9.10
+asyncpg==0.30.0
+
+# Cache y Sesiones
+redis==5.2.1
+hiredis==3.1.0
+
+# Comunicación
+websockets==14.1
+aiohttp==3.11.11
+
+# Utilidades
+python-dotenv==1.0.1
+pydantic==2.10.5
